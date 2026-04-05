@@ -55,7 +55,7 @@ pip install hayakoe[gpu]
 <summary>uv</summary>
 
 ```bash
-uv add torch --index-url https://download.pytorch.org/whl/cu126
+uv add torch --index https://download.pytorch.org/whl/cu126
 uv add hayakoe --extra gpu
 ```
 </details>
