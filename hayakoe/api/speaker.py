@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+from collections.abc import Generator
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Union
 
@@ -11,6 +13,8 @@ from hayakoe.constants import Languages
 from hayakoe.logging import logger
 from hayakoe.models.hyper_parameters import HyperParameters
 from hayakoe.voice import adjust_voice
+
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[。！？!?\n])")
 
 
 if TYPE_CHECKING:
@@ -132,7 +136,7 @@ class Speaker:
         intonation_scale: float = 1.0,
         style_weight: float = 1.0,
     ) -> AudioResult:
-        """텍스트에서 음성을 생성한다.
+        """텍스트에서 음성을 생성한다 (단일 추론).
 
         Args:
             text: 합성할 텍스트.
@@ -150,6 +154,80 @@ class Speaker:
         Returns:
             .save()와 .to_bytes() 메서드를 가진 AudioResult.
         """
+        audio = self._synthesize_one(
+            text, lang=lang, style=style, speaker_id=speaker_id,
+            speed=speed, sdp_ratio=sdp_ratio, noise=noise, noise_w=noise_w,
+            pitch_scale=pitch_scale, intonation_scale=intonation_scale,
+            style_weight=style_weight,
+        )
+        return self._to_audio_result(audio)
+
+    def stream(
+        self,
+        text: str,
+        *,
+        lang: Union[str, Languages] = Languages.JP,
+        style: str = "Neutral",
+        speaker_id: int = 0,
+        speed: float = 1.0,
+        sdp_ratio: float = 0.2,
+        noise: float = 0.6,
+        noise_w: float = 0.8,
+        pitch_scale: float = 1.0,
+        intonation_scale: float = 1.0,
+        style_weight: float = 1.0,
+        silence_ms: int = 200,
+    ) -> Generator[AudioResult, None, None]:
+        """텍스트를 문장 단위로 분할하여 순서대로 음성을 생성한다.
+
+        문장 경계(。！？!?\\n)에서 분할하여 각 문장을 개별 추론하고,
+        완료된 순서대로 AudioResult를 yield한다.
+
+        Args:
+            text: 합성할 텍스트.
+            silence_ms: 문장 사이에 삽입할 무음 길이 (밀리초).
+            (나머지 파라미터는 generate()와 동일)
+
+        Yields:
+            문장별 AudioResult. 첫 문장을 제외하고 앞에 무음이 포함된다.
+        """
+        sentences = _split_sentences(text)
+        if not sentences:
+            return
+
+        sr = self._hps.data.sampling_rate
+        silence = np.zeros(int(sr * silence_ms / 1000), dtype=np.int16)
+
+        for i, sentence in enumerate(sentences):
+            audio = self._synthesize_one(
+                sentence, lang=lang, style=style, speaker_id=speaker_id,
+                speed=speed, sdp_ratio=sdp_ratio, noise=noise, noise_w=noise_w,
+                pitch_scale=pitch_scale, intonation_scale=intonation_scale,
+                style_weight=style_weight,
+            )
+            pcm = self._to_pcm(audio)
+
+            if i > 0:
+                pcm = np.concatenate([silence, pcm])
+
+            yield AudioResult(sr=sr, data=pcm)
+
+    def _synthesize_one(
+        self,
+        text: str,
+        *,
+        lang: Union[str, Languages] = Languages.JP,
+        style: str = "Neutral",
+        speaker_id: int = 0,
+        speed: float = 1.0,
+        sdp_ratio: float = 0.2,
+        noise: float = 0.6,
+        noise_w: float = 0.8,
+        pitch_scale: float = 1.0,
+        intonation_scale: float = 1.0,
+        style_weight: float = 1.0,
+    ) -> NDArray:
+        """단일 텍스트 → float32 오디오 배열."""
         lang_str = Languages(lang.value if hasattr(lang, "value") else str(lang))
         style_vec = self._get_style_vector(style, style_weight)
 
@@ -172,11 +250,19 @@ class Speaker:
                 intonation_scale=intonation_scale,
             )
 
-        # 16-bit PCM 변환
-        audio = audio / np.abs(audio).max()
-        audio = (audio * 32767).astype(np.int16)
+        return audio
 
-        return AudioResult(sr=self._hps.data.sampling_rate, data=audio)
+    @staticmethod
+    def _to_pcm(audio: NDArray) -> NDArray[np.int16]:
+        """float32 오디오를 16-bit PCM으로 변환한다."""
+        peak = np.abs(audio).max()
+        if peak > 0:
+            audio = audio / peak
+        return (audio * 32767).astype(np.int16)
+
+    def _to_audio_result(self, audio: NDArray) -> AudioResult:
+        """float32 오디오를 AudioResult로 변환한다."""
+        return AudioResult(sr=self._hps.data.sampling_rate, data=self._to_pcm(audio))
 
     def _generate_onnx(self, text, lang, style_vec, sid, speed, sdp_ratio, noise, noise_w):
         from hayakoe.models.infer_onnx import infer_onnx
@@ -218,3 +304,9 @@ class Speaker:
 
     def __repr__(self) -> str:
         return f"Speaker('{self.name}', backend='{self._backend}', styles={list(self._style2id.keys())})"
+
+
+def _split_sentences(text: str) -> list[str]:
+    """텍스트를 문장 경계(。！？!?\\n)에서 분할한다."""
+    parts = _SENTENCE_SPLIT_RE.split(text)
+    return [s.strip() for s in parts if s.strip()]
