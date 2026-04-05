@@ -1,0 +1,18 @@
+__pycache__/
+*.pyc
+.venv/
+.venv-*/
+dist/
+*.egg-info/
+
+# Dev / local
+test.py
+PROGRESS.md
+/dev-tools/benchmark_results/
+
+# Test outputs
+*.wav
+/test_samples/
+
+# misc
+.DS_Store
