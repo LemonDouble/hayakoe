@@ -44,7 +44,7 @@ def export_bert(output_dir: Path, opset: int = 17) -> Path:
     print("\n=== Exporting BERT to ONNX ===")
     output_path = output_dir / "bert.onnx"
 
-    model = bert_models.load_model(device_map="cpu")
+    model = bert_models.load_model(device="cpu")
     model.eval()
 
     from hayakoe.constants import BERT_JP_REPO
