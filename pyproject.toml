@@ -29,7 +29,6 @@ gpu = [
     # torch는 CUDA 버전에 따라 별도 설치 필요:
     #   pip install torch --index-url https://download.pytorch.org/whl/cu126
     "safetensors>=0.4",
-    "accelerate>=1.0",
 ]
 
 [project.urls]
