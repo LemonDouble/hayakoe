@@ -154,13 +154,28 @@ class Speaker:
         Returns:
             .save()와 .to_bytes() 메서드를 가진 AudioResult.
         """
-        audio = self._synthesize_one(
-            text, lang=lang, style=style, speaker_id=speaker_id,
+        kwargs = dict(
+            lang=lang, style=style, speaker_id=speaker_id,
             speed=speed, sdp_ratio=sdp_ratio, noise=noise, noise_w=noise_w,
             pitch_scale=pitch_scale, intonation_scale=intonation_scale,
             style_weight=style_weight,
         )
-        return self._to_audio_result(audio)
+
+        sentences = _split_sentences(text)
+        if len(sentences) <= 1:
+            audio = self._synthesize_one(text, **kwargs)
+            return self._to_audio_result(audio)
+
+        sr = self._hps.data.sampling_rate
+        silence = np.zeros(int(sr * 0.2), dtype=np.float32)  # 200ms
+
+        parts = []
+        for i, sentence in enumerate(sentences):
+            if i > 0:
+                parts.append(silence)
+            parts.append(self._synthesize_one(sentence, **kwargs))
+
+        return self._to_audio_result(np.concatenate(parts))
 
     def stream(
         self,
