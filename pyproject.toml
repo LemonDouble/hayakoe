@@ -1,6 +1,6 @@
 [project]
 name = "hayakoe"
-version = "0.0.1"
+version = "0.0.2"
 description = "HayaKoe — Fast ONNX-optimized Japanese TTS based on Style-Bert-VITS2"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -12,7 +12,7 @@ authors = [
 dependencies = [
     # Core
     "transformers>=5.0",
-    "numpy==1.26.4",
+    "numpy>=2.0",
     "pydantic==2.12.5",
     "loguru==0.7.3",
     "huggingface-hub>=0.20",
