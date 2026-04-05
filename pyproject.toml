@@ -1,0 +1,58 @@
+[project]
+name = "hayakoe"
+version = "0.1.0"
+description = "HayaKoe — Fast ONNX-optimized Japanese TTS based on Style-Bert-VITS2"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "AGPL-3.0"
+authors = [
+    { name = "LemonDouble" },
+]
+
+dependencies = [
+    # Core
+    "transformers>=5.0",
+    "numpy==1.26.4",
+    "pydantic==2.12.5",
+    "loguru==0.7.3",
+    "huggingface-hub>=0.20",
+    "onnxruntime>=1.17",
+    # NLP - Japanese
+    "lemon-pyopenjtalk-prebuilt==0.0.7",
+    "pyworld-prebuilt==0.3.5.post2",
+    "num2words==0.5.14",
+    "numba==0.65.0",
+]
+
+[project.optional-dependencies]
+gpu = [
+    # torch는 CUDA 버전에 따라 별도 설치 필요:
+    #   pip install torch --index-url https://download.pytorch.org/whl/cu126
+    "safetensors>=0.4",
+    "accelerate>=1.0",
+]
+
+[project.urls]
+Source = "https://github.com/LemonDouble/hayakoe"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["hayakoe"]
+
+[tool.hatch.build.targets.sdist]
+only-include = [
+    "hayakoe",
+    "LGPL_LICENSE",
+    "LICENSE",
+    "pyproject.toml",
+    "README.md",
+]
+
+[tool.ruff]
+extend-select = ["I"]
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2
