@@ -27,7 +27,7 @@ _loaded_tokenizer: Optional[PreTrainedTokenizer | PreTrainedTokenizerFast] = Non
 
 def load_model(
     pretrained_model_name_or_path: Optional[str] = None,
-    device_map: Optional[str | dict | int | torch.device] = None,
+    device: Optional[str] = None,
     cache_dir: Optional[str] = None,
 ) -> PreTrainedModel:
     global _loaded_model
@@ -36,30 +36,19 @@ def load_model(
         return _loaded_model
 
     start_time = time.time()
-
+    source = pretrained_model_name_or_path or HF_REPO
+    kwargs: dict = {"cache_dir": cache_dir, "dtype": "float32"}
     if pretrained_model_name_or_path is None:
-        # HF 레포의 pytorch/bert/fp32에서 모델 가중치 로드
-        _loaded_model = AutoModelForMaskedLM.from_pretrained(
-            HF_REPO,
-            subfolder="pytorch/bert/fp32",
-            device_map=device_map,
-            cache_dir=cache_dir,
-            dtype="float32",
-        )
-        logger.info(
-            f"Loaded JP BERT model from {HF_REPO} ({time.time() - start_time:.2f}s)"
-        )
-    else:
-        _loaded_model = AutoModelForMaskedLM.from_pretrained(
-            pretrained_model_name_or_path,
-            device_map=device_map,
-            cache_dir=cache_dir,
-            dtype="float32",
-        )
-        logger.info(
-            f"Loaded JP BERT model from {pretrained_model_name_or_path} ({time.time() - start_time:.2f}s)"
-        )
+        kwargs["subfolder"] = "pytorch/bert/fp32"
 
+    _loaded_model = AutoModelForMaskedLM.from_pretrained(source, **kwargs)
+
+    if device:
+        _loaded_model.to(device)
+
+    logger.info(
+        f"Loaded JP BERT model from {source} ({time.time() - start_time:.2f}s)"
+    )
     return _loaded_model
 
 

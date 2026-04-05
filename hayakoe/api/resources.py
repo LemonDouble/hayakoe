@@ -8,7 +8,7 @@ from hayakoe.nlp import bert_models
 
 def prepare_bert(cache_dir: Optional[str] = None) -> None:
     """JP BERT 모델과 토크나이저를 로컬 캐시에 다운로드한다. GPU 불필요."""
-    bert_models.load_model(device_map="cpu", cache_dir=cache_dir)
+    bert_models.load_model(device="cpu", cache_dir=cache_dir)
     bert_models.unload_model()
     bert_models.load_tokenizer(cache_dir=cache_dir)
     bert_models.unload_tokenizer()
@@ -21,5 +21,5 @@ def load_bert(device: str, cache_dir: Optional[str] = None) -> None:
         bert_models.transfer_model(device)
         return
 
-    bert_models.load_model(device_map=device, cache_dir=cache_dir)
+    bert_models.load_model(device=device, cache_dir=cache_dir)
     bert_models.load_tokenizer(cache_dir=cache_dir)

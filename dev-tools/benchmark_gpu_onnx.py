@@ -93,7 +93,7 @@ def benchmark_pytorch(device: str, bert_fp16: bool, paths: dict):
     dtype = "float16" if bert_fp16 else "float32"
     bert_models.load_model(
         pretrained_model_name_or_path=str(paths["bert_pt_fp32"]),
-        device_map=device,
+        device=device,
         cache_dir=None,
     )
     if bert_fp16:
