@@ -14,14 +14,60 @@
 
 ## 설치
 
-```bash
-# CPU (기본, torch 불필요)
-pip install hayakoe
+### CPU (기본, torch 불필요)
 
-# GPU (PyTorch CUDA 별도 설치 필요)
+<details open>
+<summary>pip</summary>
+
+```bash
+pip install hayakoe
+```
+</details>
+
+<details>
+<summary>uv</summary>
+
+```bash
+uv add hayakoe
+```
+</details>
+
+<details>
+<summary>Poetry</summary>
+
+```bash
+poetry add hayakoe
+```
+</details>
+
+### GPU (PyTorch CUDA 별도 설치 필요)
+
+<details open>
+<summary>pip</summary>
+
+```bash
 pip install torch --index-url https://download.pytorch.org/whl/cu126
 pip install hayakoe[gpu]
 ```
+</details>
+
+<details>
+<summary>uv</summary>
+
+```bash
+uv add torch --index-url https://download.pytorch.org/whl/cu126
+uv add hayakoe --extra gpu
+```
+</details>
+
+<details>
+<summary>Poetry</summary>
+
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cu126
+poetry add hayakoe -E gpu
+```
+</details>
 
 모델은 [HuggingFace](https://huggingface.co/lemondouble/hayakoe)에서 자동 다운로드됩니다.
 
