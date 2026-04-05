@@ -47,11 +47,17 @@ class TTS:
         if "cuda" in device:
             try:
                 import torch  # noqa: F401
-            except ImportError:
-                raise ImportError(
+            except ModuleNotFoundError:
+                raise ModuleNotFoundError(
                     "GPU 추론에는 PyTorch(CUDA)가 필요합니다. 설치:\n"
                     "  pip install torch --index-url https://download.pytorch.org/whl/cu126\n"
                     "  pip install hayakoe[gpu]"
+                )
+            if not torch.cuda.is_available():
+                raise RuntimeError(
+                    "CUDA를 사용할 수 없습니다. CUDA 드라이버와 PyTorch CUDA 빌드를 확인하세요.\n"
+                    f"  torch version: {torch.__version__}\n"
+                    f"  torch.cuda.is_available(): {torch.cuda.is_available()}"
                 )
             self._backend = "pytorch"
             self._bert_session = None
