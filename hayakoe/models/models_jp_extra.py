@@ -5,7 +5,9 @@ import torch
 from torch import nn
 from torch.nn import Conv1d, Conv2d, ConvTranspose1d
 from torch.nn import functional as F
-from torch.nn.utils import remove_weight_norm, spectral_norm, weight_norm
+from torch.nn.utils import spectral_norm
+from torch.nn.utils.parametrize import remove_parametrizations
+from torch.nn.utils.parametrizations import weight_norm
 
 from hayakoe.models import attentions, commons, modules, monotonic_alignment
 from hayakoe.nlp.symbols import NUM_LANGUAGES, NUM_TONES, SYMBOLS
@@ -613,7 +615,7 @@ class Generator(torch.nn.Module):
     def remove_weight_norm(self) -> None:
         print("Removing weight norm...")
         for layer in self.ups:
-            remove_weight_norm(layer)
+            remove_parametrizations(layer, "weight")
         for layer in self.resblocks:
             layer.remove_weight_norm()
 

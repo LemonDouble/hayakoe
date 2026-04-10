@@ -102,7 +102,10 @@ class TTS:
 
             RUN python -c "from hayakoe import TTS; TTS.prepare()"
         """
+        from hayakoe.api.resources import prepare_bert
+
         _download_bert_onnx()
+        prepare_bert(cache_dir=cache_dir)
         logger.info("Models downloaded.")
 
     def load(

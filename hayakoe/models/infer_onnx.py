@@ -30,12 +30,11 @@ def _intersperse(lst: list, item) -> list:
 
 
 def _get_tokenizer():
-    """올바른 BertJapaneseTokenizer를 가져온다 (깨진 fast tokenizer가 아닌 것)."""
+    """JP BERT 토크나이저를 가져온다."""
     from hayakoe.nlp import bert_models
 
     if not bert_models.is_tokenizer_loaded():
-        from hayakoe.constants import BERT_JP_REPO
-        bert_models.load_tokenizer(pretrained_model_name_or_path=BERT_JP_REPO)
+        bert_models.load_tokenizer()
     return bert_models.load_tokenizer()
 
 

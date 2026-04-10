@@ -169,6 +169,8 @@ def load_wav_to_torch(full_path: Union[str, Path]) -> tuple[torch.FloatTensor, i
         raise ImportError("scipy is required to load wav file")
 
     sampling_rate, data = read(full_path)
+    if data.ndim == 2:
+        data = data.mean(axis=1)  # stereo → mono
     return torch.FloatTensor(data.astype(np.float32)), sampling_rate
 
 

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Optional
 
 from transformers import AutoModelForMaskedLM, AutoTokenizer, PreTrainedModel
 
-from hayakoe.constants import BERT_JP_REPO, HF_REPO
+from hayakoe.constants import HF_REPO
 from hayakoe.logging import logger
 
 
@@ -61,15 +61,13 @@ def load_tokenizer(
     if _loaded_tokenizer is not None:
         return _loaded_tokenizer
 
+    source = pretrained_model_name_or_path or HF_REPO
+    kwargs: dict = {"cache_dir": cache_dir, "use_fast": True}
     if pretrained_model_name_or_path is None:
-        pretrained_model_name_or_path = BERT_JP_REPO
+        kwargs["subfolder"] = "bert/tokenizer"
 
-    _loaded_tokenizer = AutoTokenizer.from_pretrained(
-        pretrained_model_name_or_path,
-        cache_dir=cache_dir,
-        use_fast=True,
-    )
-    logger.info(f"Loaded JP BERT tokenizer from {pretrained_model_name_or_path}")
+    _loaded_tokenizer = AutoTokenizer.from_pretrained(source, **kwargs)
+    logger.info(f"Loaded JP BERT tokenizer from {source}")
     return _loaded_tokenizer
 
 

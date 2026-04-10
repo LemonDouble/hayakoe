@@ -9,6 +9,9 @@ dist/
 test.py
 PROGRESS.md
 /dev-tools/benchmark_results/
+!/dev-tools/backend/projects/.gitkeep
+/dev-tools/preprocess/frontend/node_modules/
+/dev-tools/preprocess/static/
 
 # Test outputs
 *.wav
@@ -16,3 +19,5 @@ PROGRESS.md
 
 # misc
 .DS_Store
+
+data
