@@ -87,16 +87,23 @@ class BenchmarkResult:
         return self.audio_duration / self.avg_time
 
 
-def _benchmark_device(device: str, progress, task) -> list[BenchmarkResult]:
+def _benchmark_device(device: str, progress, task, *, compile: bool = False) -> list[BenchmarkResult]:
     """단일 디바이스에서 벤치마크를 실행한다."""
     from hayakoe import TTS
 
-    backend = "ONNX" if device == "cpu" else "PyTorch"
+    if compile:
+        backend = "torch.compile"
+    elif device == "cpu":
+        backend = "ONNX"
+    else:
+        backend = "PyTorch"
     progress.update(task, description=f"[dim]{backend} ({device.upper()})[/dim] 모델 로딩...")
 
     with _quiet_loading():
         tts = TTS(device=device)
         speaker = tts.load(SPEAKER_NAME)
+        if compile:
+            speaker.optimize()
     sr = speaker._hps.data.sampling_rate
 
     results = []
@@ -142,13 +149,15 @@ def _benchmark_device(device: str, progress, task) -> list[BenchmarkResult]:
     return results
 
 
-def run_benchmark(devices: list[str]) -> Path:
+def run_benchmark(devices: list[str], *, compile: bool = False) -> Path:
     """벤치마크를 실행하고 HTML 리포트를 생성한다.
 
     Returns:
         생성된 HTML 파일 경로.
     """
     total_steps = len(devices) * len(TEST_TEXTS)
+    if compile:
+        total_steps += len(TEST_TEXTS)  # torch.compile 벤치마크 추가
     all_results: list[BenchmarkResult] = []
 
     with Progress(
@@ -163,6 +172,10 @@ def run_benchmark(devices: list[str]) -> Path:
 
         for device in devices:
             results = _benchmark_device(device, progress, task)
+            all_results.extend(results)
+
+        if compile:
+            results = _benchmark_device("cuda", progress, task, compile=True)
             all_results.extend(results)
 
     # 결과 테이블 출력

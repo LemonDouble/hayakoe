@@ -87,6 +87,15 @@ speaker = TTS(device="cuda").load("jvnv-F1-jp")
 speaker.generate("こんにちは").save("output.wav")
 ```
 
+GPU 추론 + torch.compile 최적화 (10-25% 향상):
+
+```python
+tts = TTS(device="cuda")
+speaker = tts.load("jvnv-F1-jp")
+tts.optimize()  # torch.compile 적용 (초회 워밍업 발생)
+speaker.generate("こんにちは").save("output.wav")
+```
+
 파라미터 조절:
 
 ```python
@@ -124,10 +133,11 @@ RUN python -c "from hayakoe import TTS; TTS.prepare()"
 CMD ["python", "server.py"]
 ```
 
-| 메서드 | 다운로드 | 메모리 로드 | GPU 필요 | 용도 |
-|--------|----------|-------------|----------|------|
-| `TTS.prepare()` | O | X | X | Docker 빌드, CI |
-| `TTS(device=...)` | O (없으면) | O | 선택 | 추론 |
+| 메서드 | 역할 | GPU 필요 | 용도 |
+|--------|------|----------|------|
+| `TTS.prepare()` | 모델 사전 다운로드 | X | Docker 빌드, CI |
+| `TTS(device=...)` | 엔진 초기화 + 모델 로드 | 선택 | 추론 |
+| `tts.optimize()` | torch.compile 적용 (10-25% 향상) | O (CUDA) | 서버 반복 추론 |
 
 ## 유저 사전
 
@@ -154,6 +164,7 @@ TTS (엔진)
 
 - **CPU**: ONNX Runtime (BERT Q8 + Synthesizer FP32)
 - **GPU**: PyTorch FP32 (BERT + Synthesizer)
+- **GPU + torch.compile**: CUDA Graphs + Triton 최적화 (`tts.optimize()`)
 
 ## 개발 도구 (Dev Tools)
 

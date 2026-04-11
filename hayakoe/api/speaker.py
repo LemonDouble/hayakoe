@@ -24,7 +24,28 @@ if TYPE_CHECKING:
 
 
 class Speaker:
-    """로드된 화자 모델. TTS.load()를 통해 생성된다."""
+    """로드된 화자 모델. :meth:`TTS.load` 를 통해 생성된다.
+
+    백엔드별 동작:
+
+    - **onnx** (CPU): ONNX Runtime으로 추론. ``TTS(device="cpu")`` 사용 시 자동 선택.
+    - **pytorch** (CUDA): PyTorch eager mode. ``TTS(device="cuda")`` 사용 시 자동 선택.
+    - **compiled** (CUDA): ``tts.optimize()`` 호출 후 torch.compile 적용. 10-25% 향상.
+
+    사용법::
+
+        from hayakoe import TTS
+
+        # CPU
+        speaker = TTS().load("jvnv-F1-jp")
+        speaker.generate("こんにちは").save("output.wav")
+
+        # GPU + torch.compile
+        tts = TTS(device="cuda")
+        tts.load("jvnv-F1-jp")
+        tts.optimize()  # 로드된 전체 화자에 torch.compile 적용
+        tts.speakers["jvnv-F1-jp"].generate("こんにちは").save("output.wav")
+    """
 
     def __init__(
         self,
@@ -136,23 +157,37 @@ class Speaker:
         intonation_scale: float = 1.0,
         style_weight: float = 1.0,
     ) -> AudioResult:
-        """텍스트에서 음성을 생성한다 (단일 추론).
+        """텍스트에서 음성을 생성한다.
+
+        여러 문장이 포함된 텍스트는 문장 경계(。！？!?\\n)에서
+        자동 분할하여 개별 추론 후 연결한다.
 
         Args:
             text: 합성할 텍스트.
-            lang: 언어 (Lang.JA).
-            style: 스타일 이름 (예: "Neutral", "Happy").
+            lang: 언어. 현재 일본어(``Languages.JP``)만 지원.
+            style: 감정 스타일. ``"Neutral"``, ``"Happy"``, ``"Sad"``,
+                ``"Angry"``, ``"Fear"``, ``"Surprise"``, ``"Disgust"``.
             speaker_id: 멀티 화자 모델용 화자 ID.
             speed: 말속도. 1.0 = 보통, <1.0 = 빠름, >1.0 = 느림.
-            sdp_ratio: SDP/DP 비율.
-            noise: DP용 노이즈 스케일.
-            noise_w: SDP용 노이즈 스케일.
-            pitch_scale: 피치 조정 (1.0 = 변경 없음).
-            intonation_scale: 억양 조정 (1.0 = 변경 없음).
-            style_weight: 스타일 벡터 가중치.
+            sdp_ratio: SDP/DP 비율 (0.0-1.0). 높을수록 억양 변화 큼.
+            noise: 음성 변동성 (0.0-1.0).
+            noise_w: 발화 리듬 변동성 (0.0-1.0).
+            pitch_scale: 피치 배율 (1.0 = 변경 없음).
+            intonation_scale: 억양 배율 (1.0 = 변경 없음).
+            style_weight: 스타일 벡터 가중치 (0.0-1.0).
 
         Returns:
-            .save()와 .to_bytes() 메서드를 가진 AudioResult.
+            ``.save(path)`` 와 ``.to_bytes()`` 메서드를 가진
+            :class:`AudioResult`.
+
+        Example::
+
+            audio = speaker.generate(
+                "今日はどんな国に辿り着くのでしょうか。",
+                style="Happy",
+                speed=0.9,
+            )
+            audio.save("output.wav")
         """
         kwargs = dict(
             lang=lang, style=style, speaker_id=speaker_id,
@@ -193,18 +228,24 @@ class Speaker:
         style_weight: float = 1.0,
         silence_ms: int = 200,
     ) -> Generator[AudioResult, None, None]:
-        """텍스트를 문장 단위로 분할하여 순서대로 음성을 생성한다.
+        """텍스트를 문장 단위로 스트리밍 생성한다.
 
         문장 경계(。！？!?\\n)에서 분할하여 각 문장을 개별 추론하고,
-        완료된 순서대로 AudioResult를 yield한다.
+        완료된 순서대로 yield한다. 첫 문장이 완성되는 즉시
+        재생을 시작할 수 있어 체감 지연이 줄어든다.
 
         Args:
             text: 합성할 텍스트.
-            silence_ms: 문장 사이에 삽입할 무음 길이 (밀리초).
-            (나머지 파라미터는 generate()와 동일)
+            silence_ms: 문장 사이에 삽입할 무음 길이 (밀리초, 기본 200).
+            **kwargs: :meth:`generate` 와 동일한 파라미터.
 
         Yields:
-            문장별 AudioResult. 첫 문장을 제외하고 앞에 무음이 포함된다.
+            문장별 :class:`AudioResult`. 두 번째 문장부터 앞에 무음이 포함된다.
+
+        Example::
+
+            for chunk in speaker.stream("こんにちは。元気ですか？"):
+                play(chunk.to_bytes())  # 문장별로 바로 재생
         """
         sentences = _split_sentences(text)
         if not sentences:
@@ -252,6 +293,7 @@ class Speaker:
                 speed, sdp_ratio, noise, noise_w,
             )
         else:
+            # pytorch / compiled 모두 같은 경로
             audio = self._generate_pytorch(
                 text, lang_str, style_vec, speaker_id,
                 speed, sdp_ratio, noise, noise_w,
@@ -316,6 +358,38 @@ class Speaker:
                 device=self._device,
                 style_vec=style_vec,
             )
+
+    def optimize(self) -> None:
+        """GPU 추론 속도를 최적화한다 (torch.compile).
+
+        ``torch.compile(mode="reduce-overhead")`` 를 적용하여
+        CUDA Graphs + Triton 커널 퓨전으로 10-25% 추론 속도를 향상시킨다.
+        반복 추론하는 서버 환경에서 권장한다.
+
+        일반적으로 :meth:`TTS.optimize` 를 통해 로드된 전체 화자를
+        한 번에 최적화하는 것이 편리하다.
+
+        .. note::
+
+            첫 ``generate()`` 호출 시 컴파일 워밍업(1-2초)이 발생한다.
+            1회성 추론에서는 워밍업 비용이 절감보다 클 수 있다.
+
+        Raises:
+            ValueError: CUDA가 아닌 디바이스에서 호출한 경우.
+        """
+        if "cuda" not in self._device:
+            raise ValueError(
+                "torch.compile은 CUDA 디바이스에서만 사용 가능합니다. "
+                f"현재 디바이스: {self._device}"
+            )
+
+        import torch
+
+        net_g = self._ensure_pytorch_model()
+        torch.set_float32_matmul_precision("high")
+        self._net_g = torch.compile(net_g, mode="reduce-overhead")
+        self._backend = "compiled"
+        logger.info(f"Speaker '{self.name}' → torch.compile backend")
 
     def __repr__(self) -> str:
         return f"Speaker('{self.name}', backend='{self._backend}', styles={list(self._style2id.keys())})"

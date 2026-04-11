@@ -27,6 +27,13 @@ class TTS:
         from hayakoe import TTS
         speaker = TTS().load("jvnv-F1-jp")
         speaker.generate("こんにちは").save("output.wav")
+
+    GPU에서 torch.compile 최적화 (10-25% 향상)::
+
+        tts = TTS(device="cuda")
+        speaker = tts.load("jvnv-F1-jp")
+        tts.optimize()
+        speaker.generate("こんにちは").save("output.wav")
     """
 
     def __init__(
@@ -138,6 +145,35 @@ class TTS:
         )
         self._speakers[name] = speaker
         return speaker
+
+    def optimize(self) -> None:
+        """로드된 전체 화자에 torch.compile을 적용한다.
+
+        CUDA Graphs + Triton 커널 퓨전으로 10-25% 추론 속도를 향상시킨다.
+        반복 추론하는 서버 환경에서 권장한다.
+
+        사용법::
+
+            tts = TTS(device="cuda")
+            tts.load("jvnv-F1-jp")
+            tts.load("jvnv-M1-jp")
+            tts.optimize()  # 두 화자 모두 최적화
+
+        .. note::
+
+            CUDA 디바이스에서만 동작한다.
+            각 화자의 첫 ``generate()`` 호출 시 컴파일 워밍업(1-2초)이 발생한다.
+
+        Raises:
+            ValueError: CUDA가 아닌 디바이스에서 호출한 경우.
+            RuntimeError: 로드된 화자가 없는 경우.
+        """
+        if not self._speakers:
+            raise RuntimeError(
+                "최적화할 화자가 없습니다. optimize() 전에 load()를 먼저 호출하세요."
+            )
+        for speaker in self._speakers.values():
+            speaker.optimize()
 
     def add_word(self, *, surface: str, reading: str, accent: int = 0) -> None:
         """TTS용 커스텀 단어 발음을 등록한다.
