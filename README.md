@@ -6,7 +6,7 @@
 
 ## 특징
 
-- **ONNX 최적화** — CPU 실시간 추론 (PyTorch 대비 1.6x 속도 향상, 81% RAM 절감)
+- **ONNX 최적화** — CPU 실시간 추론 (PyTorch 대비 1.6x 속도 향상, 47% RAM 절감)
 - **torch 불필요** — CPU 추론 시 PyTorch 없이 동작 (경량 설치)
 - **3줄 추론** — 모델 자동 다운로드, 설정 불필요
 - **JP-Extra 모델** — Style-Bert-VITS2 JP-Extra (v2.7.0), DeBERTa JP
