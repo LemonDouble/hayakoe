@@ -9,6 +9,7 @@ dist/
 test.py
 PROGRESS.md
 /dev-tools/benchmark_results/
+/benchmarks/
 !/dev-tools/backend/projects/.gitkeep
 /dev-tools/preprocess/frontend/node_modules/
 /dev-tools/preprocess/static/

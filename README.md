@@ -155,6 +155,22 @@ TTS (엔진)
 - **CPU**: ONNX Runtime (BERT Q8 + Synthesizer FP32)
 - **GPU**: PyTorch FP32 (BERT + Synthesizer)
 
+## 개발 도구 (Dev Tools)
+
+모델 학습부터 배포 준비까지를 지원하는 인터랙티브 CLI입니다.
+
+```bash
+cd dev-tools
+python -m cli
+```
+
+| 단계 | 기능 | 설명 |
+|------|------|------|
+| ① 학습 | 데이터 전처리 + 모델 학습 | 음성 데이터로 TTS 모델을 학습합니다 |
+| ② 품질 리포트 | 체크포인트별 음성 비교 | 학습된 체크포인트의 음성을 비교 시청합니다 (HTML) |
+| ③ ONNX 내보내기 | CPU 추론용 모델 변환 | GPU 없는 환경에서 추론하려면 필요합니다. GPU로만 추론한다면 건너뛰어도 됩니다 |
+| ④ 벤치마크 | CPU/GPU 추론 속도 측정 | 실시간 대비 배속을 측정합니다 (HTML 리포트) |
+
 ## 라이선스
 
 - 코드: AGPL-3.0 (원본 Style-Bert-VITS2)

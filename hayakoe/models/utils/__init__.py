@@ -2,7 +2,6 @@ import glob
 import logging
 import os
 import re
-import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -236,31 +235,3 @@ def get_steps(model_path: Union[str, Path]) -> Optional[int]:
     return matches[-1] if matches else None
 
 
-def check_git_hash(model_dir_path: Union[str, Path]) -> None:
-    """
-    모델 디렉토리에 .git 디렉토리가 존재할 경우 해시 값을 비교한다
-
-    Args:
-        model_dir_path (Union[str, Path]): 모델 디렉토리 경로
-    """
-
-    source_dir = os.path.dirname(os.path.realpath(__file__))
-    if not os.path.exists(os.path.join(source_dir, ".git")):
-        logger.warning(
-            f"{source_dir} is not a git repository, therefore hash value comparison will be ignored."
-        )
-        return
-
-    cur_hash = subprocess.getoutput("git rev-parse HEAD")
-
-    path = os.path.join(model_dir_path, "githash")
-    if os.path.exists(path):
-        with open(path, encoding="utf-8") as f:
-            saved_hash = f.read()
-        if saved_hash != cur_hash:
-            logger.warning(
-                f"git hash values are different. {saved_hash[:8]}(saved) != {cur_hash[:8]}(current)"
-            )
-    else:
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(cur_hash)

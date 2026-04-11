@@ -13,6 +13,7 @@ def load_safetensors(
     model: torch.nn.Module,
     for_infer: bool = False,
     device: Union[str, torch.device] = "cpu",
+    expected_missing_keys: Optional[list[str]] = None,
 ) -> tuple[torch.nn.Module, Optional[int]]:
     """
     지정된 경로에서 safetensors 모델을 로드하고, 모델과 이터레이션을 반환한다.
@@ -37,8 +38,11 @@ def load_safetensors(
         result = model.module.load_state_dict(tensors, strict=False)
     else:
         result = model.load_state_dict(tensors, strict=False)
+    expected = set(expected_missing_keys or [])
     for key in result.missing_keys:
         if key.startswith("enc_q") and for_infer:
+            continue
+        if key in expected:
             continue
         logger.warning(f"Missing key: {key}")
     for key in result.unexpected_keys:

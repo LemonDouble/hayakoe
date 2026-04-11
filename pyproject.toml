@@ -55,3 +55,24 @@ extend-select = ["I"]
 
 [tool.ruff.lint.isort]
 lines-after-imports = 2
+
+[dependency-groups]
+dev = [
+    # 전처리 서버
+    "fastapi>=0.135.3",
+    "python-multipart>=0.0.24",
+    "uvicorn>=0.44.0",
+    "soundfile>=0.13.1",
+    # 전처리 ML (torch는 CUDA 버전에 맞게 별도 설치)
+    "librosa>=0.11",
+    "openai-whisper>=20240930",
+    "audio-separator>=0.29",
+    # 학습
+    "tensorboard>=2.20.0",
+    "torchaudio>=2.11.0",
+    "pyannote-audio>=3.3",
+    # CLI
+    "typer>=0.15",
+    "InquirerPy>=0.3.4",
+    "rich>=13.0",
+]

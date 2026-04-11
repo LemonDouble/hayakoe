@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+body {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+
+.animate-indeterminate {
+  width: 40%;
+  animation: indeterminate 1.5s ease-in-out infinite;
+}
