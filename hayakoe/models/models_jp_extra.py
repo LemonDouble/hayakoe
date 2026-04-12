@@ -1157,3 +1157,27 @@ class SynthesizerTrn(nn.Module):
         z = self.flow(z_p, y_mask, g=g, reverse=True)
         o = self.dec((z * y_mask)[:, :, :max_len], g=g)
         return o, attn, y_mask, (z, z_p, m_p, logs_p)
+
+    def predict_durations(
+        self,
+        x: torch.Tensor,
+        x_lengths: torch.Tensor,
+        sid: torch.Tensor,
+        tone: torch.Tensor,
+        language: torch.Tensor,
+        bert: torch.Tensor,
+        style_vec: torch.Tensor,
+        length_scale: float = 1.0,
+        noise_scale_w: float = 0.8,
+        sdp_ratio: float = 0.0,
+    ) -> torch.Tensor:
+        """Text encoder + duration predictor만 실행하여 phoneme별 프레임 수를 반환한다."""
+        g = self.emb_g(sid).unsqueeze(-1)
+        x, m_p, logs_p, x_mask = self.enc_p(
+            x, x_lengths, tone, language, bert, style_vec, g=g
+        )
+        logw = self.sdp(x, x_mask, g=g, reverse=True, noise_scale=noise_scale_w) * (
+            sdp_ratio
+        ) + self.dp(x, x_mask, g=g) * (1 - sdp_ratio)
+        w = torch.exp(logw) * x_mask * length_scale
+        return torch.ceil(w).squeeze(0).squeeze(0)

@@ -19,6 +19,10 @@ from hayakoe.nlp import (
 )
 from hayakoe.nlp.symbols import SYMBOLS
 
+_BOUNDARY_PUNCT_IDS = frozenset(
+    SYMBOLS.index(p) for p in (".", "!", "?") if p in SYMBOLS
+)
+
 
 def get_net_g(
     model_path: str, version: str, device: str, hps: HyperParameters
@@ -191,3 +195,60 @@ def infer(
             torch.cuda.empty_cache()
 
         return audio
+
+
+def predict_boundary_pauses(
+    text: str,
+    style_vec: NDArray[Any],
+    length_scale: float,
+    sid: int,
+    num_sentences: int,
+    hps: HyperParameters,
+    net_g: SynthesizerTrnJPExtra,
+    device: str,
+    sdp_ratio: float = 0.0,
+    noise_scale_w: float = 0.8,
+) -> list[float]:
+    """전체 텍스트에서 문장 경계의 pause 길이(초)를 예측한다.
+
+    Text encoder + duration predictor만 실행하므로 decoder 대비 매우 가볍다.
+
+    Returns:
+        문장 경계별 pause 길이 리스트 (len = num_sentences - 1).
+    """
+    ja_bert, phones, tones, lang_ids = get_text(text, hps, device)
+
+    phone_list = phones.tolist()
+    punct_positions = [i for i, p in enumerate(phone_list) if p in _BOUNDARY_PUNCT_IDS]
+
+    num_boundaries = num_sentences - 1
+    if not punct_positions or num_boundaries <= 0:
+        return []
+
+    hop_length = hps.data.hop_length
+    sr = hps.data.sampling_rate
+
+    with torch.no_grad():
+        durations = net_g.predict_durations(
+            phones.to(device).unsqueeze(0),
+            torch.LongTensor([phones.size(0)]).to(device),
+            torch.LongTensor([sid]).to(device),
+            tones.to(device).unsqueeze(0),
+            lang_ids.to(device).unsqueeze(0),
+            ja_bert.to(device).unsqueeze(0),
+            torch.from_numpy(style_vec).to(device).unsqueeze(0),
+            length_scale=length_scale,
+            sdp_ratio=sdp_ratio,
+            noise_scale_w=noise_scale_w,
+        ).cpu().numpy()
+
+    pauses: list[float] = []
+    for pos in punct_positions[:num_boundaries]:
+        frames = float(durations[pos])
+        if pos > 0 and phone_list[pos - 1] == 0:
+            frames += float(durations[pos - 1])
+        if pos + 1 < len(phone_list) and phone_list[pos + 1] == 0:
+            frames += float(durations[pos + 1])
+        pauses.append(frames * hop_length / sr)
+
+    return pauses
