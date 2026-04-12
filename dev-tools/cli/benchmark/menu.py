@@ -14,31 +14,24 @@ def benchmark_menu():
         "  1초 분량의 음성을 0.1초 만에 생성할 수 있다는 뜻입니다.\n"
         "  1.0x 이상이면 실시간보다 빠르고, 높을수록 좋습니다.\n\n"
         "  · CPU — ONNX Runtime 사용 (GPU 없이 동작, 서버/로컬 배포용)\n"
-        "  · GPU — PyTorch CUDA 사용 (NVIDIA GPU 필요, 고속 추론)\n"
-        "  · torch.compile — CUDA Graphs + Triton 최적화 (초회 워밍업 소요)[/dim]"
+        "  · GPU — PyTorch CUDA + torch.compile 자동 적용[/dim]"
     )
     console.print()
 
     mode = select_from_list("벤치마크 모드", [
         "CPU (ONNX Runtime)",
-        "GPU (PyTorch CUDA)",
         "GPU (torch.compile)",
         "CPU + GPU (전체)",
-        "CPU + GPU + torch.compile (전체)",
         "뒤로",
     ])
 
     if mode == "뒤로":
         return
 
-    use_compile = "torch.compile" in mode
-
     if "CPU + GPU" in mode:
         devices = ["cpu", "cuda"]
     elif "CPU" in mode:
         devices = ["cpu"]
-    elif "torch.compile" in mode:
-        devices = ["cuda"]
     else:
         devices = ["cuda"]
 
@@ -60,9 +53,7 @@ def benchmark_menu():
         if d == "cpu":
             device_labels.append("CPU (ONNX Runtime)")
         else:
-            device_labels.append("GPU (PyTorch CUDA)")
-    if use_compile:
-        device_labels.append("GPU (torch.compile)")
+            device_labels.append("GPU (torch.compile)")
 
     console.print()
     console.print("  [accent]벤치마크 설정[/accent]")
@@ -76,7 +67,7 @@ def benchmark_menu():
 
     from cli.benchmark.runner import run_benchmark
 
-    output_path = run_benchmark(devices, compile=use_compile)
+    output_path = run_benchmark(devices)
 
     console.print(f"\n[success]벤치마크 완료![/success]")
     console.print(f"  [dim]{output_path}[/dim]\n")

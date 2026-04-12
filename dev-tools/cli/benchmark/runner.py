@@ -87,24 +87,21 @@ class BenchmarkResult:
         return self.audio_duration / self.avg_time
 
 
-def _benchmark_device(device: str, progress, task, *, compile: bool = False) -> list[BenchmarkResult]:
-    """단일 디바이스에서 벤치마크를 실행한다."""
+def _benchmark_device(device: str, progress, task) -> list[BenchmarkResult]:
+    """단일 디바이스에서 벤치마크를 실행한다.
+
+    ``device="cpu"`` 는 ONNX Runtime, ``device="cuda"`` 는 PyTorch +
+    torch.compile 을 자동으로 사용한다 (prepare() 에서 적용).
+    """
     from hayakoe import TTS
 
-    if compile:
-        backend = "torch.compile"
-    elif device == "cpu":
-        backend = "ONNX"
-    else:
-        backend = "PyTorch"
+    backend = "ONNX" if device == "cpu" else "torch.compile"
     progress.update(task, description=f"[dim]{backend} ({device.upper()})[/dim] 모델 로딩...")
 
     with _quiet_loading():
-        tts = TTS(device=device)
-        speaker = tts.load(SPEAKER_NAME)
-        if compile:
-            speaker.optimize()
-    sr = speaker._hps.data.sampling_rate
+        tts = TTS(device=device).load(SPEAKER_NAME).prepare()
+        speaker = tts.speakers[SPEAKER_NAME]
+    sr = speaker.sampling_rate
 
     results = []
     for label, text in TEST_TEXTS.items():
@@ -149,15 +146,13 @@ def _benchmark_device(device: str, progress, task, *, compile: bool = False) -> 
     return results
 
 
-def run_benchmark(devices: list[str], *, compile: bool = False) -> Path:
+def run_benchmark(devices: list[str]) -> Path:
     """벤치마크를 실행하고 HTML 리포트를 생성한다.
 
     Returns:
         생성된 HTML 파일 경로.
     """
     total_steps = len(devices) * len(TEST_TEXTS)
-    if compile:
-        total_steps += len(TEST_TEXTS)  # torch.compile 벤치마크 추가
     all_results: list[BenchmarkResult] = []
 
     with Progress(
@@ -172,10 +167,6 @@ def run_benchmark(devices: list[str], *, compile: bool = False) -> Path:
 
         for device in devices:
             results = _benchmark_device(device, progress, task)
-            all_results.extend(results)
-
-        if compile:
-            results = _benchmark_device("cuda", progress, task, compile=True)
             all_results.extend(results)
 
     # 결과 테이블 출력

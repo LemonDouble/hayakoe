@@ -20,5 +20,9 @@ PROGRESS.md
 
 # misc
 .DS_Store
+.env
+/dev-tools/.env
+/dev-tools/.verify_audio/
+/hayakoe_cache/
 
 data

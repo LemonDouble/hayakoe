@@ -1,6 +1,6 @@
 """InquirerPy 기반 인터랙티브 프롬프트 래퍼."""
 
-from typing import Any
+from typing import Any, Optional
 
 from InquirerPy import inquirer
 
@@ -24,4 +24,19 @@ def edit_value(message: str, current: Any) -> str:
     return inquirer.text(
         message=message,
         default=str(current),
+    ).execute()
+
+
+def text_input(message: str, default: Optional[str] = None) -> str:
+    """기본값 없이 일반 텍스트 입력 프롬프트."""
+    return inquirer.text(
+        message=message,
+        default=default or "",
+    ).execute()
+
+
+def secret_input(message: str) -> str:
+    """입력이 마스킹되는 비밀번호/토큰 입력 프롬프트."""
+    return inquirer.secret(
+        message=message,
     ).execute()

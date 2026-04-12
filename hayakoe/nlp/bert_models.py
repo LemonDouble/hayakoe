@@ -84,13 +84,21 @@ def transfer_model(device: str) -> None:
 
 
 def compile_model() -> None:
-    """글로벌 BERT 모델에 torch.compile을 적용한다."""
+    """글로벌 BERT 모델에 torch.compile을 적용한다.
+
+    이미 compile 된 모델에 다시 호출해도 중첩 래핑이 쌓이지 않는다.
+    """
     global _loaded_model
 
     if _loaded_model is None:
         raise ValueError("JP BERT model is not loaded.")
 
     import torch
+
+    # OptimizedModule 이면 이미 compile 된 상태 — 다시 감싸면 forward 경로가
+    # torch.compile(torch.compile(model)) 이 되어 추론이 깨질 수 있다.
+    if isinstance(_loaded_model, torch._dynamo.OptimizedModule):
+        return
 
     _loaded_model = torch.compile(_loaded_model, mode="default")
     logger.info("Applied torch.compile to JP BERT model")

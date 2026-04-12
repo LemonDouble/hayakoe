@@ -30,6 +30,11 @@ gpu = [
     #   pip install torch --index-url https://download.pytorch.org/whl/cu126
     "safetensors>=0.4",
 ]
+s3 = [
+    # s3:// 스킴으로 모델 소스를 지정할 때 필요.
+    # S3-호환 엔드포인트(MinIO, R2 등)는 AWS_ENDPOINT_URL_S3 env 로 설정.
+    "boto3>=1.26",
+]
 
 [project.urls]
 Source = "https://github.com/LemonDouble/hayakoe"

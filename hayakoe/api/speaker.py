@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import re
-from collections.abc import Generator
+import threading
+from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Union
 
@@ -26,26 +28,29 @@ if TYPE_CHECKING:
 
 
 class Speaker:
-    """로드된 화자 모델. :meth:`TTS.load` 를 통해 생성된다.
+    """materialize된 화자 모델.
+
+    직접 생성하지 말고 :meth:`TTS.load` + :meth:`TTS.prepare` 로 얻어야 한다.
+    준비가 끝나면 ``tts.speakers["name"]`` 에서 가져온다.
 
     백엔드별 동작:
 
-    - **onnx** (CPU): ONNX Runtime으로 추론. ``TTS(device="cpu")`` 사용 시 자동 선택.
-    - **pytorch** (CUDA): PyTorch eager mode. ``TTS(device="cuda")`` 사용 시 자동 선택.
-    - **compiled** (CUDA): ``tts.optimize()`` 호출 후 torch.compile 적용. 10-25% 향상.
+    - **onnx** (CPU): ONNX Runtime 으로 추론. ``TTS(device="cpu")`` 에서 자동 선택.
+    - **pytorch** (CUDA): PyTorch eager. ``TTS(device="cuda")`` 에서 자동 선택.
+    - **compiled** (CUDA): ``prepare()`` 가 자동으로 ``torch.compile(reduce-overhead)``
+      를 적용한 상태. 10-25% 추가 향상.
+
+    **Thread safety** — 각 Speaker 인스턴스는 내부 ``threading.Lock`` 으로
+    ``generate`` / ``stream`` 호출을 직렬화한다. FastAPI 같은 싱글톤 서빙
+    환경에서 여러 요청이 동시에 들어와도 안전하게 동작한다 (다른 Speaker
+    끼리는 병렬 가능). BERT 는 공용 리소스이나 thread-safe 한 경로만
+    사용하므로 별도 lock 이 없다.
 
     사용법::
 
         from hayakoe import TTS
 
-        # CPU
-        speaker = TTS().load("jvnv-F1-jp")
-        speaker.generate("こんにちは").save("output.wav")
-
-        # GPU + torch.compile
-        tts = TTS(device="cuda")
-        tts.load("jvnv-F1-jp")
-        tts.optimize()  # 로드된 전체 화자에 torch.compile 적용
+        tts = TTS(device="cpu").load("jvnv-F1-jp").prepare()
         tts.speakers["jvnv-F1-jp"].generate("こんにちは").save("output.wav")
     """
 
@@ -62,6 +67,8 @@ class Speaker:
         self._backend = backend
         self._model_dir = model_dir
         self._bert_session = bert_session
+        # generate/stream 호출 직렬화용 per-Speaker lock
+        self._gen_lock = threading.Lock()
 
         self._config_path = model_dir / "config.json"
         self._style_vec_path = model_dir / "style_vectors.npy"
@@ -164,6 +171,11 @@ class Speaker:
         vec = self._style_vectors[style_id]
         return mean + (vec - mean) * weight
 
+    @property
+    def sampling_rate(self) -> int:
+        """모델 샘플링 레이트 (Hz)."""
+        return self._hps.data.sampling_rate
+
     def generate(
         self,
         text: str,
@@ -180,7 +192,7 @@ class Speaker:
         style_weight: float = 1.0,
         batch_bert: bool = True,
     ) -> AudioResult:
-        """텍스트에서 음성을 생성한다.
+        """텍스트에서 음성을 생성한다 (thread-safe).
 
         여러 문장이 포함된 텍스트는 문장 경계(。！？!?\\n)에서
         자동 분할하여 개별 추론 후 연결한다. PyTorch/compiled 백엔드에서는
@@ -215,6 +227,41 @@ class Speaker:
             )
             audio.save("output.wav")
         """
+        with self._gen_lock:
+            return self._generate_locked(
+                text, lang=lang, style=style, speaker_id=speaker_id,
+                speed=speed, sdp_ratio=sdp_ratio, noise=noise, noise_w=noise_w,
+                pitch_scale=pitch_scale, intonation_scale=intonation_scale,
+                style_weight=style_weight, batch_bert=batch_bert,
+            )
+
+    async def agenerate(
+        self,
+        text: str,
+        **kwargs,
+    ) -> AudioResult:
+        """비동기 래퍼 — 별도 스레드에서 :meth:`generate` 를 실행한다.
+
+        FastAPI 같은 async 핸들러에서 호출하면 이벤트 루프를 블록하지 않는다.
+        """
+        return await asyncio.to_thread(self.generate, text, **kwargs)
+
+    def _generate_locked(
+        self,
+        text: str,
+        *,
+        lang: Union[str, Languages] = Languages.JP,
+        style: str = "Neutral",
+        speaker_id: int = 0,
+        speed: float = 1.0,
+        sdp_ratio: float = 0.2,
+        noise: float = 0.6,
+        noise_w: float = 0.8,
+        pitch_scale: float = 1.0,
+        intonation_scale: float = 1.0,
+        style_weight: float = 1.0,
+        batch_bert: bool = True,
+    ) -> AudioResult:
         kwargs = dict(
             lang=lang, style=style, speaker_id=speaker_id,
             speed=speed, sdp_ratio=sdp_ratio, noise=noise, noise_w=noise_w,
@@ -325,7 +372,58 @@ class Speaker:
 
             for chunk in speaker.stream("こんにちは。元気ですか？"):
                 play(chunk.to_bytes())  # 문장별로 바로 재생
+
+        **Thread safety** — 제너레이터가 살아있는 동안 per-speaker lock 을
+        보유한다. ``close()`` 또는 소진되면 해제되므로 ``for`` 문으로 돌리거나
+        ``try/finally`` 안에서 사용해야 다른 요청이 차단되지 않는다.
         """
+        self._gen_lock.acquire()
+        try:
+            yield from self._stream_locked(
+                text, lang=lang, style=style, speaker_id=speaker_id,
+                speed=speed, sdp_ratio=sdp_ratio, noise=noise, noise_w=noise_w,
+                pitch_scale=pitch_scale, intonation_scale=intonation_scale,
+                style_weight=style_weight,
+            )
+        finally:
+            self._gen_lock.release()
+
+    async def astream(
+        self,
+        text: str,
+        **kwargs,
+    ) -> AsyncGenerator[AudioResult, None]:
+        """비동기 스트리밍 — 별도 스레드에서 :meth:`stream` 의 각 chunk 를 받아온다.
+
+        FastAPI ``StreamingResponse`` 와 조합해 바로 스트리밍할 수 있다.
+        제너레이터 소진 또는 async iterator close 시 lock 이 해제된다.
+        """
+        gen = self.stream(text, **kwargs)
+        _SENTINEL = object()
+        try:
+            while True:
+                chunk = await asyncio.to_thread(next, gen, _SENTINEL)
+                if chunk is _SENTINEL:
+                    return
+                yield chunk
+        finally:
+            gen.close()
+
+    def _stream_locked(
+        self,
+        text: str,
+        *,
+        lang: Union[str, Languages] = Languages.JP,
+        style: str = "Neutral",
+        speaker_id: int = 0,
+        speed: float = 1.0,
+        sdp_ratio: float = 0.2,
+        noise: float = 0.6,
+        noise_w: float = 0.8,
+        pitch_scale: float = 1.0,
+        intonation_scale: float = 1.0,
+        style_weight: float = 1.0,
+    ) -> Generator[AudioResult, None, None]:
         sentences = _split_sentences(text)
         if not sentences:
             return
@@ -660,23 +758,13 @@ class Speaker:
             durations, phone_list, punct_positions, num_sentences, self._hps,
         )
 
-    def optimize(self) -> None:
-        """GPU 추론 속도를 최적화한다 (torch.compile).
+    def _apply_compile(self) -> None:
+        """``torch.compile(mode="reduce-overhead")`` 를 Synthesizer 에 적용한다.
 
-        ``torch.compile(mode="reduce-overhead")`` 를 적용하여
-        CUDA Graphs + Triton 커널 퓨전으로 10-25% 추론 속도를 향상시킨다.
-        반복 추론하는 서버 환경에서 권장한다.
-
-        일반적으로 :meth:`TTS.optimize` 를 통해 로드된 전체 화자를
-        한 번에 최적화하는 것이 편리하다.
-
-        .. note::
-
-            첫 ``generate()`` 호출 시 컴파일 워밍업(1-2초)이 발생한다.
-            1회성 추론에서는 워밍업 비용이 절감보다 클 수 있다.
-
-        Raises:
-            ValueError: CUDA가 아닌 디바이스에서 호출한 경우.
+        :meth:`TTS.prepare` 가 CUDA 디바이스에서 자동 호출한다.
+        CUDA Graphs + Triton 커널 퓨전으로 추론 속도를 10-25% 향상시킨다.
+        BERT 는 공용 리소스이므로 여기서 건드리지 않고 TTS 레벨에서 한 번만
+        compile 된다.
         """
         if "cuda" not in self._device:
             raise ValueError(
@@ -686,12 +774,9 @@ class Speaker:
 
         import torch
 
-        from hayakoe.nlp import bert_models
-
         net_g = self._ensure_pytorch_model()
         torch.set_float32_matmul_precision("high")
         self._net_g = torch.compile(net_g, mode="reduce-overhead")
-        bert_models.compile_model()
         self._backend = "compiled"
         logger.info(f"Speaker '{self.name}' → torch.compile backend")
 

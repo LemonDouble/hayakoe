@@ -10,7 +10,6 @@ import torch
 import torch.nn as nn
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from cli.training.dataset import DatasetInfo
 from cli.ui.console import console
 
 from hayakoe.models.hyper_parameters import HyperParameters
@@ -99,11 +98,17 @@ class _DurationPredictorWrapper(nn.Module):
 
 
 def export_duration_predictor(
-    ds: DatasetInfo, checkpoint: Path, output_dir: Path, opset: int = 17,
+    config_path: Path, checkpoint: Path, output_dir: Path, opset: int = 17,
 ) -> Path:
     """TextEncoder + DurationPredictor만 FP32 ONNX로 내보낸다.
 
     문장 경계 무음 길이 예측 (자연스러운 다문장 합성용) 에 사용된다.
+
+    Args:
+        config_path: 모델 ``config.json`` 경로.
+        checkpoint: 내보낼 ``.safetensors`` 체크포인트.
+        output_dir: 출력 디렉토리.
+        opset: ONNX opset 버전.
 
     Returns:
         생성된 ONNX 파일 경로.
@@ -111,7 +116,6 @@ def export_duration_predictor(
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "duration_predictor.onnx"
 
-    config_path = ds.data_dir / "config.json"
     hps = HyperParameters.load_from_json(config_path)
 
     with Progress(
@@ -184,8 +188,16 @@ def export_duration_predictor(
     return output_path
 
 
-def export_synthesizer(ds: DatasetInfo, checkpoint: Path, output_dir: Path, opset: int = 17) -> Path:
+def export_synthesizer(
+    config_path: Path, checkpoint: Path, output_dir: Path, opset: int = 17,
+) -> Path:
     """Synthesizer를 FP32 ONNX로 내보낸다.
+
+    Args:
+        config_path: 모델 ``config.json`` 경로.
+        checkpoint: 내보낼 ``.safetensors`` 체크포인트.
+        output_dir: 출력 디렉토리.
+        opset: ONNX opset 버전.
 
     Returns:
         생성된 ONNX 파일 경로.
@@ -193,7 +205,6 @@ def export_synthesizer(ds: DatasetInfo, checkpoint: Path, output_dir: Path, opse
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "synthesizer.onnx"
 
-    config_path = ds.data_dir / "config.json"
     hps = HyperParameters.load_from_json(config_path)
 
     with Progress(

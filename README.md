@@ -8,7 +8,9 @@
 
 - **ONNX 최적화** — CPU 실시간 추론 (PyTorch 대비 1.6x 속도 향상, 47% RAM 절감)
 - **torch 불필요** — CPU 추론 시 PyTorch 없이 동작 (경량 설치)
-- **3줄 추론** — 모델 자동 다운로드, 설정 불필요
+- **간결한 API** — 체이닝 한 줄 `TTS().load(...).prepare()`
+- **소스 플러그형** — HuggingFace / S3 / 로컬 경로를 섞어서 사용 가능
+- **Thread-safe** — 싱글톤 서빙 (FastAPI 등) 에서 동기/비동기 양쪽 지원
 - **JP-Extra 모델** — Style-Bert-VITS2 JP-Extra (v2.7.0), DeBERTa JP
 - **영어→카타카나 자동 변환** — 22만 엔트리 외래어 사전 룩업 (의존성 없음)
 
@@ -69,39 +71,47 @@ poetry add hayakoe -E gpu
 ```
 </details>
 
-모델은 [HuggingFace](https://huggingface.co/lemondouble/hayakoe)에서 자동 다운로드됩니다.
+기본 모델은 [HuggingFace](https://huggingface.co/lemondouble/hayakoe)에서 자동 다운로드됩니다.
+자체 학습한 화자는 private HF repo / S3 / 로컬 경로 어디든 둘 수 있습니다.
 
 ## 사용법
+
+### 기본
 
 ```python
 from hayakoe import TTS
 
-speaker = TTS().load("jvnv-F1-jp")
-speaker.generate("こんにちは").save("output.wav")
+tts = TTS().load("jvnv-F1-jp").prepare()
+tts.speakers["jvnv-F1-jp"].generate("こんにちは").save("output.wav")
 ```
 
-GPU 추론:
+GPU 추론 (CUDA 에서는 `prepare()` 가 자동으로 `torch.compile` 적용):
 
 ```python
-speaker = TTS(device="cuda").load("jvnv-F1-jp")
-speaker.generate("こんにちは").save("output.wav")
+tts = TTS(device="cuda").load("jvnv-F1-jp").prepare()
+tts.speakers["jvnv-F1-jp"].generate("こんにちは").save("output.wav")
 ```
 
-GPU 추론 + torch.compile 최적화 (10-25% 향상):
+여러 화자 + 자체 소스 혼합:
 
 ```python
-tts = TTS(device="cuda")
-speaker = tts.load("jvnv-F1-jp")
-tts.optimize()  # torch.compile 적용 (초회 워밍업 발생)
-speaker.generate("こんにちは").save("output.wav")
+tts = (
+    TTS(device="cuda")
+    .load("jvnv-F1-jp")                                 # 공식 repo
+    .load("my-voice", source="hf://me/private-voices")  # private HF
+    .load("client-a", source="s3://tts-prod/voices")    # S3
+    .load("dev-voice", source="file:///mnt/experiments") # 로컬
+    .prepare()
+)
 ```
 
 파라미터 조절:
 
 ```python
+speaker = tts.speakers["jvnv-F1-jp"]
 audio = speaker.generate(
     "今日はどんな国に辿り着くのでしょうか。楽しみですね。",
-    style="Neutral",
+    style="Happy",
     speed=0.9,
     sdp_ratio=0.2,
     noise=0.6,
@@ -112,7 +122,7 @@ audio = speaker.generate(
 )
 ```
 
-### 사용 가능한 화자
+### 사용 가능한 공식 화자
 
 | 이름 | 설명 |
 |------|------|
@@ -123,27 +133,105 @@ audio = speaker.generate(
 
 각 화자는 7개 스타일을 지원합니다: `Neutral`, `Happy`, `Sad`, `Angry`, `Fear`, `Surprise`, `Disgust`
 
+### FastAPI 싱글톤 서빙
+
+`Speaker` 는 내부 `threading.Lock` 으로 동시 호출을 직렬화하므로, 하나의
+`TTS` 인스턴스를 `app.state` 에 올려 모든 요청이 공유해도 안전합니다.
+동기 핸들러는 `generate()` / `stream()`, async 핸들러는 `agenerate()` /
+`astream()` 을 호출하세요 (비동기 버전은 자동으로 별도 스레드로 오프로딩).
+
+```python
+from enum import Enum
+from fastapi import Depends, FastAPI, Request
+from fastapi.responses import Response, StreamingResponse
+from hayakoe import TTS, Speaker
+
+SPEAKERS = ["jvnv-F1-jp", "jvnv-M1-jp"]
+
+class SpeakerName(str, Enum):
+    F1 = "jvnv-F1-jp"
+    M1 = "jvnv-M1-jp"
+
+app = FastAPI()
+
+@app.on_event("startup")
+def _load_tts() -> None:
+    tts = TTS(device="cuda")
+    for name in SPEAKERS:
+        tts.load(name)
+    tts.prepare()  # 모든 화자 materialize + torch.compile 자동
+    app.state.tts = tts
+
+def get_speaker(name: SpeakerName, request: Request) -> Speaker:
+    return request.app.state.tts.speakers[name.value]
+
+@app.post("/tts/{name}")
+async def tts_async(text: str, speaker: Speaker = Depends(get_speaker)):
+    audio = await speaker.agenerate(text)
+    return Response(audio.to_bytes(), media_type="audio/wav")
+
+@app.post("/tts/{name}/stream")
+async def tts_stream(text: str, speaker: Speaker = Depends(get_speaker)):
+    async def body():
+        async for chunk in speaker.astream(text):
+            yield chunk.to_bytes()
+    return StreamingResponse(body(), media_type="audio/wav")
+```
+
 ### Docker / 서버 환경
+
+빌드 시점에는 GPU 없이 모델을 캐시로 내려받기만 하고, 런타임 이미지에서
+같은 `cache_dir` 로 즉시 로드합니다:
 
 ```dockerfile
 # 빌드 시점 — 이미지에 모델 포함 (GPU 불필요)
-RUN python -c "from hayakoe import TTS; TTS.prepare()"
+RUN python -c "\
+from hayakoe import TTS; \
+TTS().load('jvnv-F1-jp').pre_download(device='cuda')"
 
-# 실행 시점 — 다운로드 없이 바로 서빙
+# 실행 시점 — 캐시에서 즉시 로드
 CMD ["python", "server.py"]
 ```
 
+캐시 루트는 기본 `$CWD/hayakoe_cache` 이며 `HAYAKOE_CACHE` env 또는
+`TTS(cache_dir=...)` 로 덮어쓸 수 있습니다. HuggingFace / S3 / 로컬 소스
+모두 같은 루트 아래에 저장됩니다.
+
 | 메서드 | 역할 | GPU 필요 | 용도 |
 |--------|------|----------|------|
-| `TTS.prepare()` | 모델 사전 다운로드 | X | Docker 빌드, CI |
-| `TTS(device=...)` | 엔진 초기화 + 모델 로드 | 선택 | 추론 |
-| `tts.optimize()` | torch.compile 적용 (10-25% 향상) | O (CUDA) | 서버 반복 추론 |
+| `TTS(device=...).load(...)` | 화자 스펙 등록 (다운로드 X) | X | 선언 |
+| `tts.pre_download(device=...)` | 캐시에만 다운로드 | X | Docker 빌드, CI |
+| `tts.prepare()` | 모델 로드 + (CUDA 면) torch.compile | 선택 | 런타임 초기화 |
+
+### Private / 사내 소스
+
+`hayakoe[s3]` extra 를 설치하면 `s3://` 스킴을 사용할 수 있습니다.
+S3-호환 엔드포인트 (MinIO, R2 등) 는 `AWS_ENDPOINT_URL_S3` env 로 지정합니다.
+
+```bash
+pip install hayakoe[s3]
+```
+
+```python
+tts = (
+    TTS(
+        device="cuda",
+        bert_source="s3://models/bert",          # BERT 도 사내 미러에서
+        hf_token="hf_...",                        # private HF 용
+        cache_dir="/var/cache/hayakoe",
+    )
+    .load("my-voice", source="s3://models/voices")
+    .prepare()
+)
+```
 
 ## 유저 사전
 
 pyopenjtalk가 모르는 고유명사의 발음을 등록할 수 있습니다.
 
 ```python
+tts = TTS().load("jvnv-F1-jp").prepare()
+
 # 읽기만 등록 (악센트는 평판)
 tts.add_word(surface="担々麺", reading="タンタンメン")
 
@@ -163,8 +251,7 @@ TTS (엔진)
 ```
 
 - **CPU**: ONNX Runtime (BERT Q8 + Synthesizer FP32)
-- **GPU**: PyTorch FP32 (BERT + Synthesizer)
-- **GPU + torch.compile**: CUDA Graphs + Triton 최적화 (`tts.optimize()`)
+- **GPU**: PyTorch FP32 + `torch.compile(reduce-overhead)` — `prepare()` 가 자동 적용
 
 ## 개발 도구 (Dev Tools)
 
@@ -181,6 +268,7 @@ python -m cli
 | ② 품질 리포트 | 체크포인트별 음성 비교 | 학습된 체크포인트의 음성을 비교 시청합니다 (HTML) |
 | ③ ONNX 내보내기 | CPU 추론용 모델 변환 | GPU 없는 환경에서 추론하려면 필요합니다. GPU로만 추론한다면 건너뛰어도 됩니다 |
 | ④ 벤치마크 | CPU/GPU 추론 속도 측정 | 실시간 대비 배속을 측정합니다 (HTML 리포트) |
+| ⑤ 배포 (Publish) | HF / S3 / 로컬로 모델 업로드 | 학습한 화자를 private repo 나 버킷에 올려 `TTS(...).load(source=...)` 로 받을 수 있게 만듭니다 |
 
 ## 라이선스
 
