@@ -83,6 +83,19 @@ def transfer_model(device: str) -> None:
     logger.info(f"Transferred JP BERT model from {current_device} to {device}")
 
 
+def compile_model() -> None:
+    """글로벌 BERT 모델에 torch.compile을 적용한다."""
+    global _loaded_model
+
+    if _loaded_model is None:
+        raise ValueError("JP BERT model is not loaded.")
+
+    import torch
+
+    _loaded_model = torch.compile(_loaded_model, mode="default")
+    logger.info("Applied torch.compile to JP BERT model")
+
+
 def is_model_loaded() -> bool:
     return _loaded_model is not None
 
