@@ -197,6 +197,38 @@ def infer(
         return audio
 
 
+def find_boundary_punct_positions(phone_list: list[int]) -> list[int]:
+    """phoneme 시퀀스에서 문장 경계 구두점(. ! ?)의 위치를 반환한다."""
+    return [i for i, p in enumerate(phone_list) if p in _BOUNDARY_PUNCT_IDS]
+
+
+def durations_to_boundary_pauses(
+    durations: NDArray[Any],
+    phone_list: list[int],
+    punct_positions: list[int],
+    num_sentences: int,
+    hps: HyperParameters,
+) -> list[float]:
+    """예측된 phoneme별 frame 수를 문장 경계 pause 길이(초)로 변환한다."""
+    num_boundaries = num_sentences - 1
+    if not punct_positions or num_boundaries <= 0:
+        return []
+
+    hop_length = hps.data.hop_length
+    sr = hps.data.sampling_rate
+
+    pauses: list[float] = []
+    for pos in punct_positions[:num_boundaries]:
+        frames = float(durations[pos])
+        if pos > 0 and phone_list[pos - 1] == 0:
+            frames += float(durations[pos - 1])
+        if pos + 1 < len(phone_list) and phone_list[pos + 1] == 0:
+            frames += float(durations[pos + 1])
+        pauses.append(frames * hop_length / sr)
+
+    return pauses
+
+
 def predict_boundary_pauses(
     text: str,
     style_vec: NDArray[Any],
@@ -209,7 +241,7 @@ def predict_boundary_pauses(
     sdp_ratio: float = 0.0,
     noise_scale_w: float = 0.8,
 ) -> list[float]:
-    """전체 텍스트에서 문장 경계의 pause 길이(초)를 예측한다.
+    """전체 텍스트에서 문장 경계의 pause 길이(초)를 예측한다 (PyTorch).
 
     Text encoder + duration predictor만 실행하므로 decoder 대비 매우 가볍다.
 
@@ -219,14 +251,9 @@ def predict_boundary_pauses(
     ja_bert, phones, tones, lang_ids = get_text(text, hps, device)
 
     phone_list = phones.tolist()
-    punct_positions = [i for i, p in enumerate(phone_list) if p in _BOUNDARY_PUNCT_IDS]
-
-    num_boundaries = num_sentences - 1
-    if not punct_positions or num_boundaries <= 0:
+    punct_positions = find_boundary_punct_positions(phone_list)
+    if not punct_positions or num_sentences <= 1:
         return []
-
-    hop_length = hps.data.hop_length
-    sr = hps.data.sampling_rate
 
     with torch.no_grad():
         durations = net_g.predict_durations(
@@ -242,13 +269,6 @@ def predict_boundary_pauses(
             noise_scale_w=noise_scale_w,
         ).cpu().numpy()
 
-    pauses: list[float] = []
-    for pos in punct_positions[:num_boundaries]:
-        frames = float(durations[pos])
-        if pos > 0 and phone_list[pos - 1] == 0:
-            frames += float(durations[pos - 1])
-        if pos + 1 < len(phone_list) and phone_list[pos + 1] == 0:
-            frames += float(durations[pos + 1])
-        pauses.append(frames * hop_length / sr)
-
-    return pauses
+    return durations_to_boundary_pauses(
+        durations, phone_list, punct_positions, num_sentences, hps,
+    )

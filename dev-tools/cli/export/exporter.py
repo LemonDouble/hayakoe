@@ -74,6 +74,116 @@ class _SynthesizerWrapper(nn.Module):
         return path
 
 
+class _DurationPredictorWrapper(nn.Module):
+    """TextEncoder + DurationPredictor만 실행해 phoneme별 frame 수를 반환한다.
+
+    문장 경계 무음 길이 예측에 사용된다 — Decoder/Flow를 타지 않으므로
+    Synthesizer ONNX 대비 매우 가볍다.
+    """
+
+    def __init__(self, net_g):
+        super().__init__()
+        self.net_g = net_g
+
+    def forward(self, x, x_lengths, sid, tone, language, bert, style_vec,
+                length_scale, noise_scale_w, sdp_ratio):
+        g = self.net_g.emb_g(sid).unsqueeze(-1)
+        x_enc, _, _, x_mask = self.net_g.enc_p(
+            x, x_lengths, tone, language, bert, style_vec, g=g
+        )
+        logw = self.net_g.sdp(
+            x_enc, x_mask, g=g, reverse=True, noise_scale=noise_scale_w
+        ) * sdp_ratio + self.net_g.dp(x_enc, x_mask, g=g) * (1 - sdp_ratio)
+        w = torch.exp(logw) * x_mask * length_scale
+        return torch.ceil(w).squeeze(1)  # [batch, phone_len]
+
+
+def export_duration_predictor(
+    ds: DatasetInfo, checkpoint: Path, output_dir: Path, opset: int = 17,
+) -> Path:
+    """TextEncoder + DurationPredictor만 FP32 ONNX로 내보낸다.
+
+    문장 경계 무음 길이 예측 (자연스러운 다문장 합성용) 에 사용된다.
+
+    Returns:
+        생성된 ONNX 파일 경로.
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "duration_predictor.onnx"
+
+    config_path = ds.data_dir / "config.json"
+    hps = HyperParameters.load_from_json(config_path)
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        task = progress.add_task("모델 로딩 중...", total=None)
+        net_g = get_net_g(str(checkpoint), hps.version, "cpu", hps)
+        net_g.eval()
+
+        wrapper = _DurationPredictorWrapper(net_g)
+        wrapper.eval()
+
+        seq_len = 20
+        dummy_inputs = (
+            torch.randint(0, len(SYMBOLS), (1, seq_len)),       # x
+            torch.LongTensor([seq_len]),                         # x_lengths
+            torch.LongTensor([0]),                               # sid
+            torch.randint(0, 10, (1, seq_len)),                  # tone
+            torch.zeros(1, seq_len, dtype=torch.long),           # language
+            torch.randn(1, 1024, seq_len),                       # bert
+            torch.randn(1, 256),                                 # style_vec
+            torch.FloatTensor([1.0]),                            # length_scale
+            torch.FloatTensor([0.8]),                            # noise_scale_w
+            torch.FloatTensor([0.0]),                            # sdp_ratio
+        )
+
+        input_names = [
+            "x", "x_lengths", "sid", "tone", "language", "bert", "style_vec",
+            "length_scale", "noise_scale_w", "sdp_ratio",
+        ]
+        output_names = ["durations"]
+        dynamic_axes = {
+            "x": {1: "phone_len"},
+            "tone": {1: "phone_len"},
+            "language": {1: "phone_len"},
+            "bert": {2: "phone_len"},
+            "durations": {1: "phone_len"},
+        }
+
+        progress.update(task, description="ONNX 내보내기 중...")
+        t0 = time.time()
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=torch.jit.TracerWarning)
+            warnings.filterwarnings("ignore", message="Constant folding")
+            torch.onnx.export(
+                wrapper,
+                dummy_inputs,
+                str(output_path),
+                input_names=input_names,
+                output_names=output_names,
+                dynamic_axes=dynamic_axes,
+                opset_version=opset,
+                do_constant_folding=True,
+                dynamo=False,
+            )
+        elapsed = time.time() - t0
+
+        total_size = output_path.stat().st_size
+        data_file = Path(str(output_path) + ".data")
+        if data_file.exists():
+            total_size += data_file.stat().st_size
+
+        progress.update(task, description="완료")
+
+    console.print(f"  내보내기 시간: [value]{elapsed:.1f}s[/value]")
+    console.print(f"  파일 크기:     [value]{total_size / 1024 / 1024:.1f}MB[/value]")
+
+    return output_path
+
+
 def export_synthesizer(ds: DatasetInfo, checkpoint: Path, output_dir: Path, opset: int = 17) -> Path:
     """Synthesizer를 FP32 ONNX로 내보낸다.
 

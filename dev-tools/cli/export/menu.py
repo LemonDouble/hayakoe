@@ -91,9 +91,11 @@ def export_menu():
     if not confirm("ONNX 내보내기를 시작하시겠습니까?"):
         return
 
-    from cli.export.exporter import export_synthesizer
+    from cli.export.exporter import export_duration_predictor, export_synthesizer
 
     output_path = export_synthesizer(ds, selected_ckpt, output_dir)
+    dp_path = export_duration_predictor(ds, selected_ckpt, output_dir)
 
     console.print(f"\n[success]ONNX 내보내기 완료![/success]")
-    console.print(f"  [dim]{output_path}[/dim]\n")
+    console.print(f"  [dim]{output_path}[/dim]")
+    console.print(f"  [dim]{dp_path}[/dim]\n")

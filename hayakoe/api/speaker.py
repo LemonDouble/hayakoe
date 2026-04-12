@@ -86,9 +86,11 @@ class Speaker:
         # 지연 로드 (백엔드별)
         self._net_g: Optional[SynthesizerTrnJPExtra] = None
         self._synth_session = None
+        self._dp_session = None
 
         if backend == "onnx":
             self._init_onnx_synth()
+            self._init_onnx_duration_predictor()
 
         logger.info(
             f"Speaker '{name}' loaded ({backend}, "
@@ -109,6 +111,24 @@ class Speaker:
         sess_opts = ort.SessionOptions()
         sess_opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         self._synth_session = ort.InferenceSession(
+            str(onnx_path), sess_opts, providers=["CPUExecutionProvider"]
+        )
+
+    def _init_onnx_duration_predictor(self):
+        """ONNX Duration Predictor 세션을 생성한다 (선택적).
+
+        문장 경계 무음 길이 예측에만 사용되며, 파일이 없으면 폴백
+        (고정 80ms pause) 으로 동작한다.
+        """
+        import onnxruntime as ort
+
+        onnx_path = self._model_dir / "duration_predictor.onnx"
+        if not onnx_path.exists():
+            return  # 옵션이므로 조용히 폴백
+
+        sess_opts = ort.SessionOptions()
+        sess_opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        self._dp_session = ort.InferenceSession(
             str(onnx_path), sess_opts, providers=["CPUExecutionProvider"]
         )
 
@@ -574,19 +594,70 @@ class Speaker:
     ) -> Optional[list[float]]:
         """Duration predictor로 문장 경계 pause를 예측한다.
 
-        PyTorch/compiled 백엔드에서만 동작하며, ONNX이면 None을 반환한다.
+        PyTorch/compiled 백엔드는 항상 동작하고, ONNX 백엔드는
+        ``duration_predictor.onnx`` 가 모델 디렉터리에 있으면 동작한다.
+        예측 불가 시 ``None`` 을 반환한다 (호출 측에서 80ms 폴백 사용).
         """
-        if self._backend not in ("pytorch", "compiled") or len(sentences) <= 1:
+        if len(sentences) <= 1:
             return None
-        from hayakoe.models.infer import predict_boundary_pauses
 
         sv = self._get_style_vector(style, style_weight)
-        return predict_boundary_pauses(
-            text=text, style_vec=sv, length_scale=speed,
-            sid=speaker_id, num_sentences=len(sentences),
-            hps=self._hps, net_g=self._ensure_pytorch_model(),
-            device=self._device,
-            sdp_ratio=sdp_ratio, noise_scale_w=noise_w,
+
+        if self._backend in ("pytorch", "compiled"):
+            from hayakoe.models.infer import predict_boundary_pauses
+
+            return predict_boundary_pauses(
+                text=text, style_vec=sv, length_scale=speed,
+                sid=speaker_id, num_sentences=len(sentences),
+                hps=self._hps, net_g=self._ensure_pytorch_model(),
+                device=self._device,
+                sdp_ratio=sdp_ratio, noise_scale_w=noise_w,
+            )
+
+        if self._backend == "onnx" and self._dp_session is not None:
+            return self._predict_pauses_onnx(
+                text, sv, speed, speaker_id, len(sentences), sdp_ratio, noise_w,
+            )
+
+        return None
+
+    def _predict_pauses_onnx(
+        self, text: str, style_vec: NDArray, length_scale: float,
+        sid: int, num_sentences: int, sdp_ratio: float, noise_scale_w: float,
+    ) -> Optional[list[float]]:
+        """ONNX duration predictor로 문장 경계 pause를 예측한다."""
+        from hayakoe.models.infer_onnx import get_text_onnx
+        from hayakoe.models.infer import (
+            durations_to_boundary_pauses,
+            find_boundary_punct_positions,
+        )
+
+        bert, phones, tones, lang_ids = get_text_onnx(
+            text, self._hps, self._bert_session,
+        )
+        phone_list = phones.tolist()
+        punct_positions = find_boundary_punct_positions(phone_list)
+        if not punct_positions:
+            return []
+
+        x = phones[np.newaxis, :]
+        x_len = np.array([len(phones)], dtype=np.int64)
+        t = tones[np.newaxis, :]
+        l = lang_ids[np.newaxis, :]
+        b = bert[np.newaxis, :, :].astype(np.float32)
+        s = style_vec[np.newaxis, :].astype(np.float32)
+        sid_arr = np.array([sid], dtype=np.int64)
+
+        durations = self._dp_session.run(None, {
+            "x": x, "x_lengths": x_len, "sid": sid_arr,
+            "tone": t, "language": l, "bert": b, "style_vec": s,
+            "length_scale": np.array([length_scale], dtype=np.float32),
+            "noise_scale_w": np.array([noise_scale_w], dtype=np.float32),
+            "sdp_ratio": np.array([sdp_ratio], dtype=np.float32),
+        })[0][0]  # [phone_len]
+
+        return durations_to_boundary_pauses(
+            durations, phone_list, punct_positions, num_sentences, self._hps,
         )
 
     def optimize(self) -> None:
