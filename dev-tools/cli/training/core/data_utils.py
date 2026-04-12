@@ -132,12 +132,8 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
                 word2ph[i] = word2ph[i] * 2
             word2ph[0] += 1
         bert_path = wav_path.replace(".wav", ".bert.pt")
-        try:
-            bert = torch.load(bert_path)
-            assert bert.shape[-1] == len(phone)
-        except Exception as e:
-            logger.warning(f"BERT 로드 실패: {bert_path}")
-            logger.warning(e)
+        bert = torch.load(bert_path, map_location="cpu")
+        assert bert.shape[-1] == len(phone)
 
         phone = torch.LongTensor(phone)
         tone = torch.LongTensor(tone)
