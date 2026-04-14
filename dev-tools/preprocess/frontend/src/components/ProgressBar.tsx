@@ -9,20 +9,20 @@ export default function ProgressBar({ progress, message }: Props) {
 
   return (
     <div>
-      <div className="flex justify-between text-sm mb-1">
-        <span>{message || "처리 중..."}</span>
-        {hasProgress && <span>{pct}%</span>}
+      <div className="flex justify-between text-sm mb-1.5">
+        <span className="text-fg-muted">{message || "처리 중..."}</span>
+        {hasProgress && <span className="text-primary font-mono font-semibold">{pct}%</span>}
       </div>
       {hasProgress ? (
-        <div className="w-full bg-slate-700 rounded h-3">
+        <div className="w-full bg-line rounded-full h-1.5 overflow-hidden">
           <div
-            className="bg-blue-500 h-3 rounded transition-all duration-300"
+            className="progress-fill h-1.5 rounded-full transition-all duration-300"
             style={{ width: `${pct}%` }}
           />
         </div>
       ) : (
-        <div className="w-full bg-slate-700 rounded h-3 overflow-hidden">
-          <div className="h-3 rounded bg-blue-500/60 animate-indeterminate" />
+        <div className="w-full bg-line rounded-full h-1.5 overflow-hidden">
+          <div className="progress-fill h-1.5 rounded-full animate-indeterminate" />
         </div>
       )}
     </div>

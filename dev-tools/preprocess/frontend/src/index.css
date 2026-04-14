@@ -1,8 +1,31 @@
 @import "tailwindcss";
 
+@theme {
+  --color-canvas: #12100e;
+  --color-surface: #1c1816;
+  --color-surface-2: #231e1b;
+  --color-line: #2e2723;
+  --color-line-strong: #3d3530;
+  --color-fg: #f5f0eb;
+  --color-fg-muted: #a89e95;
+  --color-fg-dim: #5c524a;
+  --color-primary: #f0b90b;
+  --color-primary-hover: #d4a30a;
+  --color-secondary: #cd6b5e;
+  --color-info: #60a5fa;
+  --color-success: #4ade80;
+  --color-warning: #facc15;
+  --color-error: #ef4444;
+
+  --font-sans: "Pretendard", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: "Galmuri11", monospace;
+}
+
 body {
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--color-canvas);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
 @keyframes indeterminate {
@@ -13,4 +36,8 @@ body {
 .animate-indeterminate {
   width: 40%;
   animation: indeterminate 1.5s ease-in-out infinite;
+}
+
+.progress-fill {
+  background: linear-gradient(90deg, #f0b90b, #cd6b5e);
 }

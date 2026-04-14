@@ -177,8 +177,8 @@ export default function VideoDetail() {
   if (error) {
     return (
       <div className="max-w-4xl mx-auto p-6">
-        <p className="text-red-400">{error}</p>
-        <button className="text-blue-400 mt-2" onClick={() => navigate("/")}>
+        <p className="text-error">{error}</p>
+        <button className="text-primary mt-2 hover:text-primary-hover" onClick={() => navigate("/")}>
           돌아가기
         </button>
       </div>
@@ -186,7 +186,7 @@ export default function VideoDetail() {
   }
 
   if (!status) {
-    return <div className="max-w-4xl mx-auto p-6">로딩 중...</div>;
+    return <div className="max-w-4xl mx-auto p-6 text-fg-muted">로딩 중...</div>;
   }
 
   const stage = status.stage;
@@ -198,14 +198,14 @@ export default function VideoDetail() {
       {/* 헤더 */}
       <div className="flex items-center gap-4 mb-8">
         <button
-          className="bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white px-3 py-1.5 rounded-lg text-sm transition-colors"
+          className="bg-transparent border border-line hover:border-line-strong text-fg-muted hover:text-fg px-3.5 py-1.5 rounded-md text-[13px] font-semibold transition-colors"
           onClick={() => navigate("/")}
         >
           &larr; 목록
         </button>
         <div>
-          <h1 className="text-xl font-bold">{status.filename}</h1>
-          <span className="text-slate-500 text-xs font-mono">#{videoId}</span>
+          <h1 className="font-display text-xl font-bold text-fg">{status.filename}</h1>
+          <span className="text-fg-dim text-xs font-mono">#{videoId}</span>
         </div>
       </div>
 
@@ -225,8 +225,8 @@ export default function VideoDetail() {
                   <div
                     className={`flex-1 h-0.5 mt-4 transition-colors ${
                       stageIdx <= currentIdx || (isDone && stage === "done")
-                        ? "bg-green-600"
-                        : "bg-slate-700"
+                        ? "bg-primary"
+                        : "bg-line"
                     }`}
                   />
                 )}
@@ -238,21 +238,21 @@ export default function VideoDetail() {
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${
                       isCompleted
-                        ? "bg-green-600 text-white group-hover:bg-green-500"
+                        ? "bg-primary text-canvas group-hover:bg-primary-hover"
                         : isCurrent
-                          ? "bg-blue-600 text-white ring-2 ring-blue-400/50"
-                          : "bg-slate-700 text-slate-500"
+                          ? "bg-surface border-2 border-primary text-primary"
+                          : "bg-surface-2 border border-line text-fg-dim"
                     }`}
                   >
                     {isCompleted ? "\u2713" : isDone ? "" : i + 1}
                   </div>
                   <span
-                    className={`text-[10px] mt-1.5 whitespace-nowrap transition-colors ${
+                    className={`text-[10px] mt-1.5 whitespace-nowrap transition-colors font-semibold ${
                       isCompleted
-                        ? "text-green-400 group-hover:text-green-300"
+                        ? "text-primary group-hover:text-primary-hover"
                         : isCurrent
-                          ? "text-blue-300 font-semibold"
-                          : "text-slate-500"
+                          ? "text-primary"
+                          : "text-fg-dim"
                     }`}
                   >
                     {isDone ? "완료" : STAGE_LABELS[s]}
@@ -266,22 +266,22 @@ export default function VideoDetail() {
 
       {/* 롤백 힌트 */}
       {currentIdx > 0 && stage !== "done" && (
-        <p className="text-slate-600 text-[11px] text-center mb-6">
-          초록색 단계를 클릭하면 해당 단계부터 재처리할 수 있습니다
+        <p className="text-fg-dim text-[11px] text-center mb-6">
+          완료된 단계를 클릭하면 해당 단계부터 재처리할 수 있습니다
         </p>
       )}
       {(currentIdx === 0 || stage === "done") && <div className="mb-6" />}
 
       {/* 에러 표시 */}
       {status.error && (
-        <div className="bg-red-900/30 border border-red-700 rounded-xl p-6 mb-6">
-          <p className="text-red-300 font-semibold mb-2">
+        <div className="bg-error/[0.06] border border-error/25 rounded-xl p-5 mb-6">
+          <p className="text-error font-semibold mb-2">
             {STAGE_LABELS[status.error.stage] || status.error.stage} 단계에서 오류 발생
           </p>
-          <pre className="text-red-400 text-sm whitespace-pre-wrap break-words bg-red-950/50 rounded-lg p-3">
+          <pre className="text-error/90 text-sm whitespace-pre-wrap break-words bg-canvas border border-line rounded-lg p-3 font-mono">
             {status.error.message}
           </pre>
-          <p className="text-slate-500 text-xs mt-3">
+          <p className="text-fg-dim text-xs mt-3">
             아래 버튼으로 재실행하거나, 위 스테퍼에서 이전 단계를 클릭하여 롤백할 수 있습니다.
           </p>
         </div>
@@ -289,8 +289,8 @@ export default function VideoDetail() {
 
       {/* 처리 중 (폴링으로 진행률 표시) */}
       {isProcessing && status.processing && (
-        <div className="bg-slate-800 rounded-xl p-6 mb-6">
-          <p className="text-slate-300 text-sm font-medium mb-3">
+        <div className="bg-surface border border-line rounded-xl p-6 mb-6">
+          <p className="text-fg text-sm font-semibold mb-3">
             {STAGE_DESCRIPTIONS[status.processing.stage]?.title || STAGE_LABELS[status.processing.stage] || "처리 중"}
           </p>
           <ProgressBar
@@ -298,7 +298,7 @@ export default function VideoDetail() {
             message={status.processing.message}
           />
           {status.processing.stage === "separate" && (
-            <p className="text-slate-500 text-xs mt-3">
+            <p className="text-fg-dim text-xs mt-3">
               배경음 제거는 음원 길이에 따라 수 분~수십 분 소요될 수 있습니다. 이 페이지를 벗어나도 처리는 계속됩니다.
             </p>
           )}
@@ -310,32 +310,33 @@ export default function VideoDetail() {
         stage in STAGE_ACTIONS &&
         stage !== "classify" &&
         stage !== "classifying" && (
-          <div className="bg-slate-800 rounded-xl p-6">
+          <div className="bg-surface border border-line rounded-xl p-6">
             <div className="text-center mb-5">
-              <p className="text-blue-300 font-semibold text-lg mb-2">
+              <p className="text-primary text-[11px] font-bold uppercase tracking-[1.5px] mb-2 font-display">NEXT STEP</p>
+              <p className="font-display text-xl font-bold text-fg mb-2">
                 {STAGE_DESCRIPTIONS[stage]?.title || STAGE_LABELS[stage]}
               </p>
-              <p className="text-slate-400 text-sm max-w-md mx-auto">
+              <p className="text-fg-muted text-sm max-w-md mx-auto leading-relaxed">
                 {STAGE_DESCRIPTIONS[stage]?.desc}
               </p>
             </div>
             {pendingStage && (
-              <div className="bg-yellow-900/30 border border-yellow-700/50 rounded-lg p-4 mb-4 text-center">
-                <p className="text-yellow-300 text-sm mb-1">다른 영상의 배경음 제거가 진행 중입니다</p>
-                <p className="text-slate-400 text-xs">완료되면 자동으로 시작됩니다. 이 페이지에서 기다려주세요.</p>
+              <div className="bg-warning/[0.06] border border-warning/25 rounded-lg p-4 mb-4 text-center">
+                <p className="text-warning text-sm font-semibold mb-1">다른 영상의 배경음 제거가 진행 중입니다</p>
+                <p className="text-fg-muted text-xs">완료되면 자동으로 시작됩니다. 이 페이지에서 기다려주세요.</p>
               </div>
             )}
             {stageError && !pendingStage && (
-              <div className="bg-red-900/30 border border-red-700 rounded-lg p-3 mb-4 text-red-300 text-sm text-center">
+              <div className="bg-error/[0.06] border border-error/25 rounded-lg p-3 mb-4 text-error text-sm text-center">
                 {stageError}
               </div>
             )}
             <div className="text-center">
               <button
-                className={`px-8 py-2.5 rounded-lg font-medium transition-colors ${
+                className={`px-8 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
                   pendingStage
-                    ? "bg-yellow-600/50 text-yellow-200 cursor-wait animate-pulse"
-                    : "bg-blue-600 hover:bg-blue-700"
+                    ? "bg-warning/20 text-warning cursor-wait animate-pulse"
+                    : "bg-primary hover:bg-primary-hover text-canvas"
                 }`}
                 onClick={() => !pendingStage && handleRunStage(stage)}
                 disabled={!!pendingStage}
@@ -348,29 +349,30 @@ export default function VideoDetail() {
 
       {/* VAD 실행 (파라미터 설정 포함) */}
       {!isProcessing && stage === "vad" && (
-        <div className="bg-slate-800 rounded-xl p-6">
+        <div className="bg-surface border border-line rounded-xl p-6">
           {/* 단계 설명 */}
           <div className="text-center mb-6">
-            <p className="text-blue-300 font-semibold text-lg mb-2">
+            <p className="text-primary text-[11px] font-bold uppercase tracking-[1.5px] mb-2 font-display">NEXT STEP</p>
+            <p className="font-display text-xl font-bold text-fg mb-2">
               {STAGE_DESCRIPTIONS.vad.title}
             </p>
-            <p className="text-slate-400 text-sm max-w-lg mx-auto">
+            <p className="text-fg-muted text-sm max-w-lg mx-auto leading-relaxed">
               {STAGE_DESCRIPTIONS.vad.desc}
             </p>
           </div>
 
           {/* 프리셋 */}
           <div className="max-w-lg mx-auto mb-6">
-            <p className="text-slate-300 text-sm font-medium mb-2">빠른 설정</p>
+            <p className="text-fg text-sm font-semibold mb-2">빠른 설정</p>
             <div className="grid grid-cols-3 gap-2">
               {VAD_PRESETS.map((preset) => (
                 <button
                   key={preset.label}
-                  className="bg-slate-700/60 hover:bg-slate-700 border border-slate-600 hover:border-blue-500/50 rounded-lg px-3 py-2.5 text-left transition-colors"
+                  className="bg-canvas border border-line hover:border-primary/40 rounded-lg px-3 py-2.5 text-left transition-colors"
                   onClick={() => setVadParams({ ...preset.params })}
                 >
-                  <p className="text-slate-200 text-xs font-medium">{preset.label}</p>
-                  <p className="text-slate-500 text-[10px] mt-0.5">{preset.desc}</p>
+                  <p className="text-fg text-xs font-semibold">{preset.label}</p>
+                  <p className="text-fg-dim text-[10px] mt-0.5">{preset.desc}</p>
                 </button>
               ))}
             </div>
@@ -378,37 +380,37 @@ export default function VideoDetail() {
 
           {/* 세부 파라미터 */}
           <div className="space-y-4 mb-6 max-w-lg mx-auto text-sm">
-            <label className="block text-slate-400">
+            <label className="block text-fg-muted">
               <div className="flex items-center justify-between">
                 <span>세그먼트 최소 길이 (초)</span>
                 <input
                   type="number"
                   step="0.1"
-                  className="w-24 bg-slate-700 rounded-lg px-3 py-1.5 text-white text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-24 bg-canvas border border-line rounded-lg px-3 py-1.5 text-fg text-right focus:outline-none focus:border-primary/50 transition-colors"
                   value={vadParams.min_segment_sec}
                   onChange={(e) => setVadParams({ ...vadParams, min_segment_sec: +e.target.value })}
                 />
               </div>
-              <p className="text-slate-500 text-xs mt-1">
+              <p className="text-fg-dim text-xs mt-1">
                 이보다 짧은 대사는 버립니다. 너무 짧은 음성은 학습에 부적합하므로 1~2초를 권장합니다.
               </p>
             </label>
-            <label className="block text-slate-400">
+            <label className="block text-fg-muted">
               <div className="flex items-center justify-between">
                 <span>세그먼트 최대 길이 (초)</span>
                 <input
                   type="number"
                   step="0.5"
-                  className="w-24 bg-slate-700 rounded-lg px-3 py-1.5 text-white text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-24 bg-canvas border border-line rounded-lg px-3 py-1.5 text-fg text-right focus:outline-none focus:border-primary/50 transition-colors"
                   value={vadParams.max_segment_sec}
                   onChange={(e) => setVadParams({ ...vadParams, max_segment_sec: +e.target.value })}
                 />
               </div>
-              <p className="text-slate-500 text-xs mt-1">
+              <p className="text-fg-dim text-xs mt-1">
                 이보다 긴 대사는 자동으로 분할됩니다. TTS 학습에는 5~15초가 적합합니다.
               </p>
             </label>
-            <label className="block text-slate-400">
+            <label className="block text-fg-muted">
               <div className="flex items-center justify-between">
                 <span>음성 감지 임계값</span>
                 <input
@@ -416,28 +418,28 @@ export default function VideoDetail() {
                   step="0.05"
                   min="0"
                   max="1"
-                  className="w-24 bg-slate-700 rounded-lg px-3 py-1.5 text-white text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-24 bg-canvas border border-line rounded-lg px-3 py-1.5 text-fg text-right focus:outline-none focus:border-primary/50 transition-colors"
                   value={vadParams.threshold}
                   onChange={(e) => setVadParams({ ...vadParams, threshold: +e.target.value })}
                 />
               </div>
-              <p className="text-slate-500 text-xs mt-1">
+              <p className="text-fg-dim text-xs mt-1">
                 낮추면 더 많은 대사를 잡아내고, 올리면 확실한 음성만 남깁니다.
                 배경 잡음이 많으면 0.6~0.7로 올리고, 조용한 환경이면 0.3~0.5로 낮추세요.
               </p>
             </label>
-            <label className="block text-slate-400">
+            <label className="block text-fg-muted">
               <div className="flex items-center justify-between">
                 <span>대사 간 최소 무음 (ms)</span>
                 <input
                   type="number"
                   step="10"
-                  className="w-24 bg-slate-700 rounded-lg px-3 py-1.5 text-white text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-24 bg-canvas border border-line rounded-lg px-3 py-1.5 text-fg text-right focus:outline-none focus:border-primary/50 transition-colors"
                   value={vadParams.min_silence_ms}
                   onChange={(e) => setVadParams({ ...vadParams, min_silence_ms: +e.target.value })}
                 />
               </div>
-              <p className="text-slate-500 text-xs mt-1">
+              <p className="text-fg-dim text-xs mt-1">
                 대사와 대사 사이에 이 길이 이상의 무음이 있어야 별도 세그먼트로 분리합니다.
                 값이 너무 작으면 한 문장이 여러 조각으로 쪼개지고, 너무 크면 서로 다른 대사가 하나로 합쳐집니다.
               </p>
@@ -446,24 +448,24 @@ export default function VideoDetail() {
 
           {/* 상황별 팁 */}
           <details className="max-w-lg mx-auto mb-6">
-            <summary className="text-slate-400 text-xs cursor-pointer hover:text-slate-300 transition-colors">
+            <summary className="text-fg-muted text-xs cursor-pointer hover:text-fg transition-colors">
               상황별 조정 가이드 보기
             </summary>
-            <div className="bg-slate-700/40 rounded-lg p-4 mt-2 text-xs text-slate-400 space-y-1.5">
+            <div className="bg-canvas border border-line rounded-lg p-4 mt-2 text-xs text-fg-muted space-y-1.5 leading-relaxed">
               <p>
-                <span className="text-blue-400">두 화자가 빠르게 대화하는 영상</span>
+                <span className="text-primary font-semibold">두 화자가 빠르게 대화하는 영상</span>
                 {" \u2192 최소 무음을 30~50ms로 낮추면 대사가 더 잘 분리됩니다."}
               </p>
               <p>
-                <span className="text-blue-400">배경 음악/잡음이 남아있는 경우</span>
+                <span className="text-primary font-semibold">배경 음악/잡음이 남아있는 경우</span>
                 {" \u2192 감지 임계값을 0.6~0.7로 올려 잡음을 걸러내세요."}
               </p>
               <p>
-                <span className="text-blue-400">긴 독백이 많은 영상</span>
+                <span className="text-primary font-semibold">긴 독백이 많은 영상</span>
                 {" \u2192 최대 길이를 10~15초로 설정하면 자연스러운 분할이 됩니다."}
               </p>
               <p>
-                <span className="text-blue-400">짧은 감탄사/추임새가 많은 경우</span>
+                <span className="text-primary font-semibold">짧은 감탄사/추임새가 많은 경우</span>
                 {" \u2192 최소 길이를 1.5~2초로 올려 불필요한 세그먼트를 줄이세요."}
               </p>
             </div>
@@ -471,7 +473,7 @@ export default function VideoDetail() {
 
           <div className="text-center">
             <button
-              className="bg-blue-600 hover:bg-blue-700 px-8 py-2.5 rounded-lg font-medium transition-colors"
+              className="bg-primary hover:bg-primary-hover text-canvas px-8 py-2.5 rounded-lg font-semibold text-sm transition-colors"
               onClick={async () => {
                 if (!videoId) return;
                 await videosApi.startVad(videoId, vadParams);
@@ -480,7 +482,7 @@ export default function VideoDetail() {
             >
               VAD 세그먼팅 실행
             </button>
-            <p className="text-slate-500 text-xs mt-3">
+            <p className="text-fg-dim text-xs mt-3">
               실행 후 에러 메시지가 나타나지 않으면 정상적으로 진행 중입니다. 잠시 기다려주세요.
             </p>
           </div>
@@ -499,24 +501,24 @@ export default function VideoDetail() {
 
       {/* 완료 */}
       {stage === "done" && (
-        <div className="bg-gradient-to-br from-green-900/30 to-slate-800/30 border border-green-700/50 rounded-xl p-8 text-center">
-          <div className="w-14 h-14 rounded-full bg-green-600 flex items-center justify-center text-xl mx-auto mb-4">
+        <div className="bg-success/[0.06] border border-success/25 rounded-xl p-8 text-center">
+          <div className="w-14 h-14 rounded-full bg-success/15 border border-success/40 text-success flex items-center justify-center text-xl mx-auto mb-4">
             {"\u2713"}
           </div>
-          <p className="text-green-300 text-xl font-semibold mb-2">전처리 완료</p>
-          <p className="text-slate-400 text-sm mb-6">이 영상의 모든 전처리 단계가 완료되었습니다.</p>
+          <p className="font-display text-xl font-bold text-success mb-2">전처리 완료</p>
+          <p className="text-fg-muted text-sm mb-6">이 영상의 모든 전처리 단계가 완료되었습니다.</p>
 
           {status.summary && status.summary.length > 0 && (
             <div className="max-w-sm mx-auto space-y-2 mb-6">
               {status.summary.map((s) => (
                 <div
                   key={s.name}
-                  className="flex justify-between items-center bg-green-900/20 rounded-lg px-4 py-2.5 text-sm"
+                  className="flex justify-between items-center bg-canvas border border-line rounded-lg px-4 py-2.5 text-sm"
                 >
-                  <span className={s.name === "discarded" ? "text-slate-500" : "text-slate-200"}>
+                  <span className={s.name === "discarded" ? "text-fg-dim" : "text-fg font-semibold"}>
                     {s.name === "discarded" ? "버림" : s.name}
                   </span>
-                  <span className="text-slate-400 font-mono text-xs">
+                  <span className="text-fg-muted font-mono text-xs">
                     {s.count}개 / {Math.floor(s.total_duration / 60)}분 {Math.round(s.total_duration % 60)}초
                   </span>
                 </div>
@@ -524,7 +526,7 @@ export default function VideoDetail() {
             </div>
           )}
 
-          <p className="text-slate-500 text-sm">
+          <p className="text-fg-dim text-sm">
             대시보드로 돌아가 데이터셋을 생성하거나, 추가 영상을 업로드하여 데이터를 더 수집하세요.
           </p>
         </div>

@@ -4,6 +4,9 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  resolve: {
+    extensions: [".mjs", ".tsx", ".ts", ".jsx", ".js", ".json"],
+  },
   build: {
     outDir: "../static",
     emptyOutDir: true,
