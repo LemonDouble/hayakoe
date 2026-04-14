@@ -17,6 +17,10 @@ export default defineConfig({
   },
 
   head: [
+    ['link', { rel: 'icon', href: '/hayakoe/favicon.ico', sizes: '48x48' }],
+    ['link', { rel: 'icon', href: '/hayakoe/favicon-32.png', type: 'image/png', sizes: '32x32' }],
+    ['link', { rel: 'icon', href: '/hayakoe/favicon-192.png', type: 'image/png', sizes: '192x192' }],
+    ['link', { rel: 'apple-touch-icon', href: '/hayakoe/apple-touch-icon.png' }],
     ['meta', { name: 'theme-color', content: '#F0B90B' }],
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:title', content: 'HayaKoe' }],
@@ -24,6 +28,8 @@ export default defineConfig({
   ],
 
   themeConfig: {
+    logo: { src: '/lemon-logo.webp', alt: 'Lemon' },
+
     nav: [
       { text: '퀵스타트', link: '/quickstart/' },
       { text: '자체 화자 학습', link: '/training/' },

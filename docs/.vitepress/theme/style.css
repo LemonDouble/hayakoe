@@ -6,3 +6,15 @@
 .VPHero .main .tagline {
   max-width: none;
 }
+
+.VPHero .main .heading .name {
+  display: block;
+  margin-bottom: 24px;
+}
+
+.VPNavBarTitle .logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  margin-right: 10px;
+}
