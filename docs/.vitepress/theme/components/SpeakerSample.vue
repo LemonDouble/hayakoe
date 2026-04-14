@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, ref } from 'vue'
 
 defineProps<{
   name: string
@@ -12,6 +12,26 @@ const playing = ref(false)
 const currentTime = ref(0)
 const duration = ref(0)
 
+let rafId = 0
+
+function tick() {
+  const el = audioEl.value
+  if (!el) return
+  currentTime.value = el.currentTime
+  rafId = requestAnimationFrame(tick)
+}
+
+function startTicking() {
+  if (rafId) return
+  rafId = requestAnimationFrame(tick)
+}
+
+function stopTicking() {
+  if (!rafId) return
+  cancelAnimationFrame(rafId)
+  rafId = 0
+}
+
 function toggle() {
   const el = audioEl.value
   if (!el) return
@@ -21,20 +41,26 @@ function toggle() {
 
 function onPlay() {
   playing.value = true
+  startTicking()
 }
 function onPause() {
   playing.value = false
+  stopTicking()
+  currentTime.value = audioEl.value?.currentTime ?? 0
 }
 function onEnd() {
   playing.value = false
+  stopTicking()
   currentTime.value = 0
 }
-function onTimeUpdate() {
+function onSeeked() {
   currentTime.value = audioEl.value?.currentTime ?? 0
 }
 function onLoaded() {
   duration.value = audioEl.value?.duration ?? 0
 }
+
+onBeforeUnmount(stopTicking)
 
 function fmt(t: number): string {
   if (!isFinite(t) || t < 0) return '0:00'
@@ -97,7 +123,7 @@ function seek(e: MouseEvent) {
       @play="onPlay"
       @pause="onPause"
       @ended="onEnd"
-      @timeupdate="onTimeUpdate"
+      @seeked="onSeeked"
       @loadedmetadata="onLoaded"
     />
   </div>
@@ -183,7 +209,6 @@ function seek(e: MouseEvent) {
 .fill {
   height: 100%;
   background: var(--vp-c-brand-1);
-  transition: width 0.08s linear;
 }
 
 .time {
