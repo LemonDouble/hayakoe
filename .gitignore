@@ -16,6 +16,7 @@ PROGRESS.md
 
 # Test outputs
 *.wav
+!/docs/public/**/*.wav
 /test_samples/
 
 # misc
@@ -26,3 +27,16 @@ PROGRESS.md
 /hayakoe_cache/
 
 data
+
+# docs (vitepress)
+/docs/node_modules/
+/docs/.vitepress/cache/
+/docs/.vitepress/dist/
+/docs/.vitepress/guidelines.md
+/docs/benchmarks/memory/results_*.jsonl
+
+# local working notes
+DOCS-FACTS.md
+arm-support-research.md
+/tmp/
+/docs-wip/

@@ -1,0 +1,8 @@
+.VPHero .main {
+  max-width: 960px;
+}
+
+.VPHero .main .text,
+.VPHero .main .tagline {
+  max-width: none;
+}
