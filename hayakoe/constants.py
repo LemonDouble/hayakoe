@@ -37,8 +37,6 @@ def default_cache_dir() -> Path:
 # JP BERT model
 BERT_JP_REPO = "ku-nlp/deberta-v2-large-japanese-char-wwm"
 
-DEFAULT_USER_DICT_DIR = Path.home() / ".cache" / "hayakoe" / "user_dict"
-
 # Default inference parameters
 DEFAULT_STYLE = "Neutral"
 DEFAULT_STYLE_WEIGHT = 1.0

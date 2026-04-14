@@ -2,9 +2,10 @@ import re
 from typing import TypedDict
 
 
+import pyopenjtalk
+
 from hayakoe.logging import logger
 from hayakoe.nlp import bert_models
-from hayakoe.nlp.japanese import pyopenjtalk_worker as pyopenjtalk
 from hayakoe.nlp.japanese.mora_list import MORA_KATA_TO_MORA_PHONEMES, VOWELS
 from hayakoe.nlp.japanese.normalizer import replace_punctuation
 from hayakoe.nlp.symbols import PUNCTUATIONS
