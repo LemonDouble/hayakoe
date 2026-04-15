@@ -36,7 +36,7 @@ function formatDuration(seconds: number): string {
 
 const WORKFLOW_STEPS = [
   { n: "1", label: "화자 등록", desc: "목소리 주인 등록" },
-  { n: "2", label: "영상 업로드", desc: "학습 소스 준비" },
+  { n: "2", label: "영상·오디오 업로드", desc: "학습 소스 준비" },
   { n: "3", label: "영상별 전처리", desc: "6단계 파이프라인" },
   { n: "4", label: "데이터셋 생성", desc: "학습 데이터 출력" },
   { n: "5", label: "CLI 학습", desc: "남은 학습은 CLI에서" },
@@ -93,6 +93,14 @@ export default function Dashboard() {
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.name.toLowerCase() === "extracted.wav") {
+      alert(
+        "파일명이 'extracted.wav' 인 파일은 업로드할 수 없습니다.\n" +
+        "전처리 파이프라인 내부에서 사용하는 이름과 충돌하므로, 다른 이름으로 바꿔 다시 업로드해주세요."
+      );
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
     await videosApi.uploadVideo(file);
     await refresh();
     if (fileRef.current) fileRef.current.value = "";
@@ -227,7 +235,7 @@ export default function Dashboard() {
       <section className={`mb-5 bg-surface border border-line rounded-xl p-6 transition-opacity ${!hasSpeakers ? "opacity-40" : ""}`}>
         <div className="flex items-center gap-2.5 mb-1">
           <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${hasSpeakers ? "bg-primary text-canvas" : "bg-line text-fg-dim"}`}>2</span>
-          <h2 className="font-display text-xl font-bold text-fg">영상 업로드</h2>
+          <h2 className="font-display text-xl font-bold text-fg">영상·오디오 업로드</h2>
         </div>
         <p className="text-fg-muted text-sm mb-4 ml-10 leading-relaxed">
           학습에 사용할 영상 또는 오디오 파일을 업로드합니다.
