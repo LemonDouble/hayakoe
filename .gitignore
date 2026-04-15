@@ -12,6 +12,7 @@ PROGRESS.md
 /benchmarks/
 !/dev-tools/backend/projects/.gitkeep
 /dev-tools/preprocess/frontend/node_modules/
+/dev-tools/preprocess/frontend/src/**/*.js
 /dev-tools/preprocess/static/
 
 # Test outputs
