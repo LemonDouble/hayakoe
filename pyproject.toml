@@ -80,4 +80,10 @@ dev = [
     "typer>=0.15",
     "InquirerPy>=0.3.4",
     "rich>=13.0",
+    # Task runner
+    "poethepoet>=0.30",
 ]
+
+[tool.poe.tasks]
+preprocess = { cmd = "python dev-tools/preprocess/server.py", help = "전처리 GUI 서버 실행 (기본: http://localhost:8000)" }
+cli = { cmd = "python dev-tools/cli/main.py", help = "학습·품질 리포트·배포용 인터랙티브 CLI 실행" }

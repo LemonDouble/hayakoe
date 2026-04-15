@@ -258,8 +258,7 @@ TTS (엔진)
 모델 학습부터 배포 준비까지를 지원하는 인터랙티브 CLI입니다.
 
 ```bash
-cd dev-tools
-python -m cli
+uv run poe cli
 ```
 
 | 단계 | 기능 | 설명 |

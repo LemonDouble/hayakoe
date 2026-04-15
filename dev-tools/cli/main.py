@@ -1,7 +1,7 @@
 """HayaKoe 개발 도구 CLI 진입점.
 
 사용법:
-    uv run python dev-tools/cli/main.py
+    uv run poe cli
 """
 
 import sys

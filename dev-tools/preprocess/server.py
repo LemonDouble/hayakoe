@@ -2,7 +2,7 @@
 """HayaKoe 전처리 서버.
 
 Usage:
-    python dev-tools/preprocess/server.py [--data-dir DIR] [--port PORT] [--host HOST]
+    uv run poe preprocess [--data-dir DIR] [--port PORT] [--host HOST]
 """
 
 import argparse
