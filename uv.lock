@@ -1390,7 +1390,7 @@ wheels = [
 
 [[package]]
 name = "hayakoe"
-version = "0.0.6"
+version = "0.0.8"
 source = { editable = "." }
 dependencies = [
     { name = "huggingface-hub" },
@@ -1436,7 +1436,7 @@ dev = [
 requires-dist = [
     { name = "boto3", marker = "extra == 's3'", specifier = ">=1.26" },
     { name = "huggingface-hub", specifier = ">=0.20" },
-    { name = "lemon-pyopenjtalk-prebuilt", specifier = "==0.0.7" },
+    { name = "lemon-pyopenjtalk-prebuilt", specifier = "==0.0.9" },
     { name = "loguru", specifier = "==0.7.3" },
     { name = "num2words", specifier = "==0.5.14" },
     { name = "numba", specifier = "==0.65.0" },
@@ -1770,23 +1770,23 @@ wheels = [
 
 [[package]]
 name = "lemon-pyopenjtalk-prebuilt"
-version = "0.0.7"
+version = "0.0.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a9/9b/1bfa7905cd6059d9a7b06eb243f6d2141d79111e3d3c3be80437d3a9e6b7/lemon_pyopenjtalk_prebuilt-0.0.7.tar.gz", hash = "sha256:b9c1d6e649fccd1bd57da50c0debf1f044b7f79dbbd20a3f8e3b3522aaeb5409", size = 1397289, upload-time = "2026-03-14T16:19:30.967Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b8/c3/4698b208e0aa424f62f2bd33df5b8ee3f2211f88d7ec9a6b46ed0ddd81d3/lemon_pyopenjtalk_prebuilt-0.0.9.tar.gz", hash = "sha256:a58409ff66be4a40142984225bf1eaeb372ede3cf7c3b492545d0971d0262bea", size = 24890015, upload-time = "2026-04-17T01:30:29.016Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bb/81/4ff5110d737634d1b79ddf570aabdb4935f3cfb76ce667c75f20b5d8886f/lemon_pyopenjtalk_prebuilt-0.0.7-cp310-cp310-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:1041d364ac07ee78efd6911c3529008135f47526ea30de51b9966ecf9cbd827e", size = 6696657, upload-time = "2026-03-14T16:19:19.478Z" },
-    { url = "https://files.pythonhosted.org/packages/24/c9/4fe3b31ca1dbe392f21ae78687952e6db255a3c8fb3d16ba0cecf2064cdd/lemon_pyopenjtalk_prebuilt-0.0.7-cp310-cp310-win_amd64.whl", hash = "sha256:e7231aaf061bb02631ae99c6c4b2f1ce1bce7b6d156bca1ef1de533a344f27c7", size = 1060446, upload-time = "2026-03-14T16:19:21.148Z" },
-    { url = "https://files.pythonhosted.org/packages/25/b8/4d29a294c57176d73b30cabffce14c20813054f3e46f96732cafc397086e/lemon_pyopenjtalk_prebuilt-0.0.7-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:6190b3f8b7003c2e2bd6561729b2370da70a2106a8e4c5a7337abcad90946263", size = 6742410, upload-time = "2026-03-14T16:19:22.977Z" },
-    { url = "https://files.pythonhosted.org/packages/56/0d/2a1c0676297c1eff02e63b3ea812220469e363f7c53b330ea9880a606276/lemon_pyopenjtalk_prebuilt-0.0.7-cp311-cp311-win_amd64.whl", hash = "sha256:328937d4d85327edce1766819d5a47288620679e05d3b4c9d45acf60ae7f00aa", size = 1060627, upload-time = "2026-03-14T16:19:24.4Z" },
-    { url = "https://files.pythonhosted.org/packages/63/57/662f662b84abc9cd3d7a054ac5fbc172b5d215ebf696ef231fd3329dee30/lemon_pyopenjtalk_prebuilt-0.0.7-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:790860db2251d19d512433e15091661e4fd5bf5b5d62ff8169111441cb52c3d1", size = 6754475, upload-time = "2026-03-14T16:19:25.841Z" },
-    { url = "https://files.pythonhosted.org/packages/9c/0e/b210137bb6d6dbd1280c6e75f9f0dc83fabd8ac13a3145f527f7564b8693/lemon_pyopenjtalk_prebuilt-0.0.7-cp312-cp312-win_amd64.whl", hash = "sha256:e33106a379c923edeb0c79da80e0a7390eb8479b8000f41a202c41ab2c4f63fb", size = 1062059, upload-time = "2026-03-14T16:19:27.317Z" },
-    { url = "https://files.pythonhosted.org/packages/4c/be/d1caf89542fc3787e2c88ea6ba21d7b19cd1ae067926ed6b0b83803f53fd/lemon_pyopenjtalk_prebuilt-0.0.7-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e54a9f89edab6f49d7fb4694078063cd8c81b1c56ac1265a921aaace2d60adbd", size = 6757688, upload-time = "2026-03-14T16:19:28.56Z" },
-    { url = "https://files.pythonhosted.org/packages/d9/0d/7cce980b165389405dc7c7e5e4737e2d955e799a6bdabbf6789d3bc92afb/lemon_pyopenjtalk_prebuilt-0.0.7-cp313-cp313-win_amd64.whl", hash = "sha256:7a69a0855b7bb0725566973c03d97f74040e288659b5921d1edecac5ee432249", size = 1062216, upload-time = "2026-03-14T16:19:29.892Z" },
+    { url = "https://files.pythonhosted.org/packages/4f/f6/e8e5498cb63a793e5679dea543de40b65d7452d7e336fc3d9ef0fc4385d9/lemon_pyopenjtalk_prebuilt-0.0.9-cp310-cp310-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:a1f473eaa66c9ef05f51dac29a34dd0d7a45d5a1ab346e8cc99573a1d1656d28", size = 30288388, upload-time = "2026-04-17T01:30:01.547Z" },
+    { url = "https://files.pythonhosted.org/packages/e5/a2/00b31db7b26a81b059a14ca986bd25baddbf65b8bf25b7dacb59d3bd7094/lemon_pyopenjtalk_prebuilt-0.0.9-cp310-cp310-win_amd64.whl", hash = "sha256:f5814f5e6818a58bb6f85e2eab4a92562e870b49d059048bacc28690b0c99052", size = 24652011, upload-time = "2026-04-17T01:30:04.287Z" },
+    { url = "https://files.pythonhosted.org/packages/31/c8/997d6bd26f8bf51419be17e61fabd55eecb96bc12839068ead89547b7fed/lemon_pyopenjtalk_prebuilt-0.0.9-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:a2b650f80ee7af7c649ef136047ec03765b1e6baf1c539ddd5fda39bc5f49c4d", size = 30334140, upload-time = "2026-04-17T01:30:07.085Z" },
+    { url = "https://files.pythonhosted.org/packages/64/5f/1adddc48329cefbcd89c72fbbcaf884b802017240101f4a70c3babe57454/lemon_pyopenjtalk_prebuilt-0.0.9-cp311-cp311-win_amd64.whl", hash = "sha256:e8d04c5151cc26fdc7f62abb9eb101ed64073cfc41135dba4fc2dab508da2ce4", size = 24652264, upload-time = "2026-04-17T01:30:09.236Z" },
+    { url = "https://files.pythonhosted.org/packages/80/b3/d0123482bbc98980de54e94d67b665f52f02331bc1eb75d42231968d27cc/lemon_pyopenjtalk_prebuilt-0.0.9-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:0d5714f3c70a97dc8371da958f8d17c723c0f41f830f475fbe98406fc44386fe", size = 30346212, upload-time = "2026-04-17T01:30:12.155Z" },
+    { url = "https://files.pythonhosted.org/packages/f9/49/e7a6aba574801ad4ad9244db2964e039bb8749b1ec6954f40c0a8ac58b4f/lemon_pyopenjtalk_prebuilt-0.0.9-cp312-cp312-win_amd64.whl", hash = "sha256:46a84acb5d8edd749fbe085a79d2e24b71a565761aff744451754c9d4972dd82", size = 24653703, upload-time = "2026-04-17T01:30:14.892Z" },
+    { url = "https://files.pythonhosted.org/packages/34/49/d45784ce80d8b190fbb79a84607eeb7532732f8be1884e3876324da31f85/lemon_pyopenjtalk_prebuilt-0.0.9-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:b0d35570e238bed54acf4a51da9e9fa46574dbe55763133778571a7d21be8585", size = 30349421, upload-time = "2026-04-17T01:30:17.976Z" },
+    { url = "https://files.pythonhosted.org/packages/b2/f3/1e0b098b42de8475856c3d65098f3451988543f4eb3722bc4b3520b0a1a1/lemon_pyopenjtalk_prebuilt-0.0.9-cp313-cp313-win_amd64.whl", hash = "sha256:256a6643c5e42d7a873385c16d2e720d934ebe4030bb1c6fce9980de076fa66d", size = 24653870, upload-time = "2026-04-17T01:30:21.038Z" },
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
 [project]
 name = "hayakoe"
-version = "0.0.7"
+version = "0.0.8"
 description = "HayaKoe — Fast ONNX-optimized Japanese TTS based on Style-Bert-VITS2"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -18,7 +18,7 @@ dependencies = [
     "huggingface-hub>=0.20",
     "onnxruntime>=1.17",
     # NLP - Japanese
-    "lemon-pyopenjtalk-prebuilt==0.0.7",
+    "lemon-pyopenjtalk-prebuilt==0.0.9",
     "pyworld-prebuilt==0.3.5.post2",
     "num2words==0.5.14",
     "numba==0.65.0",
