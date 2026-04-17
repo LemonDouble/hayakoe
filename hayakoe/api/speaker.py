@@ -17,6 +17,15 @@ from hayakoe.models.hyper_parameters import HyperParameters
 from hayakoe.voice import adjust_voice
 
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[。！？!?\n])")
+
+
+def _intersperse_zero(lst: list) -> list:
+    """리스트 요소 사이에 0 을 삽입한다 (torch 없이 CPU 경로에서 사용)."""
+    result = [0] * (len(lst) * 2 + 1)
+    result[1::2] = lst
+    return result
+
+
 _MIN_PAUSE_SEC = 0.08  # 문장 간 최소 무음 보장 (80ms)
 _SILENCE_WINDOW_MS = 10  # 무음 측정 윈도우 (ms)
 
@@ -513,7 +522,6 @@ class Speaker:
 
     def _preprocess_nlp(self, text: str) -> tuple:
         """NLP 전처리 (BERT 제외): (norm_text, phone_seq, tone_seq, lang_seq, word2ph)."""
-        from hayakoe.models import commons
         from hayakoe.nlp import clean_text_with_given_phone_tone, cleaned_text_to_sequence
 
         hps = self._hps
@@ -525,9 +533,9 @@ class Speaker:
         phone_seq, tone_seq, lang_seq = cleaned_text_to_sequence(phone, tone, Languages.JP)
 
         if hps.data.add_blank:
-            phone_seq = commons.intersperse(phone_seq, 0)
-            tone_seq = commons.intersperse(tone_seq, 0)
-            lang_seq = commons.intersperse(lang_seq, 0)
+            phone_seq = _intersperse_zero(phone_seq)
+            tone_seq = _intersperse_zero(tone_seq)
+            lang_seq = _intersperse_zero(lang_seq)
             for i in range(len(word2ph)):
                 word2ph[i] *= 2
             word2ph[0] += 1
