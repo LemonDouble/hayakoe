@@ -124,12 +124,18 @@ class TTS:
 
     # ──────────────────────────── 실행 ────────────────────────────
 
-    def prepare(self) -> "TTS":
+    def prepare(self, *, warmup: bool = False) -> "TTS":
         """등록된 모든 화자 + BERT 를 다운로드하고 메모리에 올린다.
 
         - CPU: ONNX BERT Q8 세션 + 각 화자의 ONNX 세션을 만든다.
         - CUDA: PyTorch BERT FP32 + 화자 Synthesizer 로드 + ``torch.compile``
           자동 적용.
+
+        Args:
+            warmup: CUDA 백엔드에서 더미 추론 1회를 선행해 Triton 커널 JIT +
+                CUDA graph 캡처 비용을 prepare 단계로 옮긴다. 첫 실제 요청의
+                지연을 크게 줄여주므로 FastAPI 등 서빙 시나리오에 권장.
+                CPU 백엔드에서는 무시된다. 기본 ``False``.
 
         캐시에 이미 있는 파일은 재사용한다. 반복 호출은 no-op.
         Returns: ``self`` (체이닝용).
@@ -150,6 +156,8 @@ class TTS:
 
         if self._device.startswith("cuda") and self._speakers:
             self._compile_all()
+            if warmup:
+                self._warmup()
 
         self._prepared = True
         names = list(self._speakers.keys())
@@ -298,3 +306,27 @@ class TTS:
         for speaker in self._speakers.values():
             speaker._apply_compile()
         bert_models.compile_model()
+
+    def _warmup(self) -> None:
+        """각 화자에 대해 더미 추론 1회를 돌려 Triton 커널 JIT / CUDA graph
+        캡처를 prepare 시점에 선행한다.
+
+        ``_compile_all`` 다음 단계로 실행되며, 실패해도 prepare 는 계속 진행.
+        """
+        import time
+
+        sample = "こんにちは、テストです。"
+        for speaker in self._speakers.values():
+            style = next(iter(speaker._style2id.keys()))
+            t0 = time.perf_counter()
+            try:
+                speaker.generate(sample, style=style)
+            except Exception as e:
+                logger.warning(
+                    f"Warmup failed for speaker '{speaker.name}': {e}"
+                )
+                continue
+            logger.info(
+                f"Speaker '{speaker.name}' warmed up in "
+                f"{time.perf_counter() - t0:.1f}s"
+            )

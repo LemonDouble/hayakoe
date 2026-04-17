@@ -159,7 +159,7 @@ def _load_tts() -> None:
     tts = TTS(device="cuda")
     for name in SPEAKERS:
         tts.load(name)
-    tts.prepare()  # 모든 화자 materialize + torch.compile 자동
+    tts.prepare(warmup=True)  # 화자 materialize + torch.compile + Triton 워밍업
     app.state.tts = tts
 
 def get_speaker(name: SpeakerName, request: Request) -> Speaker:
