@@ -308,19 +308,28 @@ class TTS:
         bert_models.compile_model()
 
     def _warmup(self) -> None:
-        """각 화자에 대해 더미 추론 1회를 돌려 Triton 커널 JIT / CUDA graph
+        """각 화자에 대해 더미 추론을 돌려 Triton 커널 JIT / CUDA graph
         캡처를 prepare 시점에 선행한다.
+
+        단일 문장 + 다중 문장 2종으로 돌려서 ``net_g.infer`` 와
+        ``net_g.predict_durations`` 두 compile path 를 모두 데운다.
+        길이가 다른 입력 2개는 Dynamo ``automatic_dynamic`` 을 트리거해
+        이후 다른 길이 요청의 full re-trace 도 피한다.
 
         ``_compile_all`` 다음 단계로 실행되며, 실패해도 prepare 는 계속 진행.
         """
         import time
 
-        sample = "こんにちは、テストです。"
+        samples = [
+            "こんにちは、テストです。",  # 단일 문장 → net_g.infer
+            "こんにちは。テストを始めます。",  # 다중 문장 → predict_durations + batch bert + infer
+        ]
         for speaker in self._speakers.values():
             style = next(iter(speaker._style2id.keys()))
             t0 = time.perf_counter()
             try:
-                speaker.generate(sample, style=style)
+                for sample in samples:
+                    speaker.generate(sample, style=style)
             except Exception as e:
                 logger.warning(
                     f"Warmup failed for speaker '{speaker.name}': {e}"
