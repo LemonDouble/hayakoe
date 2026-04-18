@@ -11,35 +11,49 @@ if TYPE_CHECKING:
 
 
 _CSS = """\
+@import url('https://cdn.jsdelivr.net/npm/galmuri/dist/galmuri.css');
+@import url('https://cdnjs.cloudflare.com/ajax/libs/pretendard/1.3.9/static/pretendard.min.css');
+:root{
+  --color-primary:#F0B90B;--color-secondary:#CD6B5E;
+  --color-bg-dark:#12100E;--color-surface:#1C1816;--color-surface-hover:#231E1B;
+  --color-border:#2E2723;--color-border-hover:#3D3530;
+  --color-text-primary:#F5F0EB;--color-text-secondary:#A89E95;--color-text-muted:#5C524A;
+  --color-primary-dim:rgba(240,185,11,0.12);--color-primary-dim-border:rgba(240,185,11,0.25);
+  --color-good:#4ADE80;--color-ok:#F0B90B;--color-slow:#CD6B5E;
+  --font-heading:'Galmuri11',monospace;
+  --font-body:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;
+}
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#0f172a;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.5}
-.c{max-width:1000px;margin:0 auto;padding:2rem}
-header{margin-bottom:2rem;padding-bottom:1.5rem;border-bottom:1px solid #1e293b}
-h1{font-size:1.5rem;font-weight:700;margin-bottom:.25rem}
-.sub{color:#64748b;font-size:.875rem}
-h2{font-size:1.125rem;font-weight:600;margin-bottom:1rem;color:#94a3b8}
-section{margin-bottom:2.5rem}
-.info{background:#1e293b;border-radius:.75rem;padding:1rem 1.25rem;border:1px solid #334155;margin-bottom:1.5rem}
-.info dt{color:#64748b;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
-.info dd{color:#e2e8f0;font-size:.875rem;margin-bottom:.5rem}
-.tw{overflow-x:auto;border-radius:.75rem;border:1px solid #334155}
-table{width:100%;border-collapse:collapse;background:#1e293b}
-th{background:#0f172a;padding:.75rem;text-align:center;font-size:.75rem;color:#64748b;font-weight:600;white-space:nowrap}
-td{padding:.75rem;border-top:1px solid #0f172a;text-align:center;vertical-align:middle;font-size:.875rem}
-tr:hover td{background:#1e293b99}
+body{background:var(--color-bg-dark);color:var(--color-text-secondary);font-family:var(--font-body);line-height:1.6;font-size:15px}
+.c{max-width:1000px;margin:0 auto;padding:32px 24px}
+header{margin-bottom:32px;padding-bottom:24px;border-bottom:1px solid var(--color-border)}
+h1{font-family:var(--font-heading);font-size:28px;font-weight:700;line-height:1.3;color:var(--color-text-primary);margin-bottom:8px}
+.sub{color:var(--color-text-muted);font-size:13px}
+h2{font-family:var(--font-heading);font-size:20px;font-weight:700;line-height:1.4;color:var(--color-text-primary);margin-bottom:16px}
+section{margin-bottom:40px}
+.info{background:var(--color-surface);border-radius:12px;padding:16px 20px;border:1px solid var(--color-border);margin-bottom:24px}
+.info dt{color:var(--color-text-muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.info dd{color:var(--color-text-primary);font-size:13px;margin-bottom:8px}
+.tw{overflow-x:auto;border-radius:12px;border:1px solid var(--color-border);background:var(--color-surface)}
+table{width:100%;border-collapse:collapse}
+thead{background:var(--color-bg-dark)}
+th{padding:12px 16px;font-family:var(--font-body);font-size:13px;font-weight:600;color:var(--color-text-secondary);text-align:center;border-bottom:1px solid var(--color-border);white-space:nowrap;position:sticky;top:0;z-index:1;background:var(--color-bg-dark)}
+td{padding:12px 16px;font-size:13px;color:var(--color-text-primary);border-bottom:1px solid var(--color-border);text-align:center;vertical-align:middle}
+tbody tr:hover td{background:var(--color-surface-hover)}
+tbody tr:last-child td{border-bottom:none}
 .tl{text-align:left!important}
-.good{color:#22c55e;font-weight:700}
-.ok{color:#eab308;font-weight:700}
-.slow{color:#ef4444;font-weight:700}
-.bar-bg{background:#334155;border-radius:4px;height:20px;position:relative;min-width:60px}
+.good{color:var(--color-good);font-weight:700}
+.ok{color:var(--color-ok);font-weight:700}
+.slow{color:var(--color-slow);font-weight:700}
+.bar-bg{background:var(--color-border);border-radius:4px;height:20px;position:relative;min-width:60px}
 .bar-fg{border-radius:4px;height:100%;position:absolute;left:0;top:0}
-.bar-label{position:absolute;right:6px;top:1px;font-size:11px;font-weight:600;color:#e2e8f0}
-.note{background:#1e293b;border-radius:.75rem;padding:1rem 1.25rem;border:1px solid #334155;margin-bottom:1.5rem;font-size:.85rem;color:#94a3b8;line-height:1.7}
-.note strong{color:#e2e8f0}
-.note .ex{color:#64748b;font-size:.8rem}
-.legend{display:inline-flex;align-items:center;gap:.35rem;margin-right:1rem;font-size:.8rem}
+.bar-label{position:absolute;right:6px;top:1px;font-size:11px;font-weight:600;color:var(--color-text-primary)}
+.note{background:var(--color-surface);border-radius:12px;padding:16px 20px;border:1px solid var(--color-border);margin-bottom:24px;font-size:13px;color:var(--color-text-secondary);line-height:1.7}
+.note strong{color:var(--color-text-primary)}
+.note .ex{color:var(--color-text-muted);font-size:12px}
+.legend{display:inline-flex;align-items:center;gap:6px;margin-right:16px;font-size:12px}
 .legend-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
-.ft{text-align:center;color:#334155;font-size:.75rem;margin-top:2rem;padding-top:1rem;border-top:1px solid #1e293b}
+.ft{text-align:center;color:var(--color-text-muted);font-size:12px;margin-top:32px;padding-top:16px;border-top:1px solid var(--color-border)}
 """
 
 
@@ -101,11 +115,11 @@ def build_benchmark_html(results: list[BenchmarkResult]) -> str:
         bar_pct = min(100, r.speed / max_speed * 100)
 
         if cls == "good":
-            bar_color = "#22c55e"
+            bar_color = "#4ADE80"
         elif cls == "ok":
-            bar_color = "#eab308"
+            bar_color = "#F0B90B"
         else:
-            bar_color = "#ef4444"
+            bar_color = "#CD6B5E"
 
         bar_html = (
             f'<div class="bar-bg">'
@@ -172,9 +186,9 @@ def build_benchmark_html(results: list[BenchmarkResult]) -> str:
       <strong>백엔드</strong>는 추론에 사용하는 엔진입니다.<br>
       · <strong>ONNX (CPU)</strong> — GPU 없이 동작합니다. 서버/로컬 배포에 적합합니다.<br>
       · <strong>PyTorch (CUDA)</strong> — NVIDIA GPU를 사용합니다. 고속 추론에 적합합니다.<br><br>
-      <span class="legend"><span class="legend-dot" style="background:#22c55e"></span> 10x 이상 (매우 빠름)</span>
-      <span class="legend"><span class="legend-dot" style="background:#eab308"></span> 1x~10x (실시간 이상)</span>
-      <span class="legend"><span class="legend-dot" style="background:#ef4444"></span> 1x 미만 (실시간 이하)</span>
+      <span class="legend"><span class="legend-dot" style="background:#4ADE80"></span> 10x 이상 (매우 빠름)</span>
+      <span class="legend"><span class="legend-dot" style="background:#F0B90B"></span> 1x~10x (실시간 이상)</span>
+      <span class="legend"><span class="legend-dot" style="background:#CD6B5E"></span> 1x 미만 (실시간 이하)</span>
     </div>
   </section>
 
@@ -194,7 +208,7 @@ def build_benchmark_html(results: list[BenchmarkResult]) -> str:
 
   <section>
     <h2>상세 결과</h2>
-    <p style="color:#64748b;font-size:.8rem;margin-bottom:.75rem">
+    <p style="color:var(--color-text-muted);font-size:12px;margin-bottom:12px">
       짧은/중간/긴 텍스트를 각각 5회 추론한 평균값입니다. (워밍업 2회 제외)
     </p>
     <div class="tw">
