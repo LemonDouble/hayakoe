@@ -92,14 +92,16 @@ def _audio_to_data_uri(sr: int, audio: np.ndarray) -> str:
 def _svg_chart(
     data: list[tuple[int, float]],
     title: str,
+    description: str = "",
     width: int = 500,
     height: int = 150,
-    color: str = "#3b82f6",
+    color: str = "#F0B90B",
 ) -> str:
+    desc_html = f'<div class="ms">{description}</div>' if description else ""
     if not data or len(data) < 2:
         return (
             f'<div class="mc"><div class="mt">{title}</div>'
-            '<p style="color:#475569;font-size:12px">데이터 없음</p></div>'
+            f'{desc_html}<p class="mn">데이터 없음</p></div>'
         )
 
     steps = [d[0] for d in data]
@@ -134,15 +136,16 @@ def _svg_chart(
     grid = ""
     for i in range(1, 4):
         gy = mt + ph * i / 4
-        grid += f'<line x1="{ml}" y1="{gy:.0f}" x2="{ml + pw}" y2="{gy:.0f}" stroke="#1e293b" stroke-width="1"/>'
+        grid += f'<line x1="{ml}" y1="{gy:.0f}" x2="{ml + pw}" y2="{gy:.0f}" stroke="#2E2723" stroke-width="1"/>'
 
     return f'''<div class="mc">
-  <div class="mt">{title} <span style="color:#e2e8f0;font-weight:600">{last_val:.4f}</span></div>
+  <div class="mt">{title} <span class="mv">{last_val:.4f}</span></div>
+  {desc_html}
   <svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">
     {grid}
     <polyline points="{' '.join(points)}" fill="none" stroke="{color}" stroke-width="1.5" stroke-linejoin="round"/>
-    <text x="{ml}" y="{height - 1}" fill="#475569" font-size="9" font-family="monospace">{min_s}</text>
-    <text x="{width - mr}" y="{height - 1}" fill="#475569" font-size="9" font-family="monospace" text-anchor="end">{max_s}</text>
+    <text x="{ml}" y="{height - 1}" fill="#5C524A" font-size="10" font-family="Pretendard,sans-serif">{min_s}</text>
+    <text x="{width - mr}" y="{height - 1}" fill="#5C524A" font-size="10" font-family="Pretendard,sans-serif" text-anchor="end">{max_s}</text>
   </svg>
 </div>'''
 
@@ -150,25 +153,43 @@ def _svg_chart(
 # ── HTML 빌드 ─────────────────────────────────────────────────
 
 _CSS = """\
+@import url('https://cdn.jsdelivr.net/npm/galmuri/dist/galmuri.css');
+@import url('https://cdnjs.cloudflare.com/ajax/libs/pretendard/1.3.9/static/pretendard.min.css');
+:root{
+  --color-primary:#F0B90B;--color-secondary:#CD6B5E;
+  --color-bg-dark:#12100E;--color-surface:#1C1816;--color-surface-hover:#231E1B;
+  --color-border:#2E2723;--color-border-hover:#3D3530;
+  --color-text-primary:#F5F0EB;--color-text-secondary:#A89E95;--color-text-muted:#5C524A;
+  --color-primary-dim:rgba(240,185,11,0.12);--color-primary-dim-border:rgba(240,185,11,0.25);
+  --font-heading:'Galmuri11',monospace;
+  --font-body:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;
+}
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#0f172a;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.5}
-.c{max-width:1400px;margin:0 auto;padding:2rem}
-header{margin-bottom:2rem;padding-bottom:1.5rem;border-bottom:1px solid #1e293b}
-h1{font-size:1.5rem;font-weight:700;margin-bottom:.25rem}
-.sub{color:#64748b;font-size:.875rem}
-h2{font-size:1.125rem;font-weight:600;margin-bottom:1rem;color:#94a3b8}
-section{margin-bottom:2.5rem}
-.mg{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.75rem}
-.mc{background:#1e293b;border-radius:.75rem;padding:.75rem 1rem;border:1px solid #334155}
-.mt{color:#94a3b8;font-size:.75rem;margin-bottom:.25rem}
-.tw{overflow-x:auto;border-radius:.75rem;border:1px solid #334155}
-table{width:100%;border-collapse:collapse;background:#1e293b}
-th{background:#0f172a;padding:.75rem;text-align:center;font-size:.75rem;color:#64748b;font-weight:600;white-space:nowrap;position:sticky;top:0;z-index:1}
-td{padding:.75rem;border-top:1px solid #0f172a;text-align:center;vertical-align:middle}
-.tc{text-align:left!important;max-width:320px;font-size:.8rem;color:#cbd5e1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-tr:hover td{background:#1e293b99}
-audio{width:180px;height:32px}
-.ft{text-align:center;color:#334155;font-size:.75rem;margin-top:2rem;padding-top:1rem;border-top:1px solid #1e293b}
+body{background:var(--color-bg-dark);color:var(--color-text-secondary);font-family:var(--font-body);line-height:1.6;font-size:15px}
+.c{max-width:1400px;margin:0 auto;padding:32px 24px}
+header{margin-bottom:32px;padding-bottom:24px;border-bottom:1px solid var(--color-border)}
+h1{font-family:var(--font-heading);font-size:28px;font-weight:700;line-height:1.3;color:var(--color-text-primary);margin-bottom:8px}
+.sub{color:var(--color-text-muted);font-size:13px}
+h2{font-family:var(--font-heading);font-size:20px;font-weight:700;line-height:1.4;color:var(--color-text-primary);margin-bottom:16px}
+section{margin-bottom:40px}
+.mg{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.mc{background:var(--color-surface);border:1px solid var(--color-border);border-radius:12px;padding:16px 20px;transition:border-color 0.2s}
+.mc:hover{border-color:var(--color-primary-dim-border)}
+.mt{color:var(--color-text-secondary);font-size:13px;font-weight:600;margin-bottom:4px}
+.mv{color:var(--color-text-primary);font-weight:700}
+.ms{color:var(--color-text-muted);font-size:11px;line-height:1.4;margin-bottom:8px}
+.mn{color:var(--color-text-muted);font-size:12px}
+.tw{overflow-x:auto;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface)}
+table{width:100%;border-collapse:collapse}
+thead{background:var(--color-bg-dark)}
+th{padding:12px 16px;font-family:var(--font-body);font-size:13px;font-weight:600;color:var(--color-text-secondary);text-align:center;border-bottom:1px solid var(--color-border);white-space:nowrap;position:sticky;top:0;z-index:1;background:var(--color-bg-dark)}
+td{padding:12px 16px;font-size:13px;color:var(--color-text-primary);border-bottom:1px solid var(--color-border);text-align:center;vertical-align:middle}
+.tc{text-align:left!important;max-width:320px;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.err{color:var(--color-text-muted);font-size:12px}
+tbody tr:hover td{background:var(--color-surface-hover)}
+tbody tr:last-child td{border-bottom:none}
+audio{width:200px;height:32px}
+.ft{text-align:center;color:var(--color-text-muted);font-size:12px;margin-top:32px;padding-top:16px;border-top:1px solid var(--color-border)}
 """
 
 _JS = """\
@@ -189,20 +210,26 @@ def _build_html(
 ) -> str:
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    # 차트
+    # 차트 — 디자인 시스템 토큰 + 구분용 보조 색
     chart_specs = [
-        ("loss/g/total", "Generator Loss", "#3b82f6"),
-        ("loss/g/mel", "Mel Loss", "#10b981"),
-        ("loss/d/total", "Discriminator Loss", "#f59e0b"),
-        ("loss/g/kl", "KL Loss", "#8b5cf6"),
-        ("loss/g/dur", "Duration Loss", "#ec4899"),
-        ("loss/g/fm", "Feature Matching Loss", "#06b6d4"),
+        ("loss/g/total", "Generator Loss",
+         "생성기 전체 손실. 낮을수록 판별기를 잘 속임", "#F0B90B"),
+        ("loss/g/mel", "Mel Loss",
+         "생성·타겟 mel-spectrogram의 L1 거리. 음색 재현 품질", "#4ADE80"),
+        ("loss/d/total", "Discriminator Loss",
+         "판별기 전체 손실. 실제와 생성 음성을 구분하는 능력", "#CD6B5E"),
+        ("loss/g/kl", "KL Loss",
+         "Posterior와 Prior 분포의 KL 발산. latent 정렬 지표", "#60A5FA"),
+        ("loss/g/dur", "Duration Loss",
+         "음소 지속 시간 예측 오차. 발화 리듬·속도 학습", "#EC4899"),
+        ("loss/g/fm", "Feature Matching Loss",
+         "판별기 중간 feature 매칭 오차. 학습 안정화 항", "#A78BFA"),
     ]
 
     charts = ""
-    for tag, title, color in chart_specs:
+    for tag, title, desc, color in chart_specs:
         if tag in metrics and len(metrics[tag]) >= 2:
-            charts += _svg_chart(metrics[tag], title, color=color)
+            charts += _svg_chart(metrics[tag], title, desc, color=color)
 
     metrics_section = ""
     if charts:
@@ -223,7 +250,7 @@ def _build_html(
             if uri:
                 tds += f'<td><audio controls preload="none"><source src="{uri}" type="audio/wav"></audio></td>'
             else:
-                tds += '<td style="color:#64748b;font-size:11px">오류</td>'
+                tds += '<td class="err">오류</td>'
         rows += f"<tr>{tds}</tr>\n"
 
     return f"""<!DOCTYPE html>
