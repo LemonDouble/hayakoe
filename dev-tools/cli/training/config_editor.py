@@ -1,6 +1,7 @@
 """config.json 인터랙티브 편집기."""
 
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -261,7 +262,25 @@ def _format_value(param: ParamDef, value: Any) -> str:
     return str(value)
 
 
-def _render_config_table(config: dict):
+def _count_train_lines(dataset_path: Path) -> int:
+    train_list = dataset_path / "train.list"
+    if not train_list.exists():
+        return 0
+    with open(train_list, encoding="utf-8") as f:
+        return sum(1 for line in f if line.strip())
+
+
+def _render_config_table(config: dict, train_count: int):
+    train = config.get("train", {})
+    epochs = train.get("epochs", 100)
+    batch_size = train.get("batch_size", 2)
+    eval_interval = train.get("eval_interval", 1000)
+
+    steps_per_epoch = math.ceil(train_count / batch_size) if train_count > 0 else 0
+    total_steps = steps_per_epoch * epochs
+    num_checkpoints = max(0, total_steps // eval_interval) if eval_interval > 0 else 0
+    disk_gb = (num_checkpoints * 240) / 1024
+
     table = Table(
         show_header=True,
         header_style="bold cyan",
@@ -293,6 +312,15 @@ def _render_config_table(config: dict):
         padding=(1, 2),
     ))
 
+    if train_count > 0:
+        summary = (
+            f"  [label]총 스텝[/label]  [value]{total_steps:,}[/value]"
+            f"  [dim]({steps_per_epoch} steps/epoch × {epochs} epochs)[/dim]"
+            f"    [label]예상 저장[/label]  [value]{num_checkpoints}[/value]회"
+            f"    [label]디스크[/label]  [value]~{disk_gb:.1f}GB[/value]"
+        )
+        console.print(summary)
+
 
 def _show_help(param: ParamDef, current_value: Any):
     """파라미터 도움말 패널 표시."""
@@ -314,9 +342,11 @@ def edit_config(dataset_path: Path) -> dict:
     with open(config_path, encoding="utf-8") as f:
         config = json.load(f)
 
+    train_count = _count_train_lines(dataset_path)
+
     while True:
         console.print()
-        _render_config_table(config)
+        _render_config_table(config, train_count)
         console.print()
 
         # 그룹 구분이 있는 선택 목록 구성
