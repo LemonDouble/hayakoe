@@ -683,7 +683,7 @@ def _reset_gpu_state_if_needed(device: str) -> None:
     같은 프로세스에서 여러 번 ``TTS(device="cuda").prepare()`` 를 돌릴 때
     - 글로벌 BERT (``bert_models._loaded_model``) 에 중첩 ``torch.compile``
       래핑이 쌓이는 것
-    - ``mode="reduce-overhead"`` CUDA Graphs 메모리 풀이 이전 compile 에
+    - CUDA Graphs 메모리 풀이 이전 compile 에
       남아 두 번째 캡처에서 충돌하는 것
     을 막기 위해 글로벌 모델을 해제하고 dynamo / cuda 캐시를 비운다.
     """

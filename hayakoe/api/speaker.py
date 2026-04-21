@@ -46,7 +46,7 @@ class Speaker:
 
     - **onnx** (CPU): ONNX Runtime 으로 추론. ``TTS(device="cpu")`` 에서 자동 선택.
     - **pytorch** (CUDA): PyTorch eager. ``TTS(device="cuda")`` 에서 자동 선택.
-    - **compiled** (CUDA): ``prepare()`` 가 자동으로 ``torch.compile(reduce-overhead)``
+    - **compiled** (CUDA): ``prepare()`` 가 자동으로 ``torch.compile``
       를 적용한 상태. 10-25% 추가 향상.
 
     **Thread safety** — 각 Speaker 인스턴스는 내부 ``threading.Lock`` 으로
@@ -767,10 +767,9 @@ class Speaker:
         )
 
     def _apply_compile(self) -> None:
-        """``torch.compile(mode="reduce-overhead")`` 를 Synthesizer 에 적용한다.
+        """``torch.compile(mode="default")`` 를 Synthesizer 에 적용한다.
 
         :meth:`TTS.prepare` 가 CUDA 디바이스에서 자동 호출한다.
-        CUDA Graphs + Triton 커널 퓨전으로 추론 속도를 10-25% 향상시킨다.
         BERT 는 공용 리소스이므로 여기서 건드리지 않고 TTS 레벨에서 한 번만
         compile 된다.
         """
@@ -784,7 +783,7 @@ class Speaker:
 
         net_g = self._ensure_pytorch_model()
         torch.set_float32_matmul_precision("high")
-        self._net_g = torch.compile(net_g, mode="reduce-overhead")
+        self._net_g = torch.compile(net_g, mode="default")
         self._backend = "compiled"
         logger.info(f"Speaker '{self.name}' → torch.compile backend")
 

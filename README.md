@@ -251,7 +251,7 @@ TTS (엔진)
 ```
 
 - **CPU**: ONNX Runtime (BERT Q8 + Synthesizer FP32)
-- **GPU**: PyTorch FP32 + `torch.compile(reduce-overhead)` — `prepare()` 가 자동 적용
+- **GPU**: PyTorch FP32 + `torch.compile` — `prepare()` 가 자동 적용
 
 ## 개발 도구 (Dev Tools)
 

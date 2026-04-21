@@ -4,8 +4,6 @@ from pathlib import Path
 from hayakoe.utils.strenum import StrEnum
 
 
-VERSION = "0.1.0"
-
 BASE_DIR = Path(__file__).parent.parent
 
 

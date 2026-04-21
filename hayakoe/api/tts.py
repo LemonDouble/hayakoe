@@ -36,7 +36,7 @@ class TTS:
 
     ``device`` 에 따라 백엔드를 자동 선택한다:
       - CPU → ONNX Runtime (Q8 BERT + FP32 Synthesizer)
-      - CUDA → PyTorch FP32 + ``torch.compile(reduce-overhead)``
+      - CUDA → PyTorch FP32 + ``torch.compile``
 
     기본 흐름 — **체이닝 지원**::
 
