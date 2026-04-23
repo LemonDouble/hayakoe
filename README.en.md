@@ -6,6 +6,10 @@ A high-speed Japanese TTS library based on [Style-Bert-VITS2](https://github.com
 
 **[Documentation](https://lemondouble.github.io/hayakoe/en/)** · **[Listen to Voice Samples](https://lemondouble.github.io/hayakoe/en/quickstart/#official-speaker-voice-samples)** · **[Deep Dive](https://lemondouble.github.io/hayakoe/en/deep-dive/)**
 
+> **📖 Check out the docs site first!** Everything from installation to parameter tuning, speaker training, server deployment, and architecture deep dives — all in one place.
+>
+> [한국어](https://lemondouble.github.io/hayakoe/) · [日本語](https://lemondouble.github.io/hayakoe/ja/) · [中文](https://lemondouble.github.io/hayakoe/zh/) · [English](https://lemondouble.github.io/hayakoe/en/)
+
 > Based on [Style-Bert-VITS2](https://github.com/litagin02/Style-Bert-VITS2) by litagin02 (AGPL-3.0)
 
 ## Features

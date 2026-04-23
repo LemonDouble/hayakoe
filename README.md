@@ -6,6 +6,16 @@
 
 **[문서 사이트](https://lemondouble.github.io/hayakoe/)** · **[음성 샘플 듣기](https://lemondouble.github.io/hayakoe/quickstart/#공식-화자-음성-샘플)** · **[깊이 읽기](https://lemondouble.github.io/hayakoe/deep-dive/)**
 
+> **📖 문서 사이트를 먼저 읽어보세요!** 설치부터 파라미터 조절, 자체 화자 학습, 서버 배포, 아키텍처 상세까지 모든 내용을 정리해 두었습니다.
+>
+> **📖 ドキュメントサイトをぜひご覧ください！** インストールからパラメータ調整、話者学習、サーバーデプロイ、アーキテクチャ詳細まですべてまとめています。
+>
+> **📖 请先阅读文档站点！** 从安装到参数调节、话者训练、服务器部署、架构详解，所有内容都已整理完毕。
+>
+> **📖 Check out the docs site first!** Everything from installation to parameter tuning, speaker training, server deployment, and architecture deep dives — all in one place.
+>
+> [한국어](https://lemondouble.github.io/hayakoe/) · [日本語](https://lemondouble.github.io/hayakoe/ja/) · [中文](https://lemondouble.github.io/hayakoe/zh/) · [English](https://lemondouble.github.io/hayakoe/en/)
+
 > Based on [Style-Bert-VITS2](https://github.com/litagin02/Style-Bert-VITS2) by litagin02 (AGPL-3.0)
 
 ## 특징

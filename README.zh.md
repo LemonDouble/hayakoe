@@ -4,7 +4,11 @@
 
 基于 [Style-Bert-VITS2](https://github.com/litagin02/Style-Bert-VITS2) 的高速日语 TTS 库。
 
-**[文档站点](https://lemondouble.github.io/hayakoe/zh/)** · **[试听语音样本](https://lemondouble.github.io/hayakoe/zh/quickstart/#公式-化者-音声-サンプル)** · **[深入阅读](https://lemondouble.github.io/hayakoe/zh/deep-dive/)**
+**[文档站点](https://lemondouble.github.io/hayakoe/zh/)** · **[试听语音样本](https://lemondouble.github.io/hayakoe/zh/quickstart/)** · **[深入阅读](https://lemondouble.github.io/hayakoe/zh/deep-dive/)**
+
+> **📖 请先阅读文档站点！** 从安装到参数调节、话者训练、服务器部署、架构详解，所有内容都已整理完毕。
+>
+> [한국어](https://lemondouble.github.io/hayakoe/) · [日本語](https://lemondouble.github.io/hayakoe/ja/) · [中文](https://lemondouble.github.io/hayakoe/zh/) · [English](https://lemondouble.github.io/hayakoe/en/)
 
 > Based on [Style-Bert-VITS2](https://github.com/litagin02/Style-Bert-VITS2) by litagin02 (AGPL-3.0)
 
