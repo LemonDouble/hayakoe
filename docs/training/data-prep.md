@@ -34,7 +34,7 @@ ffmpeg -version
 uv run poe preprocess
 ```
 
-브라우저로 <http://localhost:8000> 에 접속하면 대시보드를 볼 수 있습니다.
+브라우저로 `http://localhost:8000` 에 접속하면 대시보드를 볼 수 있습니다.
 
 ::: tip 실행했더니 "address already in use" 오류가 뜬다면
 8000번 포트를 다른 프로그램이 이미 쓰고 있다는 뜻입니다.
@@ -52,7 +52,7 @@ ERROR:    [Errno 98] error while attempting to bind on address
 uv run poe preprocess --port 8123
 ```
 
-이 경우 접속 주소도 <http://localhost:8123> 으로 바뀝니다.
+이 경우 접속 주소도 `http://localhost:8123` 으로 바뀝니다.
 :::
 
 ## 기본 워크플로우
