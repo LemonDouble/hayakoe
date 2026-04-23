@@ -21,14 +21,21 @@
 
 ## 이런 음성을 마음껏 만들 수 있어요
 
-퀵스타트가 끝나면, 아래 네 화자가 내 손에 쥐어집니다.
+퀵스타트가 끝나면, 아래 화자들이 내 손에 쥐어집니다.
 
-같은 문장 ("こんにちは、はじめまして。") 을 네 명이 각자 말한 샘플입니다.
+같은 문장 ("こんにちは、はじめまして。") 을 각 화자가 말한 샘플입니다.
 
-<SpeakerSample name="jvnv-F1-jp  —  여성 화자 1" src="/hayakoe/samples/hello_jvnv-F1-jp.wav" />
-<SpeakerSample name="jvnv-F2-jp  —  여성 화자 2" src="/hayakoe/samples/hello_jvnv-F2-jp.wav" />
-<SpeakerSample name="jvnv-M1-jp  —  남성 화자 1" src="/hayakoe/samples/hello_jvnv-M1-jp.wav" />
-<SpeakerSample name="jvnv-M2-jp  —  남성 화자 2" src="/hayakoe/samples/hello_jvnv-M2-jp.wav" />
+<SpeakerSample badge="JVNV" name="jvnv-F1-jp  —  여성 화자 1" src="/hayakoe/samples/hello_jvnv-F1-jp.wav" />
+<SpeakerSample badge="JVNV" name="jvnv-F2-jp  —  여성 화자 2" src="/hayakoe/samples/hello_jvnv-F2-jp.wav" />
+<SpeakerSample badge="JVNV" name="jvnv-M1-jp  —  남성 화자 1" src="/hayakoe/samples/hello_jvnv-M1-jp.wav" />
+<SpeakerSample badge="JVNV" name="jvnv-M2-jp  —  남성 화자 2" src="/hayakoe/samples/hello_jvnv-M2-jp.wav" />
+<SpeakerSample badge="つくよみちゃん" badgeIcon="/hayakoe/images/speakers/tsukuyomi.png" name="tsukuyomi_chan  —  애니메이션풍" src="/hayakoe/samples/hello_tsukuyomi_chan.wav" />
+<SpeakerSample badge="あみたろ" badgeIcon="/hayakoe/images/speakers/amitaro.png" name="amitaro_normal  —  노멀" src="/hayakoe/samples/hello_amitaro_normal.wav" />
+<SpeakerSample badge="あみたろ" badgeIcon="/hayakoe/images/speakers/amitaro.png" name="amitaro_runrun  —  설렘" src="/hayakoe/samples/hello_amitaro_runrun.wav" />
+<SpeakerSample badge="あみたろ" badgeIcon="/hayakoe/images/speakers/amitaro.png" name="amitaro_yofukashi  —  차분" src="/hayakoe/samples/hello_amitaro_yofukashi.wav" />
+<SpeakerSample badge="あみたろ" badgeIcon="/hayakoe/images/speakers/amitaro.png" name="amitaro_punsuka  —  화남" src="/hayakoe/samples/hello_amitaro_punsuka.wav" />
+<SpeakerSample badge="あみたろ" badgeIcon="/hayakoe/images/speakers/amitaro.png" name="amitaro_sasayaki_a  —  속삭임A" src="/hayakoe/samples/hello_amitaro_sasayaki_a.wav" />
+<SpeakerSample badge="あみたろ" badgeIcon="/hayakoe/images/speakers/amitaro.png" name="amitaro_sasayaki_b  —  속삭임B" src="/hayakoe/samples/hello_amitaro_sasayaki_b.wav" />
 
 ::: info 자체 화자 학습은 준비 중
 녹음본을 준비해서 자체 화자를 학습시키는 가이드는 따로 정리 중입니다.

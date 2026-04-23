@@ -36,8 +36,4 @@ data
 /docs/.vitepress/guidelines.md
 /docs/benchmarks/memory/results_*.jsonl
 
-# local working notes
-DOCS-FACTS.md
-arm-support-research.md
-/tmp/
-/docs-wip/
+.playwright-mcp

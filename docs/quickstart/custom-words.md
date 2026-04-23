@@ -35,8 +35,8 @@ speaker.generate("担々麺が食べたい。").save("tantanmen.wav")
 
 `担々麺` 의 `々` 는 OpenJTalk 사전에서 독립 기호로 처리되는 탓에, 아무 설정 없이 합성하면 "タン / メン" 두 덩어리로 쪼개져 버립니다.
 
-<SpeakerSample name="등록 전 — 担々麺이 タン / メン 으로 끊김" src="/hayakoe/samples/custom-words/tantanmen_before.wav" />
-<SpeakerSample name="등록 후 — タンタンメン 하나로 이어짐" src="/hayakoe/samples/custom-words/tantanmen_after.wav" />
+<SpeakerSample badge="つくよみちゃん" badgeIcon="/hayakoe/images/speakers/tsukuyomi.png" name="등록 전 — 担々麺이 タン / メン 으로 끊김" src="/hayakoe/samples/custom-words/tantanmen_before.wav" />
+<SpeakerSample badge="つくよみちゃん" badgeIcon="/hayakoe/images/speakers/tsukuyomi.png" name="등록 후 — タンタンメン 하나로 이어짐" src="/hayakoe/samples/custom-words/tantanmen_after.wav" />
 
 ## 영어 브랜드명·신조어도 같은 방식
 
@@ -59,8 +59,8 @@ tts.add_word(surface="HayaKoe", reading="ハヤコエ", accent=0)
 speaker.generate(text).save("after.wav")
 ```
 
-<SpeakerSample name="등록 전 — HayaKoe 가 알파벳 하나씩 읽힘" src="/hayakoe/samples/custom-words/hayakoe_before.wav" />
-<SpeakerSample name="등록 후 — ハヤコエ 로 자연스럽게 이어짐" src="/hayakoe/samples/custom-words/hayakoe_after.wav" />
+<SpeakerSample badge="つくよみちゃん" badgeIcon="/hayakoe/images/speakers/tsukuyomi.png" name="등록 전 — HayaKoe 가 알파벳 하나씩 읽힘" src="/hayakoe/samples/custom-words/hayakoe_before.wav" />
+<SpeakerSample badge="つくよみちゃん" badgeIcon="/hayakoe/images/speakers/tsukuyomi.png" name="등록 후 — ハヤコエ 로 자연스럽게 이어짐" src="/hayakoe/samples/custom-words/hayakoe_after.wav" />
 
 이처럼 22만 개 사전에 없는 단어는 눈에 띄는 대로 `add_word()` 로 잡아 주면 됩니다.
 

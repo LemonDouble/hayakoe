@@ -35,7 +35,7 @@ HayaKoe 는 성능 지표로 **배속** (speed factor) 을 씁니다.
 레포지토리에 포함된 `dev-tools` 의 벤치마크 CLI 를 쓰시면 됩니다.
 
 ```bash
-uv run python dev-tools/cli/main.py benchmark
+uv run poe cli benchmark
 ```
 
 실행하면 인터랙티브 메뉴에서 **CPU (ONNX)**, **GPU (torch.compile)**, **CPU + GPU** 중 하나를 고를 수 있습니다.
@@ -100,6 +100,38 @@ CLI 가 `WARMUP = 2` 로 앞 두 번을 버리는 이유입니다.
 배속이 몇 % 이내로 재현되면 그 값을 좀 더 신뢰할 수 있습니다.
 
 편차가 크면 다른 프로그램이 자원을 쓰고 있을 수도 있습니다.
+:::
+
+## 라즈베리파이 4B 에서는 어떨까
+
+HayaKoe 는 arm64 환경에서도 그대로 동작합니다. 참고로 Raspberry Pi 4B 에서 같은 벤치마크를 돌린 결과는 다음과 같습니다.
+
+- Linux 6.8 · aarch64 · Python 3.10 · ONNX Runtime 1.23.2
+
+| 텍스트 | 추론 시간 | 오디오 길이 | 배속 |
+|:--|--:|--:|--:|
+| 짧음 | 3.169s | 0.8s | 0.3x |
+| 중간 | 13.042s | 4.1s | 0.3x |
+| 김 | 35.119s | 10.8s | 0.3x |
+
+대화형 UI 에 실시간으로 쓰기엔 빠듯한 수준 (0.3x, 약 3 배 느림) 이지만, 오프라인 배치 합성이나 개인 프로젝트용으로는 그대로 쓸 수 있습니다.
+
+::: warning 첫 실행 모델 다운로드는 오래 걸릴 수 있습니다 (~10 분)
+라즈베리파이처럼 SD 카드 I/O · 네트워크가 느린 환경에서는 BERT · Synthesizer · 스타일 벡터 가중치를 HuggingFace 에서 받는 데만 **10 분 가까이** 걸릴 수 있습니다.
+
+한 번 받아 두면 `hayakoe_cache/` 에 캐시되어 다음 실행부터는 바로 뜹니다.
+:::
+
+::: info 로그에 뜨는 ORT / HF 경고는 무시해도 됩니다
+실행 중에 다음 두 경고가 섞여 찍힐 수 있습니다. 둘 다 CPU 추론 동작·결과에는 영향이 없으니 그대로 진행하세요.
+
+```text
+Warning: You are sending unauthenticated requests to the HF Hub. ...
+[W:onnxruntime:Default, device_discovery.cc:...] GPU device discovery failed: ...
+```
+
+- **HF 익명 요청 경고** — HuggingFace 에 토큰 없이 요청한다는 알림. 다운로드 속도·레이트 리미트에만 영향을 줍니다. `HF_TOKEN` 환경변수를 설정하면 사라집니다.
+- **ORT GPU 탐색 실패 경고** — ONNX Runtime 이 시스템에 GPU 가 있는지 훑다가 실패한 것. 라즈베리파이처럼 GPU 가 없는 환경에서는 정상 동작이고, CPU 추론에 아무 영향이 없습니다.
 :::
 
 ## 배속이 `1.0x` 근처라면

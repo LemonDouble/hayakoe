@@ -12,6 +12,8 @@ const props = withDefaults(
     label: string
     samples: Sample[]
     defaultIndex?: number
+    badge?: string
+    badgeIcon?: string
   }>(),
   {
     defaultIndex: 0,
@@ -84,6 +86,7 @@ function seek(e: MouseEvent) {
 <template>
   <div class="speaker-sample-group">
     <div class="player">
+      <img v-if="badgeIcon" :src="badgeIcon" class="avatar" alt="" />
       <button
         class="play-btn"
         type="button"
@@ -99,6 +102,7 @@ function seek(e: MouseEvent) {
       </button>
       <div class="info">
         <div class="label-row">
+          <span v-if="badge" class="badge">{{ badge }}</span>
           <span class="param">{{ label }} = {{ current.value }}</span>
           <span v-if="current.caption" class="caption">{{ current.caption }}</span>
         </div>
@@ -167,7 +171,34 @@ function seek(e: MouseEvent) {
 .player {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+}
+
+.avatar {
+  flex-shrink: 0;
+  width: 54px;
+  height: 54px;
+  border-radius: 9999px;
+  object-fit: cover;
+  border: 2px solid rgba(240, 185, 11, 0.3);
+}
+
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: rgba(240, 185, 11, 0.15);
+  color: var(--vp-c-brand-1);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .avatar {
+    width: 40px;
+    height: 40px;
+  }
 }
 
 .play-btn {

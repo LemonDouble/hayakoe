@@ -14,6 +14,9 @@ export default defineConfig({
     ssr: {
       noExternal: ['@lemondouble/lemon-vitepress-theme'],
     },
+    server: {
+      allowedHosts: ['.ngrok-free.app'],
+    },
   },
 
   head: [
@@ -66,7 +69,12 @@ export default defineConfig({
         {
           text: '자체 화자 학습',
           items: [
-            { text: '작성 중', link: '/training/' },
+            { text: '전체 흐름', link: '/training/' },
+            { text: '① 데이터 준비', link: '/training/data-prep' },
+            { text: '② 전처리 & 학습', link: '/training/training' },
+            { text: '③ 품질 리포트', link: '/training/quality-check' },
+            { text: '④ 배포 (HF·S3·로컬)', link: '/training/publish' },
+            { text: '트러블슈팅', link: '/training/troubleshooting' },
           ],
         },
       ],
@@ -75,7 +83,10 @@ export default defineConfig({
         {
           text: '서버로 배포',
           items: [
-            { text: '작성 중', link: '/deploy/' },
+            { text: '개요', link: '/deploy/' },
+            { text: 'FastAPI 통합', link: '/deploy/fastapi' },
+            { text: 'Docker 이미지', link: '/deploy/docker' },
+            { text: '백엔드 선택 (CPU vs GPU)', link: '/deploy/backend' },
           ],
         },
       ],
@@ -84,7 +95,16 @@ export default defineConfig({
         {
           text: '깊이 읽기',
           items: [
-            { text: '작성 중', link: '/deep-dive/' },
+            { text: '왜 만들었나', link: '/deep-dive/' },
+            { text: '용어 정리', link: '/deep-dive/glossary' },
+            { text: '아키텍처 한눈에', link: '/deep-dive/architecture' },
+            { text: 'ONNX 최적화 / 양자화', link: '/deep-dive/onnx-optimization' },
+            { text: '문장 경계 pause — Duration Predictor', link: '/deep-dive/duration-predictor' },
+            { text: 'BERT GPU 유지 & 배치 추론', link: '/deep-dive/bert-gpu' },
+            { text: 'Source 추상화 (HF·S3·로컬)', link: '/deep-dive/source-abstraction' },
+            { text: 'OpenJTalk 사전 번들링', link: '/deep-dive/openjtalk-dict' },
+            { text: 'arm64 지원', link: '/deep-dive/arm64' },
+            { text: '이슈 제보 & 라이선스', link: '/deep-dive/contributing' },
           ],
         },
       ],

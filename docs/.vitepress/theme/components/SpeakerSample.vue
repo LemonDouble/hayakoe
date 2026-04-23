@@ -4,6 +4,8 @@ import { onBeforeUnmount, ref } from 'vue'
 defineProps<{
   name: string
   src: string
+  badge?: string
+  badgeIcon?: string
 }>()
 
 const audioEl = ref<HTMLAudioElement | null>(null)
@@ -81,6 +83,7 @@ function seek(e: MouseEvent) {
 
 <template>
   <div class="speaker-sample">
+    <img v-if="badgeIcon" :src="badgeIcon" class="avatar" alt="" />
     <button
       class="play-btn"
       type="button"
@@ -95,7 +98,10 @@ function seek(e: MouseEvent) {
       </svg>
     </button>
     <div class="info">
-      <div class="label">{{ name }}</div>
+      <div class="label">
+        <span v-if="badge" class="badge">{{ badge }}</span>
+        {{ name }}
+      </div>
       <div class="bar-row">
         <div
           ref="progressEl"
@@ -133,13 +139,20 @@ function seek(e: MouseEvent) {
 .speaker-sample {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   padding: 14px 18px;
   border-radius: 12px;
   border: 1px solid var(--vp-c-divider);
   background: var(--vp-c-bg-soft);
   margin: 10px 0;
   transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+@media (max-width: 640px) {
+  .speaker-sample {
+    gap: 10px;
+    padding: 12px 14px;
+  }
 }
 
 .speaker-sample:hover {
@@ -187,7 +200,44 @@ function seek(e: MouseEvent) {
   font-weight: 700;
   font-size: 14px;
   color: var(--vp-c-text-1);
-  line-height: 1.2;
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .label {
+    font-size: 13px;
+  }
+}
+
+.avatar {
+  flex-shrink: 0;
+  width: 54px;
+  height: 54px;
+  border-radius: 9999px;
+  object-fit: cover;
+  border: 2px solid rgba(240, 185, 11, 0.3);
+}
+
+@media (max-width: 640px) {
+  .avatar {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: rgba(240, 185, 11, 0.15);
+  color: var(--vp-c-brand-1);
+  white-space: nowrap;
 }
 
 .bar-row {
