@@ -124,14 +124,19 @@ audio = speaker.generate(
 
 ### 사용 가능한 공식 화자
 
-| 이름 | 설명 |
-|------|------|
-| `jvnv-F1-jp` | 여성 화자 1 |
-| `jvnv-F2-jp` | 여성 화자 2 |
-| `jvnv-M1-jp` | 남성 화자 1 |
-| `jvnv-M2-jp` | 남성 화자 2 |
-
-각 화자는 7개 스타일을 지원합니다: `Neutral`, `Happy`, `Sad`, `Angry`, `Fear`, `Surprise`, `Disgust`
+| 이름 | 설명 | 스타일 |
+|------|------|--------|
+| `jvnv-F1-jp` | 여성 화자 1 | Neutral, Happy, Sad, Angry, Fear, Surprise, Disgust |
+| `jvnv-F2-jp` | 여성 화자 2 | 〃 |
+| `jvnv-M1-jp` | 남성 화자 1 | 〃 |
+| `jvnv-M2-jp` | 남성 화자 2 | 〃 |
+| `tsukuyomi_chan` | つくよみちゃん — 애니메이션풍 | Neutral |
+| `amitaro_normal` | あみたろ — 노멀 | Neutral |
+| `amitaro_runrun` | あみたろ — 설렘 | Neutral |
+| `amitaro_yofukashi` | あみたろ — 차분 | Neutral |
+| `amitaro_punsuka` | あみたろ — 화남 | Neutral |
+| `amitaro_sasayaki_a` | あみたろ — 속삭임A | Neutral |
+| `amitaro_sasayaki_b` | あみたろ — 속삭임B | Neutral |
 
 ### FastAPI 싱글톤 서빙
 
