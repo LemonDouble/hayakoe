@@ -1,3 +1,5 @@
+**한국어** | **[日本語](./README.ja.md)** | **[中文](./README.zh.md)** | **[English](./README.en.md)**
+
 # HayaKoe
 
 [Style-Bert-VITS2](https://github.com/litagin02/Style-Bert-VITS2)를 기반으로 한 고속 일본어 TTS 라이브러리.
