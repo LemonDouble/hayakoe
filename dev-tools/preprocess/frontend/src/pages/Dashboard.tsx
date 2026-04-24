@@ -7,7 +7,7 @@ import * as datasetApi from "../api/dataset";
 import type { DatasetResult } from "../api/dataset";
 import type { SpeakerSummary } from "../api/speakers";
 import type { VideoInfo } from "../api/videos";
-import { t, getLang, setLang, LANG_LABELS } from "../i18n";
+import { t } from "../i18n";
 
 const STAGE_KEYS: Record<string, string> = {
   extract: "dashboard.stages.extract",
@@ -132,20 +132,9 @@ export default function Dashboard() {
   return (
     <div className="max-w-4xl mx-auto p-6 pb-16">
       {/* 헤더 */}
-      <div className="flex items-center justify-between mb-1">
-        <h1 className="font-display text-3xl font-bold text-fg tracking-tight">
-          <span className="text-primary">HayaKoe</span> {t("dashboard.title")}
-        </h1>
-        <select
-          value={getLang()}
-          onChange={(e) => setLang(e.target.value)}
-          className="text-xs px-2 py-1 rounded border border-line bg-surface text-fg-muted hover:text-fg cursor-pointer outline-none focus:border-primary"
-        >
-          {Object.entries(LANG_LABELS).map(([code, label]) => (
-            <option key={code} value={code} className="bg-surface text-fg">{label}</option>
-          ))}
-        </select>
-      </div>
+      <h1 className="font-display text-3xl font-bold mb-1 text-fg tracking-tight">
+        <span className="text-primary">HayaKoe</span> {t("dashboard.title")}
+      </h1>
       {dataDir && (
         <p className="text-fg-dim text-xs mb-8 font-mono">
           {t("dashboard.data_path", { path: dataDir })}

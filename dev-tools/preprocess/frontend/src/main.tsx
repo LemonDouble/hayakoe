@@ -4,10 +4,12 @@ import { BrowserRouter, Routes, Route } from "react-router";
 import "./index.css";
 import Dashboard from "./pages/Dashboard";
 import VideoDetail from "./pages/VideoDetail";
+import LangSelector from "./components/LangSelector";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
+      <LangSelector />
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/video/:videoId" element={<VideoDetail />} />
