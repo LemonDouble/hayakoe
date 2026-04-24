@@ -2,7 +2,7 @@ import { getLang, setLang, LANG_LABELS } from "../i18n";
 
 export default function LangSelector() {
   return (
-    <div className="fixed top-4 right-4 z-50">
+    <div className="max-w-4xl mx-auto px-6 pt-4 flex justify-end">
       <select
         value={getLang()}
         onChange={(e) => setLang(e.target.value)}
