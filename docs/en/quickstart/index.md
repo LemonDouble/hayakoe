@@ -15,7 +15,7 @@ You can go from first synthesis with built-in speakers in about 10 minutes, and 
 
 ## What You Can Do After This Section
 
-- Freely use the 4 pre-built speakers (`jvnv-F1/F2/M1/M2-jp`)
+- Freely use the 11 pre-built speakers
 - Adjust speed, pitch, and prosody parameters
 - Measure "how many seconds it takes to generate 1 second of audio" on your hardware
 
