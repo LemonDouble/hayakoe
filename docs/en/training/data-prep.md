@@ -59,7 +59,7 @@ In this case, the access URL also changes to `http://localhost:8123`.
 
 When you first enter the dashboard, you will see the following screen:
 
-![HayaKoe preprocessing dashboard main screen — top workflow guide and step-by-step cards](/images/training/preprocess-main.jpg)
+![HayaKoe preprocessing dashboard main screen — top workflow guide and step-by-step cards](/images/preprocess/dashboard-en.png)
 
 The **WORKFLOW** area at the top gives an overview of the entire flow, with the same steps laid out as cards below.
 
@@ -89,7 +89,7 @@ If interrupted, you can resume from where you left off.
 
 ### 1. Extraction
 
-![Audio extraction step — step 1 active in the progress bar, NEXT STEP card with 'Run Extraction' button](/images/training/preprocess-step1-extract.jpg)
+![Audio extraction step — step 1 active in the progress bar, NEXT STEP card with 'Run Extraction' button](/images/preprocess/step1-extract-en.png)
 
 Extracts only the audio from the source data and saves it.
 
@@ -103,7 +103,7 @@ If the uploaded file is already an audio file like mp3, wav, or flac, the conten
 
 ### 2. Source Separation
 
-![Source separation step — step 2 active, NEXT STEP card with 'Run Source Separation' button](/images/training/preprocess-step2-vocals.jpg)
+![Source separation step — step 2 active, NEXT STEP card with 'Run Source Separation' button](/images/preprocess/step2-separate-en.png)
 
 Removes background sounds like BGM and effects, leaving only the human voice.
 
@@ -115,7 +115,7 @@ Uses the `audio-separator` library to isolate vocals and saves them as `vocals.w
 
 ### 3. VAD Segmentation
 
-![VAD segmentation step — quick settings and detailed parameter inputs, 'Run VAD Segmentation' button](/images/training/preprocess-step3-vad.jpg)
+![VAD segmentation step — quick settings and detailed parameter inputs, 'Run VAD Segmentation' button](/images/preprocess/step3-vad-en.png)
 
 Splits long recordings into short sentence-level segments based on silence boundaries.
 
@@ -134,7 +134,7 @@ Re-running overwrites `segments/unclassified/`.
 
 ### 4. Classification
 
-![Classification step — segments auto-play, assign speaker number by key or button](/images/training/preprocess-step4-classify.jpg)
+![Classification step — segments auto-play, assign speaker number by key or button](/images/preprocess/step4-classify-en.png)
 
 Segmented audio clips auto-play one by one.
 
@@ -157,7 +157,7 @@ Classification results are saved in a `segments/<speaker>/` structure.
 
 ### 5. Transcription
 
-![Transcription step — NEXT STEP card with 'Run Transcription' button](/images/training/preprocess-step5-transcribe.jpg)
+![Transcription step — NEXT STEP card with 'Run Transcription' button](/images/preprocess/step5-transcribe-en.png)
 
 Listens to each segment's audio and automatically converts it to Japanese text.
 
@@ -169,7 +169,7 @@ Saves transcription results from the Whisper model to `transcription.json`.
 
 ### 6. Review
 
-![Review step — segment list and Japanese text editing UI, 'Review Complete' button at top](/images/training/preprocess-step6-review.jpg)
+![Review step — segment list and Japanese text editing UI, 'Review Complete' button at top](/images/preprocess/step6-review-en.png)
 
 Review and correct the auto-transcription results.
 

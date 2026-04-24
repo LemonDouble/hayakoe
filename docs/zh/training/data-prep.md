@@ -59,7 +59,7 @@ uv run poe preprocess --port 8123
 
 首次进入仪表盘时会看到如下界面。
 
-![HayaKoe 预处理仪表盘主界面 — 顶部工作流引导和各步骤卡片](/images/training/preprocess-main.jpg)
+![HayaKoe 预处理仪表盘主界面 — 顶部工作流引导和各步骤卡片](/images/preprocess/dashboard-zh.png)
 
 顶部的 **WORKFLOW** 区域展示全流程概览,下方以卡片形式展开相同的步骤。
 
@@ -89,7 +89,7 @@ uv run poe preprocess --port 8123
 
 ### 1. 提取
 
-![音频提取步骤 — 顶部进度条第 1 步激活,NEXT STEP 卡片上有"执行提取"按钮](/images/training/preprocess-step1-extract.jpg)
+![音频提取步骤 — 顶部进度条第 1 步激活,NEXT STEP 卡片上有"执行提取"按钮](/images/preprocess/step1-extract-zh.png)
 
 从原始数据中提取音频并保存。
 
@@ -103,7 +103,7 @@ uv run poe preprocess --port 8123
 
 ### 2. 背景音去除
 
-![背景音去除步骤 — 第 2 步激活,NEXT STEP 卡片上有"执行背景音去除"按钮](/images/training/preprocess-step2-vocals.jpg)
+![背景音去除步骤 — 第 2 步激活,NEXT STEP 卡片上有"执行背景音去除"按钮](/images/preprocess/step2-separate-zh.png)
 
 去除 BGM·音效等背景声音,仅保留人声。
 
@@ -115,7 +115,7 @@ uv run poe preprocess --port 8123
 
 ### 3. VAD 分割
 
-![VAD 分割步骤 — 快速设置和详细参数输入,"执行 VAD 分割"按钮](/images/training/preprocess-step3-vad.jpg)
+![VAD 分割步骤 — 快速设置和详细参数输入,"执行 VAD 分割"按钮](/images/preprocess/step3-vad-zh.png)
 
 将长录音按静音区间分割为短句。
 
@@ -134,7 +134,7 @@ uv run poe preprocess --port 8123
 
 ### 4. 分类
 
-![分类步骤 — 片段自动播放,通过说话人编号键或按钮进行分配](/images/training/preprocess-step4-classify.jpg)
+![分类步骤 — 片段自动播放,通过说话人编号键或按钮进行分配](/images/preprocess/step4-classify-zh.png)
 
 分割出的片段会逐个自动播放。
 
@@ -157,7 +157,7 @@ uv run poe preprocess --port 8123
 
 ### 5. 转写
 
-![转写步骤 — NEXT STEP 卡片上有"执行转写"按钮](/images/training/preprocess-step5-transcribe.jpg)
+![转写步骤 — NEXT STEP 卡片上有"执行转写"按钮](/images/preprocess/step5-transcribe-zh.png)
 
 听取各片段的语音并自动转换为日语文本。
 
@@ -169,7 +169,7 @@ uv run poe preprocess --port 8123
 
 ### 6. 审核
 
-![审核步骤 — 片段列表和日语文本编辑 UI,顶部有"审核完成"按钮](/images/training/preprocess-step6-review.jpg)
+![审核步骤 — 片段列表和日语文本编辑 UI,顶部有"审核完成"按钮](/images/preprocess/step6-review-zh.png)
 
 确认并修正自动转写结果。
 
