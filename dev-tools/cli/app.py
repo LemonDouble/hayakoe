@@ -115,7 +115,7 @@ def _change_language():
         if chosen.startswith(_LANG_LABELS[code]):
             if code != current:
                 set_lang(code)
-                console.print(f"\n  ✓ {_LANG_LABELS[code]}\n")
-                console.print(t("app.exit_message"))
+                console.print(f"\n  ✓ {_LANG_LABELS[code]}")
+                console.print("  Please restart the CLI. / 다시 실행해 주세요.\n")
                 raise SystemExit(0)
             break
