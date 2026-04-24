@@ -74,7 +74,7 @@ We determined that the additional memory savings from Q4 did not outweigh the qu
 
 ### Synthesizer Optimization
 
-Since BERT accounts for 96% of parameters, it seems like making BERT faster would speed up everything.
+Since BERT accounts for 84% of parameters, it seems like making BERT faster would speed up everything.
 
 However, when measuring BERT and Synthesizer inference times separately, **the CPU time is mostly consumed by the Synthesizer**.
 
