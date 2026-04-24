@@ -56,8 +56,8 @@ The settings below are already natural at their defaults, but can be adjusted wh
 | `pitch_scale`      |   `1.0` | 0.95 ~ 1.05      | Pitch multiplier. Slight quality loss away from 1.0           |
 | `intonation_scale` |   `1.0` | 0.8 ~ 1.3        | Intonation range. Slight quality loss away from 1.0           |
 | `sdp_ratio`        |   `0.2` | 0.0 ~ 0.5        | Blend ratio of deterministic DP and stochastic SDP            |
-| `noise`            |   `0.6` | 0.3 ~ 0.9        | Noise fed into the DP side                                    |
-| `noise_w`          |   `0.8` | 0.5 ~ 1.2        | Noise fed into the SDP side                                   |
+| `noise`            |   `0.6` | 0.3 ~ 0.9        | Voice variability (tonal randomness)                          |
+| `noise_w`          |   `0.8` | 0.5 ~ 1.2        | Rhythm variability (SDP noise)                                |
 
 We recommend moving one parameter at a time.
 
@@ -148,14 +148,12 @@ For services where reproducibility matters (e.g., fixed subtitle timing), set it
 speaker.generate(text, sdp_ratio=0.0)   # always identical
 ```
 
-### `noise` / `noise_w` — Noise for the Two Predictors
+### `noise` / `noise_w` — Voice & Rhythm Variability
 
-Both control the **magnitude of noise fed into the duration predictors** (not the phoneme audio itself).
+Each controls noise at a different stage (not the phoneme audio itself).
 
-- `noise` — Noise fed into the DP (deterministic predictor)
-- `noise_w` — Noise fed into the SDP (stochastic predictor)
-
-In other words, if `sdp_ratio` is set to 0, `noise_w` has almost no effect, and conversely if set to 1, `noise` has almost no effect.
+- `noise` — Voice variability. Controls overall tonal randomness in the Flow stage. Always has an effect regardless of `sdp_ratio`.
+- `noise_w` — Rhythm variability. Noise fed into the SDP (stochastic predictor). Has no effect when `sdp_ratio` is 0.
 
 The samples below were generated with all other parameters at their defaults, changing only the respective noise value.
 
