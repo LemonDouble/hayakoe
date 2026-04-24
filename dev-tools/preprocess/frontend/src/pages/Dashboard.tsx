@@ -139,10 +139,10 @@ export default function Dashboard() {
         <select
           value={getLang()}
           onChange={(e) => setLang(e.target.value)}
-          className="text-xs px-2 py-1 rounded border border-border bg-bg-card text-fg cursor-pointer"
+          className="text-xs px-2 py-1 rounded border border-line bg-surface text-fg-muted hover:text-fg cursor-pointer outline-none focus:border-primary"
         >
           {Object.entries(LANG_LABELS).map(([code, label]) => (
-            <option key={code} value={code}>{label}</option>
+            <option key={code} value={code} className="bg-surface text-fg">{label}</option>
           ))}
         </select>
       </div>
