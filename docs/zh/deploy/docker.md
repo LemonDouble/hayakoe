@@ -73,7 +73,7 @@ DOCKER_BUILDKIT=1 docker build \
 docker run --gpus all --env-file .env -p 80:80 hayakoe-server
 ```
 
-`.env` 示例参考 [④ 部署](/training/publish#_4-选择目标位置) 页面。
+`.env` 示例参考 [④ 部署](/zh/training/publish#_4-选择目标位置) 页面。
 
 ::: tip `pre_download(device="cuda")` 无需 GPU 即可运行
 `pre_download` **仅下载对应后端的文件到缓存**。实际 CUDA 初始化和 `torch.compile` 发生在运行时的 `prepare()` 中。
@@ -230,4 +230,4 @@ tts.pre_download(device="cuda")
 
 ## 下一步
 
-- 选择用 CPU 还是 GPU 做 `pre_download`:[后端选择](/deploy/backend)
+- 选择用 CPU 还是 GPU 做 `pre_download`:[后端选择](/zh/deploy/backend)

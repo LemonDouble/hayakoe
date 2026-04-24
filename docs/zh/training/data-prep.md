@@ -206,7 +206,7 @@ uv run poe preprocess --port 8123
 默认值 0.1(10%)在大多数情况下足够。
 :::
 
-生成的数据集会被 [② 预处理 & 训练](/training/training) CLI 自动识别,可以直接进入下一步。
+生成的数据集会被 [② 预处理 & 训练](/zh/training/training) CLI 自动识别,可以直接进入下一步。
 
 ::: details 内部机制 — 数据集结构和默认设置
 生成的目录结构:
@@ -260,4 +260,4 @@ CLI 会自动列出 `data/dataset/` 下包含 `esd.list` 或 `sbv2_data/esd.list
 
 ## 下一步
 
-- 将数据集送入训练:[② 预处理 & 训练](/training/training)
+- 将数据集送入训练:[② 预处理 & 训练](/zh/training/training)
