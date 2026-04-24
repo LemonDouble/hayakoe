@@ -7,6 +7,7 @@ from pathlib import Path
 from rich.panel import Panel
 from rich.table import Table
 
+from cli.i18n import t
 from cli.training.dataset import DatasetInfo, discover_datasets, scan_dataset, activate_dataset
 from cli.ui.console import console
 from cli.ui.prompts import select_from_list, confirm, edit_value
@@ -23,17 +24,17 @@ def _render_dataset_table(datasets: list[DatasetInfo]):
         padding=(0, 1),
         expand=True,
     )
-    table.add_column("화자", style="bold bright_white")
-    table.add_column("발화", justify="right", style="bright_white")
+    table.add_column(t("training.dataset_table.col_speaker"), style="bold bright_white")
+    table.add_column(t("training.dataset_table.col_utterance"), justify="right", style="bright_white")
     table.add_column("Train", justify="right")
     table.add_column("Val", justify="right")
-    table.add_column("상태", justify="center")
+    table.add_column(t("training.dataset_table.col_status"), justify="center")
 
     for ds in datasets:
         if ds.all_preprocessed:
-            status = f"[success]● 준비 완료[/success]"
+            status = t("training.dataset_table.status_ready")
         else:
-            status = f"[warning]○ 전처리 필요[/warning]"
+            status = t("training.dataset_table.status_need_preprocess")
 
         table.add_row(
             ds.name,
@@ -45,7 +46,7 @@ def _render_dataset_table(datasets: list[DatasetInfo]):
 
     console.print(Panel(
         table,
-        title="[accent]데이터셋[/accent]",
+        title=t("training.dataset_table.title"),
         border_style="cyan",
         padding=(1, 2),
     ))
@@ -64,17 +65,20 @@ def _render_preprocessing_status(ds: DatasetInfo):
             return f"[success]{done}/{total}[/success]"
         return f"[warning]{done}/{total}[/warning]"
 
+    text_status = t("training.status.done") if ds.text_preprocessed else t("training.status.not_done")
+    default_status = t("training.status.done") if ds.default_style_done else t("training.status.not_done")
+
     lines = [
-        f"  {_icon(True)}  오디오 파일        [value]{ds.utterance_count}[/value]개",
-        f"  {_icon(ds.text_preprocessed)}  텍스트 전처리      {'[success]완료[/success]' if ds.text_preprocessed else '[muted]미완료[/muted]'}",
-        f"  {_icon(ds.bert_done == ds.bert_total)}  BERT 임베딩        {_progress(ds.bert_done, ds.bert_total)}",
-        f"  {_icon(ds.style_done == ds.style_total)}  스타일 벡터        {_progress(ds.style_done, ds.style_total)}",
-        f"  {_icon(ds.default_style_done)}  기본 스타일        {'[success]완료[/success]' if ds.default_style_done else '[muted]미완료[/muted]'}",
+        t("training.status.audio_files", icon=_icon(True), count=ds.utterance_count),
+        t("training.status.text_preprocess", icon=_icon(ds.text_preprocessed), status=text_status),
+        t("training.status.bert_embedding", icon=_icon(ds.bert_done == ds.bert_total), progress=_progress(ds.bert_done, ds.bert_total)),
+        t("training.status.style_vector", icon=_icon(ds.style_done == ds.style_total), progress=_progress(ds.style_done, ds.style_total)),
+        t("training.status.default_style", icon=_icon(ds.default_style_done), status=default_status),
     ]
 
     console.print(Panel(
         "\n".join(lines),
-        title=f"[accent]{ds.name}[/accent] [dim]— 전처리 상태[/dim]",
+        title=t("training.status.title", name=ds.name),
         border_style="cyan",
         padding=(1, 2),
     ))
@@ -119,64 +123,68 @@ def _training_briefing(ds: DatasetInfo) -> bool:
     table.add_column("k", style="label", min_width=18)
     table.add_column("v", style="value", justify="right")
 
-    table.add_row("[accent]하이퍼파라미터[/accent]", "")
-    table.add_row("  데이터셋", f"{ds.train_count} train / {ds.val_count} val")
-    table.add_row("  에포크", str(epochs))
-    table.add_row("  배치 크기", str(batch_size))
-    table.add_row("  학습률", str(lr))
-    table.add_row("  bfloat16", "[success]ON[/success]" if bf16 else "[muted]OFF[/muted]")
+    table.add_row(t("training.briefing.section_hyperparams"), "")
+    table.add_row(t("training.briefing.dataset"), t("training.briefing.dataset_value", train=ds.train_count, val=ds.val_count))
+    table.add_row(t("training.briefing.epochs"), str(epochs))
+    table.add_row(t("training.briefing.batch_size"), str(batch_size))
+    table.add_row(t("training.briefing.learning_rate"), str(lr))
+    table.add_row(t("training.briefing.bfloat16"), "[success]ON[/success]" if bf16 else "[muted]OFF[/muted]")
     if nproc > 1:
-        table.add_row("  GPU 수", f"[success]{nproc}[/success]")
+        table.add_row(t("training.briefing.gpu_count"), f"[success]{nproc}[/success]")
     table.add_row("", "")
-    table.add_row("[accent]스텝 & 체크포인트[/accent]", "")
-    table.add_row("  에포크당 스텝", str(steps_per_epoch))
-    table.add_row("  총 스텝", f"{total_steps:,}")
-    table.add_row("  로그 간격", f"{log_interval} steps")
-    table.add_row("  체크포인트 간격", f"{eval_interval} steps")
-    table.add_row("  예상 저장 횟수", f"{num_checkpoints}회")
+    table.add_row(t("training.briefing.section_steps"), "")
+    table.add_row(t("training.briefing.steps_per_epoch"), str(steps_per_epoch))
+    table.add_row(t("training.briefing.total_steps"), f"{total_steps:,}")
+    table.add_row(t("training.briefing.log_interval"), f"{log_interval} steps")
+    table.add_row(t("training.briefing.checkpoint_interval"), f"{eval_interval} steps")
+    table.add_row(t("training.briefing.estimated_saves"), t("training.briefing.estimated_saves_value", count=num_checkpoints))
     table.add_row(
-        "  예상 디스크 사용량",
-        f"~{exports_disk_gb:.1f}GB ({num_checkpoints}개 × {safetensors_size_mb}MB)",
+        t("training.briefing.estimated_disk"),
+        t("training.briefing.estimated_disk_value", gb=exports_disk_gb, count=num_checkpoints, mb=safetensors_size_mb),
     )
     table.add_row("", "")
-    table.add_row("[accent]저장 경로[/accent]", "")
+    table.add_row(t("training.briefing.section_paths"), "")
     try:
         rel_training = training_dir.relative_to(Path.cwd())
         rel_exports = exports_dir.relative_to(Path.cwd())
     except ValueError:
         rel_training, rel_exports = training_dir, exports_dir
-    table.add_row("  체크포인트", f"[dim]{rel_training}[/dim]")
-    table.add_row("  추론 모델", f"[dim]{rel_exports}[/dim]")
+    table.add_row(t("training.briefing.checkpoint_path"), f"[dim]{rel_training}[/dim]")
+    table.add_row(t("training.briefing.inference_model_path"), f"[dim]{rel_exports}[/dim]")
 
     console.print()
     console.print(Panel(
         table,
-        title=f"[accent]{ds.name}[/accent] [dim]— 학습 브리핑[/dim]",
+        title=t("training.briefing.title", name=ds.name),
         border_style="cyan",
         padding=(1, 2),
     ))
     console.print()
 
     # eval_interval 수정 기회
+    label_start = t("training.briefing.start")
+    label_cancel = t("training.briefing.cancel")
+
     while True:
-        choice = select_from_list("진행", [
-            "학습 시작",
-            f"체크포인트 간격 변경 (현재: {eval_interval} steps)",
-            "취소",
+        label_change = t("training.briefing.change_interval", interval=eval_interval)
+        choice = select_from_list(t("training.briefing.prompt"), [
+            label_start,
+            label_change,
+            label_cancel,
         ])
 
-        if choice == "학습 시작":
+        if choice == label_start:
             return True
-        elif choice == "취소":
+        elif choice == label_cancel:
             return False
         else:
-            raw = edit_value("체크포인트 저장 간격 (steps)", eval_interval)
+            raw = edit_value(t("training.briefing.interval_prompt"), eval_interval)
             try:
                 new_interval = int(raw)
                 if new_interval <= 0:
                     raise ValueError
             except ValueError:
-                console.print("  [error]양의 정수를 입력해주세요.[/error]")
+                console.print(t("training.briefing.invalid_number"))
                 continue
 
             train["eval_interval"] = new_interval
@@ -186,7 +194,7 @@ def _training_briefing(ds: DatasetInfo) -> bool:
             eval_interval = new_interval
             num_checkpoints = max(0, total_steps // eval_interval)
             exports_disk_gb = (num_checkpoints * safetensors_size_mb) / 1024
-            console.print(f"  → 체크포인트 간격: [success]{eval_interval}[/success] steps · 예상 [success]{num_checkpoints}[/success]회 · ~{exports_disk_gb:.1f}GB")
+            console.print(t("training.briefing.interval_changed", interval=eval_interval, count=num_checkpoints, gb=exports_disk_gb))
 
 
 # ── 데이터셋 서브메뉴 ─────────────────────────────────────────
@@ -204,8 +212,8 @@ def _refresh_dataset(ds: DatasetInfo) -> DatasetInfo:
 def _next_step_hint(ds: DatasetInfo) -> str:
     """현재 상태에 따른 다음 단계 안내."""
     if not ds.all_preprocessed:
-        return "[dim]다음 단계: [accent]전처리 실행[/accent]으로 데이터를 준비하세요.[/dim]"
-    return "[dim]다음 단계: [accent]학습 설정[/accent]을 확인한 뒤 [accent]학습 시작[/accent]하세요.[/dim]"
+        return t("training.next_step.preprocess")
+    return t("training.next_step.train")
 
 
 def _dataset_submenu(ds: DatasetInfo):
@@ -217,65 +225,62 @@ def _dataset_submenu(ds: DatasetInfo):
         console.print(_next_step_hint(ds))
         console.print()
 
-        actions = [
-            "전처리 실행 (남은 단계)",
-            "전처리 전체 재실행",
-            "학습 설정 편집",
-        ]
+        label_preprocess = t("training.submenu.preprocess_remaining")
+        label_reprocess = t("training.submenu.preprocess_all")
+        label_edit = t("training.submenu.edit_config")
+        label_train = t("training.submenu.start_training")
+        label_back = t("training.submenu.back")
+
+        actions = [label_preprocess, label_reprocess, label_edit]
         if ds.all_preprocessed:
-            actions.append("학습 시작")
-        actions.append("뒤로")
+            actions.append(label_train)
+        actions.append(label_back)
 
-        choice = select_from_list(f"{ds.name} — 무엇을 할까요?", actions)
+        choice = select_from_list(t("training.submenu.prompt", name=ds.name), actions)
 
-        if choice == "전처리 실행 (남은 단계)":
+        if choice == label_preprocess:
             from cli.training.preprocessing import run_all_preprocessing
             run_all_preprocessing(ds.path, ds.data_dir, force=False)
 
-        elif choice == "전처리 전체 재실행":
-            if confirm("모든 전처리를 처음부터 다시 실행합니다. 계속할까요?", default=False):
+        elif choice == label_reprocess:
+            if confirm(t("training.submenu.confirm_reprocess"), default=False):
                 from cli.training.preprocessing import run_all_preprocessing
                 run_all_preprocessing(ds.path, ds.data_dir, force=True)
 
-        elif choice == "학습 설정 편집":
+        elif choice == label_edit:
             from cli.training.config_editor import edit_config
             edit_config(ds.data_dir)
 
-        elif choice == "학습 시작":
+        elif choice == label_train:
             if not ds.all_preprocessed:
-                console.print("  [error]전처리가 완료되지 않았습니다.[/error]")
+                console.print(t("training.submenu.preprocess_not_done"))
                 continue
             if _training_briefing(ds):
                 from cli.training.runner import start_training_session
                 start_training_session(ds.path, ds.data_dir)
 
-        elif choice == "뒤로":
+        elif choice == label_back:
             break
 
 
 # ── 메인 진입점 ───────────────────────────────────────────────
 
-TRAINING_WORKFLOW_GUIDE = (
-    "[dim]진행 순서:  "
-    "[accent]① 데이터셋 선택[/accent] → "
-    "[accent]② 전처리[/accent] → "
-    "[accent]③ 학습 설정[/accent] → "
-    "[accent]④ 학습 시작[/accent][/dim]"
-)
+def _workflow_guide():
+    return t("training.workflow_guide")
 
 
 def _prompt_dataset_path() -> DatasetInfo | None:
     """경로 직접 입력으로 데이터셋 로드."""
-    raw = edit_value("데이터셋 경로 (esd.list가 있는 폴더)", "")
+    raw = edit_value(t("training.menu.dataset_path_prompt"), "")
     if not raw.strip():
         return None
 
     ds = scan_dataset(Path(raw))
     if ds is None:
-        console.print("[error]해당 경로에서 esd.list를 찾을 수 없습니다.[/error]")
+        console.print(t("training.menu.dataset_not_found"))
         return None
 
-    console.print(f"  [success]{ds.name}[/success] 데이터셋 로드됨 ({ds.utterance_count}개 발화)")
+    console.print(t("training.menu.dataset_loaded", name=ds.name, count=ds.utterance_count))
     return ds
 
 
@@ -285,8 +290,7 @@ def training_menu():
 
     if not datasets:
         console.print(Panel(
-            "[warning]data/dataset/ 에서 자동 탐색된 데이터셋이 없습니다.[/warning]\n"
-            "[dim]경로를 직접 입력하여 외부 데이터셋을 사용할 수 있습니다.[/dim]",
+            t("training.menu.no_datasets_panel"),
             border_style="yellow",
             padding=(1, 2),
         ))
@@ -299,19 +303,21 @@ def training_menu():
         return
 
     console.print()
-    console.print(TRAINING_WORKFLOW_GUIDE)
+    console.print(_workflow_guide())
     console.print()
     _render_dataset_table(datasets)
     console.print()
 
     # 데이터셋 선택
-    choices = [ds.name for ds in datasets] + ["경로 직접 입력", "뒤로"]
-    selected_name = select_from_list("데이터셋 선택", choices)
+    label_enter_path = t("training.menu.enter_path")
+    label_back = t("training.menu.back")
+    choices = [ds.name for ds in datasets] + [label_enter_path, label_back]
+    selected_name = select_from_list(t("training.menu.dataset_select"), choices)
 
-    if selected_name == "뒤로":
+    if selected_name == label_back:
         return
 
-    if selected_name == "경로 직접 입력":
+    if selected_name == label_enter_path:
         ds = _prompt_dataset_path()
         if ds is None:
             return

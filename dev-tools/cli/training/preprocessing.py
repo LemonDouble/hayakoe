@@ -10,6 +10,7 @@ from pathlib import Path
 
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, MofNCompleteColumn
 
+from cli.i18n import t
 from cli.training.dataset import activate_dataset
 from cli.ui.console import console
 
@@ -27,10 +28,7 @@ def run_preprocess_text(project_dir: Path, data_dir: Path):
     val_path = data_dir / "val.list"
 
     if not train_path.exists() or not val_path.exists():
-        console.print(
-            "  [error]train.list / val.list가 없습니다."
-            " 먼저 데이터 분할을 진행해 주세요.[/error]"
-        )
+        console.print(t("training.preprocess.no_lists"))
         raise SystemExit(1)
 
     activate_dataset(project_dir)
@@ -65,7 +63,7 @@ def run_preprocess_text(project_dir: Path, data_dir: Path):
                 continue
             utt, spk = result.strip().split("|")[:2]
             if not Path(utt).is_file():
-                console.print(f"  [warning]오디오 없음: {utt}[/warning]")
+                console.print(t("training.preprocess.audio_missing", path=utt))
                 continue
             if spk not in spk_id_map:
                 spk_id_map[spk] = current_sid
@@ -82,7 +80,7 @@ def run_preprocess_text(project_dir: Path, data_dir: Path):
     )
 
     if error_count > 0:
-        console.print(f"  [warning]{error_count}개 라인 스킵됨. {error_log_path} 확인.[/warning]")
+        console.print(t("training.preprocess.lines_skipped", count=error_count, path=error_log_path))
 
 
 def run_bert_gen(project_dir: Path, data_dir: Path, force: bool = False):
@@ -118,10 +116,10 @@ def run_bert_gen(project_dir: Path, data_dir: Path, force: bool = False):
                 pending.append(line)
 
     if not pending:
-        console.print("  [success]BERT 임베딩 이미 완료[/success]")
+        console.print(t("training.preprocess.bert_already_done"))
         return
 
-    console.print(f"  BERT 임베딩 생성: {len(pending)}개 (전체 {len(lines)}개 중)")
+    console.print(t("training.preprocess.bert_progress", pending=len(pending), total=len(lines)))
     with Progress(
         SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
         BarColumn(), MofNCompleteColumn(), console=console,
@@ -162,13 +160,13 @@ def run_style_gen(project_dir: Path, data_dir: Path, force: bool = False):
                 pending.append(line)
 
     if not pending:
-        console.print("  [success]스타일 벡터 이미 완료[/success]")
+        console.print(t("training.preprocess.style_already_done"))
         return
 
-    console.print(f"  스타일 벡터 생성: {len(pending)}개 (전체 {len(lines)}개 중)")
+    console.print(t("training.preprocess.style_progress", pending=len(pending), total=len(lines)))
 
     # pyannote 모델 지연 로드
-    with console.status("[bold]스타일 모델 (pyannote) 로딩 중..."):
+    with console.status(t("training.preprocess.style_model_loading")):
         from style_gen import process_line
 
     ok_lines: list[str] = []
@@ -190,7 +188,7 @@ def run_style_gen(project_dir: Path, data_dir: Path, force: bool = False):
     # NaN 파일 제거
     if nan_lines:
         nan_set = set(nan_lines)
-        console.print(f"  [warning]NaN {len(nan_lines)}개 파일 제거[/warning]")
+        console.print(t("training.preprocess.nan_removed", count=len(nan_lines)))
         for list_path in [Path(hps.data.training_files), Path(hps.data.validation_files)]:
             original = _read_lines(list_path)
             with open(list_path, "w", encoding="utf-8") as f:
@@ -231,36 +229,33 @@ def run_all_preprocessing(project_dir: Path, data_dir: Path | None = None, force
     train_lines = _read_lines(train_list) if train_list.exists() else []
     val_lines = _read_lines(val_list) if val_list.exists() else []
     if not train_lines and not val_lines:
-        console.print(
-            "\n[error]train.list / val.list가 비어있습니다.[/error]\n"
-            "  먼저 데이터 전처리 도구에서 train/val 분할을 실행해 주세요."
-        )
+        console.print(t("training.preprocess.empty_lists"))
         return
 
     # Step 1: 텍스트 전처리
-    console.print("\n[step][1/4] 텍스트 전처리 (G2P)[/step]")
+    console.print(t("training.preprocess.step1"))
     if not force and _is_text_preprocessed(train_list):
-        console.print("  [success]이미 완료[/success]")
+        console.print(t("training.preprocess.already_done"))
     else:
         run_preprocess_text(project_dir, data_dir)
-        console.print("  [success]완료[/success]")
+        console.print(t("training.preprocess.done"))
 
     # Step 2: BERT 임베딩
-    console.print("\n[step][2/4] BERT 임베딩 생성[/step]")
+    console.print(t("training.preprocess.step2"))
     run_bert_gen(project_dir, data_dir, force=force)
 
     # Step 3: 스타일 벡터
-    console.print("\n[step][3/4] 스타일 벡터 생성[/step]")
+    console.print(t("training.preprocess.step3"))
     run_style_gen(project_dir, data_dir, force=force)
 
     # Step 4: 기본 스타일
-    console.print("\n[step][4/4] 기본 스타일 벡터[/step]")
+    console.print(t("training.preprocess.step4"))
     model_name = _get_model_name(data_dir / "config.json")
     exports_dir = project_dir / "exports" / model_name if model_name else None
     if not force and exports_dir and (exports_dir / "style_vectors.npy").exists():
-        console.print("  [success]이미 완료[/success]")
+        console.print(t("training.preprocess.already_done"))
     else:
         run_default_style(project_dir, data_dir)
-        console.print("  [success]완료[/success]")
+        console.print(t("training.preprocess.done"))
 
-    console.print("\n[success]전처리 완료![/success]")
+    console.print(t("training.preprocess.all_done"))

@@ -11,8 +11,11 @@ from pathlib import Path
 
 # 이 파일이 있는 디렉토리를 sys.path에 추가 (패키지 내부 import용)
 _THIS_DIR = Path(__file__).parent.resolve()
+_DEV_TOOLS_DIR = _THIS_DIR.parent
 if str(_THIS_DIR) not in sys.path:
     sys.path.insert(0, str(_THIS_DIR))
+if str(_DEV_TOOLS_DIR) not in sys.path:
+    sys.path.insert(0, str(_DEV_TOOLS_DIR))
 
 from contextlib import asynccontextmanager
 
@@ -54,6 +57,35 @@ def create_app(data_dir: str | Path = "./data") -> FastAPI:
     def info():
         return {"status": "ok", "data_dir": str(config.get().data_dir)}
 
+    @app.get("/api/lang")
+    def get_lang():
+        from cli.i18n import _CONFIG_FILE, _SUPPORTED
+        lang = "en"
+        if _CONFIG_FILE.exists():
+            try:
+                text = _CONFIG_FILE.read_text(encoding="utf-8")
+                for line in text.splitlines():
+                    if line.strip().startswith("lang"):
+                        val = line.split("=", 1)[1].strip().strip('"').strip("'").lower()
+                        if val in _SUPPORTED:
+                            lang = val
+            except Exception:
+                pass
+        return {"lang": lang}
+
+    @app.post("/api/lang")
+    def post_lang(body: dict):
+        from cli.i18n import _CONFIG_DIR, _CONFIG_FILE, _SUPPORTED
+        lang = body.get("lang", "").strip().lower()
+        if lang not in _SUPPORTED:
+            return {"error": f"Unsupported: {lang}"}
+        try:
+            _CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+            _CONFIG_FILE.write_text(f'lang = "{lang}"\n', encoding="utf-8")
+        except Exception as e:
+            return {"error": str(e)}
+        return {"lang": lang}
+
     # 프론트엔드 빌드 서빙 (SPA fallback 포함)
     static_dir = _THIS_DIR / "static"
     if static_dir.exists():
@@ -81,6 +113,18 @@ def main():
 
     config.init(args.data_dir)
     app = create_app(args.data_dir)
+
+    url = f"http://localhost:{args.port}"
+    print()
+    print("  ╦ ╦╔═╗╦ ╦╔═╗╦╔═╔═╗╔═╗")
+    print("  ╠═╣╠═╣╚╦╝╠═╣╠╩╗║ ║║╣")
+    print("  ╩ ╩╩ ╩ ╩ ╩ ╩╩ ╩╚═╝╚═╝ Preprocess")
+    print()
+    print(f"  → 브라우저에서 열기 / Open in browser: {url}")
+    print(f"  → ブラウザで開く: {url}")
+    print(f"  → 在浏览器中打开: {url}")
+    print()
+
     uvicorn.run(app, host=args.host, port=args.port)
 
 

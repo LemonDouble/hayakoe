@@ -7,6 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from cli.i18n import t
 from cli.training.tensorboard import launch_tensorboard, get_tensorboard_url
 from cli.ui.console import console
 
@@ -28,7 +29,7 @@ def ensure_pretrained(training_dir: Path):
     if all((training_dir / f).exists() for f in PRETRAINED_FILES):
         return
 
-    console.print("[info]사전학습 모델 다운로드 중...[/info]")
+    console.print(t("training.runner.downloading_pretrained"))
 
     from huggingface_hub import hf_hub_download
     from hayakoe.constants import HF_REPO
@@ -50,7 +51,7 @@ def ensure_pretrained(training_dir: Path):
     if pretrained_subdir.exists() and not any(pretrained_subdir.iterdir()):
         pretrained_subdir.rmdir()
 
-    console.print("[success]사전학습 모델 준비 완료[/success]")
+    console.print(t("training.runner.pretrained_ready"))
 
 
 def launch_training(
@@ -98,21 +99,21 @@ def start_training_session(dataset_path: Path, data_dir: Path | None = None, spe
 
     # TensorBoard 실행
     tb_proc = launch_tensorboard(training_dir)
-    console.print(f"[info]TensorBoard: {get_tensorboard_url()}[/info]")
+    console.print(t("training.runner.tensorboard_url", url=get_tensorboard_url()))
 
     # 학습 실행
-    gpu_label = f"GPU {nproc}개" if nproc > 1 else "GPU 1개"
-    console.print(f"[info]torchrun으로 학습 시작 ({gpu_label})...[/info]\n")
+    gpu_label = t("training.runner.gpu_label", count=nproc)
+    console.print(t("training.runner.training_start", label=gpu_label))
     train_proc = launch_training(dataset_path, config_path, nproc=nproc, speedup=speedup)
 
     try:
         exit_code = train_proc.wait()
         if exit_code == 0:
-            console.print("\n[success]학습 완료![/success]")
+            console.print(t("training.runner.training_complete"))
         else:
-            console.print(f"\n[error]학습이 종료코드 {exit_code}로 종료됨[/error]")
+            console.print(t("training.runner.training_exit_code", code=exit_code))
     except KeyboardInterrupt:
-        console.print("\n[warning]학습 중단 중...[/warning]")
+        console.print(t("training.runner.training_stopping"))
         train_proc.send_signal(signal.SIGINT)
         try:
             train_proc.wait(timeout=15)
@@ -124,4 +125,4 @@ def start_training_session(dataset_path: Path, data_dir: Path | None = None, spe
             tb_proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             tb_proc.kill()
-        console.print("[dim]TensorBoard 종료됨[/dim]")
+        console.print(t("training.runner.tensorboard_stopped"))

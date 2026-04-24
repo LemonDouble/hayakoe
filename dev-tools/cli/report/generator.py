@@ -18,6 +18,7 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
+from cli.i18n import t
 from cli.ui.console import console
 
 
@@ -101,7 +102,7 @@ def _svg_chart(
     if not data or len(data) < 2:
         return (
             f'<div class="mc"><div class="mt">{title}</div>'
-            f'{desc_html}<p class="mn">데이터 없음</p></div>'
+            f'{desc_html}<p class="mn">{t("report.html.no_data")}</p></div>'
         )
 
     steps = [d[0] for d in data]
@@ -212,18 +213,18 @@ def _build_html(
 
     # 차트 — 디자인 시스템 토큰 + 구분용 보조 색
     chart_specs = [
-        ("loss/g/total", "Generator Loss",
-         "생성기 전체 손실. 낮을수록 판별기를 잘 속임", "#F0B90B"),
-        ("loss/g/mel", "Mel Loss",
-         "생성·타겟 mel-spectrogram의 L1 거리. 음색 재현 품질", "#4ADE80"),
-        ("loss/d/total", "Discriminator Loss",
-         "판별기 전체 손실. 실제와 생성 음성을 구분하는 능력", "#CD6B5E"),
-        ("loss/g/kl", "KL Loss",
-         "Posterior와 Prior 분포의 KL 발산. latent 정렬 지표", "#60A5FA"),
-        ("loss/g/dur", "Duration Loss",
-         "음소 지속 시간 예측 오차. 발화 리듬·속도 학습", "#EC4899"),
-        ("loss/g/fm", "Feature Matching Loss",
-         "판별기 중간 feature 매칭 오차. 학습 안정화 항", "#A78BFA"),
+        ("loss/g/total", t("report.html.chart.generator_loss"),
+         t("report.html.chart.generator_loss_desc"), "#F0B90B"),
+        ("loss/g/mel", t("report.html.chart.mel_loss"),
+         t("report.html.chart.mel_loss_desc"), "#4ADE80"),
+        ("loss/d/total", t("report.html.chart.discriminator_loss"),
+         t("report.html.chart.discriminator_loss_desc"), "#CD6B5E"),
+        ("loss/g/kl", t("report.html.chart.kl_loss"),
+         t("report.html.chart.kl_loss_desc"), "#60A5FA"),
+        ("loss/g/dur", t("report.html.chart.duration_loss"),
+         t("report.html.chart.duration_loss_desc"), "#EC4899"),
+        ("loss/g/fm", t("report.html.chart.fm_loss"),
+         t("report.html.chart.fm_loss_desc"), "#A78BFA"),
     ]
 
     charts = ""
@@ -233,10 +234,10 @@ def _build_html(
 
     metrics_section = ""
     if charts:
-        metrics_section = f"<section><h2>학습 지표</h2><div class='mg'>{charts}</div></section>"
+        metrics_section = f"<section><h2>{t('report.html.metrics_heading')}</h2><div class='mg'>{charts}</div></section>"
 
     # 테이블
-    ths = '<th class="tc">텍스트</th>'
+    ths = f'<th class="tc">{t("report.html.col_text")}</th>'
     for ckpt in checkpoints:
         ths += f"<th>{ckpt.label}</th>"
 
@@ -250,26 +251,31 @@ def _build_html(
             if uri:
                 tds += f'<td><audio controls preload="none"><source src="{uri}" type="audio/wav"></audio></td>'
             else:
-                tds += '<td class="err">오류</td>'
+                tds += f'<td class="err">{t("report.html.error_cell")}</td>'
         rows += f"<tr>{tds}</tr>\n"
+
+    html_title = t("report.html.title", name=speaker_name)
+    html_heading = t("report.html.heading")
+    html_subtitle = t("report.html.subtitle", name=speaker_name, timestamp=timestamp, ckpt_count=len(checkpoints), text_count=len(texts))
+    html_comparison = t("report.html.comparison_heading")
 
     return f"""<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>HayaKoe 품질 리포트 — {speaker_name}</title>
+<title>{html_title}</title>
 <style>{_CSS}</style>
 </head>
 <body>
 <div class="c">
   <header>
-    <h1>HayaKoe 품질 리포트</h1>
-    <p class="sub">{speaker_name} &mdash; {timestamp} &mdash; 체크포인트 {len(checkpoints)}개 &times; 텍스트 {len(texts)}개</p>
+    <h1>{html_heading}</h1>
+    <p class="sub">{html_subtitle}</p>
   </header>
   {metrics_section}
   <section>
-    <h2>음성 비교</h2>
+    <h2>{html_comparison}</h2>
     <div class="tw">
       <table>
         <thead><tr>{ths}</tr></thead>
@@ -313,17 +319,17 @@ def generate_report(
     exports_dir = dataset_path / "exports" / model_name
     config_path = exports_dir / "config.json"
     if not config_path.exists():
-        raise FileNotFoundError(f"추론용 config.json을 찾을 수 없습니다: {config_path}")
+        raise FileNotFoundError(t("report.generator.config_not_found", path=config_path))
 
     style_vec_path = exports_dir / "style_vectors.npy"
     if not style_vec_path.exists():
-        raise FileNotFoundError(f"style_vectors.npy를 찾을 수 없습니다: {style_vec_path}")
+        raise FileNotFoundError(t("report.generator.style_not_found", path=style_vec_path))
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # 학습 지표
     training_dir = dataset_path / "training"
-    console.print("  [dim]학습 지표 읽는 중...[/dim]")
+    console.print(t("report.generator.reading_metrics"))
     metrics = _read_metrics(training_dir)
 
     # 체크포인트별 추론
@@ -338,10 +344,10 @@ def generate_report(
         TimeRemainingColumn(),
         console=console,
     ) as progress:
-        task = progress.add_task("음성 생성 중", total=total)
+        task = progress.add_task(t("report.generator.generating_audio"), total=total)
 
         for ckpt in checkpoints:
-            progress.update(task, description=f"[dim]{ckpt.label}[/dim] 모델 로딩...")
+            progress.update(task, description=t("report.generator.model_loading", label=ckpt.label))
 
             model = TTSModel(
                 model_path=ckpt.path,
@@ -354,19 +360,19 @@ def generate_report(
             audio_matrix[ckpt.label] = {}
 
             for text in texts:
-                progress.update(task, description=f"[dim]{ckpt.label}[/dim] 생성 중...")
+                progress.update(task, description=t("report.generator.generating", label=ckpt.label))
                 try:
                     sr, audio = model.infer(text)
                     audio_matrix[ckpt.label][text] = _audio_to_data_uri(sr, audio)
                 except Exception as e:
-                    console.print(f"  [error]{ckpt.label} 오류: {e}[/error]")
+                    console.print(t("report.generator.error", label=ckpt.label, error=e))
                     audio_matrix[ckpt.label][text] = ""
                 progress.advance(task)
 
             model.unload()
 
     # HTML 생성
-    console.print("  [dim]HTML 생성 중...[/dim]")
+    console.print(t("report.generator.building_html"))
     html = _build_html(speaker_name, checkpoints, texts, audio_matrix, metrics)
 
     reports_dir = dataset_path / "reports"

@@ -6,6 +6,8 @@ import platform
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from cli.i18n import t
+
 if TYPE_CHECKING:
     from cli.benchmark.runner import BenchmarkResult
 
@@ -162,44 +164,36 @@ def build_benchmark_html(results: list[BenchmarkResult]) -> str:
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>HayaKoe 벤치마크 리포트</title>
+<title>{t("benchmark.html.title")}</title>
 <style>{_CSS}</style>
 </head>
 <body>
 <div class="c">
   <header>
-    <h1>HayaKoe 벤치마크 리포트</h1>
+    <h1>{t("benchmark.html.heading")}</h1>
     <p class="sub">{timestamp}</p>
   </header>
 
   <section>
-    <h2>시스템 정보</h2>
+    <h2>{t("benchmark.html.system_info")}</h2>
     <dl class="info">{info_items}</dl>
   </section>
 
   <section>
-    <h2>읽는 법</h2>
+    <h2>{t("benchmark.html.how_to_read")}</h2>
     <div class="note">
-      <strong>배속</strong>이란 실시간 대비 음성 생성 속도입니다.<br>
-      오디오 길이를 추론 시간으로 나눈 값으로, <strong>높을수록 빠릅니다.</strong><br>
-      <span class="ex">예: 10.0x = 10초 분량의 음성을 1초 만에 생성</span><br><br>
-      <strong>백엔드</strong>는 추론에 사용하는 엔진입니다.<br>
-      · <strong>ONNX (CPU)</strong> — GPU 없이 동작합니다. 서버/로컬 배포에 적합합니다.<br>
-      · <strong>PyTorch (CUDA)</strong> — NVIDIA GPU를 사용합니다. 고속 추론에 적합합니다.<br><br>
-      <span class="legend"><span class="legend-dot" style="background:#4ADE80"></span> 10x 이상 (매우 빠름)</span>
-      <span class="legend"><span class="legend-dot" style="background:#F0B90B"></span> 1x~10x (실시간 이상)</span>
-      <span class="legend"><span class="legend-dot" style="background:#CD6B5E"></span> 1x 미만 (실시간 이하)</span>
+      {t("benchmark.html.how_to_read_content")}
     </div>
   </section>
 
   <section>
-    <h2>요약</h2>
+    <h2>{t("benchmark.html.summary")}</h2>
     <div class="tw">
       <table>
         <thead><tr>
-          <th class="tl">백엔드</th>
-          <th>추론 시간 범위</th>
-          <th>평균 배속</th>
+          <th class="tl">{t("benchmark.html.col_backend")}</th>
+          <th>{t("benchmark.html.col_inference_range")}</th>
+          <th>{t("benchmark.html.col_avg_speed")}</th>
         </tr></thead>
         <tbody>{summary_rows}</tbody>
       </table>
@@ -207,18 +201,18 @@ def build_benchmark_html(results: list[BenchmarkResult]) -> str:
   </section>
 
   <section>
-    <h2>상세 결과</h2>
+    <h2>{t("benchmark.html.detailed_results")}</h2>
     <p style="color:var(--color-text-muted);font-size:12px;margin-bottom:12px">
-      짧은/중간/긴 텍스트를 각각 5회 추론한 평균값입니다. (워밍업 2회 제외)
+      {t("benchmark.html.detailed_note")}
     </p>
     <div class="tw">
       <table>
         <thead><tr>
-          <th class="tl">백엔드</th>
-          <th>텍스트</th>
-          <th>추론 시간</th>
-          <th>오디오 길이</th>
-          <th style="min-width:120px">배속</th>
+          <th class="tl">{t("benchmark.html.col_backend")}</th>
+          <th>{t("benchmark.html.col_text")}</th>
+          <th>{t("benchmark.html.col_inference_time")}</th>
+          <th>{t("benchmark.html.col_audio_length")}</th>
+          <th style="min-width:120px">{t("benchmark.html.col_speed")}</th>
           <th></th>
         </tr></thead>
         <tbody>{rows}</tbody>

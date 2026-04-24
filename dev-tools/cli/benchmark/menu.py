@@ -1,5 +1,6 @@
 """벤치마크 인터랙티브 메뉴."""
 
+from cli.i18n import t
 from cli.ui.console import console
 from cli.ui.prompts import select_from_list, confirm
 
@@ -7,30 +8,27 @@ from cli.ui.prompts import select_from_list, confirm
 def benchmark_menu():
     """벤치마크 메인 메뉴."""
     console.print()
-    console.print(
-        "  [accent]벤치마크[/accent] [dim]— HayaKoe 추론 성능 측정[/dim]\n\n"
-        "  [dim]텍스트를 음성으로 변환하는 데 걸리는 시간을 측정합니다.\n"
-        "  결과는 '배속'으로 표시됩니다. 예를 들어 10.0x는\n"
-        "  1초 분량의 음성을 0.1초 만에 생성할 수 있다는 뜻입니다.\n"
-        "  1.0x 이상이면 실시간보다 빠르고, 높을수록 좋습니다.\n\n"
-        "  · CPU — ONNX Runtime 사용 (GPU 없이 동작, 서버/로컬 배포용)\n"
-        "  · GPU — PyTorch CUDA + torch.compile 자동 적용[/dim]"
-    )
+    console.print(t("benchmark.menu.intro"))
     console.print()
 
-    mode = select_from_list("벤치마크 모드", [
-        "CPU (ONNX Runtime)",
-        "GPU (torch.compile)",
-        "CPU + GPU (전체)",
-        "뒤로",
+    label_cpu = t("benchmark.menu.mode_cpu")
+    label_gpu = t("benchmark.menu.mode_gpu")
+    label_both = t("benchmark.menu.mode_both")
+    label_back = t("benchmark.menu.back")
+
+    mode = select_from_list(t("benchmark.menu.mode_select"), [
+        label_cpu,
+        label_gpu,
+        label_both,
+        label_back,
     ])
 
-    if mode == "뒤로":
+    if mode == label_back:
         return
 
-    if "CPU + GPU" in mode:
+    if mode == label_both:
         devices = ["cpu", "cuda"]
-    elif "CPU" in mode:
+    elif mode == label_cpu:
         devices = ["cpu"]
     else:
         devices = ["cuda"]
@@ -40,12 +38,12 @@ def benchmark_menu():
         try:
             import torch
             if not torch.cuda.is_available():
-                console.print("\n  [error]CUDA를 사용할 수 없습니다.[/error]")
-                console.print("  [dim]CUDA 드라이버와 PyTorch CUDA 빌드를 확인하세요.[/dim]\n")
+                console.print(t("benchmark.menu.cuda_unavailable"))
+                console.print(t("benchmark.menu.cuda_check_hint"))
                 return
             console.print(f"  [dim]GPU: {torch.cuda.get_device_name(0)}[/dim]")
         except ImportError:
-            console.print("\n  [error]GPU 벤치마크에는 PyTorch(CUDA)가 필요합니다.[/error]\n")
+            console.print(t("benchmark.menu.pytorch_required"))
             return
 
     device_labels = []
@@ -56,23 +54,23 @@ def benchmark_menu():
             device_labels.append("GPU (torch.compile)")
 
     console.print()
-    console.print("  [accent]벤치마크 설정[/accent]")
-    console.print(f"  모드:     [value]{' + '.join(device_labels)}[/value]")
-    console.print(f"  텍스트:   [value]3개 (짧음/중간/김)[/value]")
-    console.print(f"  반복:     [value]워밍업 2회 + 측정 5회[/value]")
+    console.print(t("benchmark.menu.settings_title"))
+    console.print(t("benchmark.menu.settings_mode", mode=" + ".join(device_labels)))
+    console.print(t("benchmark.menu.settings_texts"))
+    console.print(t("benchmark.menu.settings_runs"))
     console.print()
 
-    if not confirm("벤치마크를 시작하시겠습니까?"):
+    if not confirm(t("benchmark.menu.confirm_start")):
         return
 
     from cli.benchmark.runner import run_benchmark
 
     output_path = run_benchmark(devices)
 
-    console.print(f"\n[success]벤치마크 완료![/success]")
+    console.print(t("benchmark.menu.complete"))
     console.print(f"  [dim]{output_path}[/dim]\n")
 
-    if confirm("브라우저에서 열시겠습니까?", default=True):
+    if confirm(t("benchmark.menu.open_browser"), default=True):
         _open_report(output_path)
 
 

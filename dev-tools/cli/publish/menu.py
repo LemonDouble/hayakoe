@@ -28,6 +28,7 @@ from typing import Optional
 from rich.panel import Panel
 from rich.syntax import Syntax
 
+from cli.i18n import t
 from cli.publish.credentials import (
     _write_env_var,
     ensure_hf_token,
@@ -129,19 +130,19 @@ def _publish_source_from_folder(folder: Path) -> PublishSource:
     선택: ``synthesizer.onnx`` / ``duration_predictor.onnx`` 가 있으면 재사용.
     """
     if not folder.is_dir():
-        raise ValueError(f"폴더가 아닙니다: {folder}")
+        raise ValueError(t("publish.source.not_dir", path=folder))
 
     config_path = folder / "config.json"
     if not config_path.exists():
-        raise ValueError(f"config.json 이 없습니다: {folder}")
+        raise ValueError(t("publish.source.no_config", path=folder))
 
     style_vectors = folder / "style_vectors.npy"
     if not style_vectors.exists():
-        raise ValueError(f"style_vectors.npy 가 없습니다: {folder}")
+        raise ValueError(t("publish.source.no_style", path=folder))
 
     checkpoints = sorted(folder.glob("*.safetensors"))
     if not checkpoints:
-        raise ValueError(f".safetensors 파일이 없습니다: {folder}")
+        raise ValueError(t("publish.source.no_safetensors", path=folder))
 
     existing_onnx = folder if (folder / "synthesizer.onnx").exists() else None
 
@@ -169,7 +170,7 @@ def _stage_pytorch(src: PublishSource, ckpt: Path, dst: Path) -> None:
         (src.config_path, "config.json"),
     ]:
         if not source_file.exists():
-            raise FileNotFoundError(f"필수 파일 없음: {source_file}")
+            raise FileNotFoundError(t("publish.source.file_missing", path=source_file))
         shutil.copy2(source_file, dst / name)
 
 
@@ -189,7 +190,7 @@ def _stage_onnx(src: PublishSource, onnx_dir: Path, dst: Path) -> None:
 
     for source_file, name in mandatory:
         if not source_file.exists():
-            raise FileNotFoundError(f"필수 파일 없음: {source_file}")
+            raise FileNotFoundError(t("publish.source.file_missing", path=source_file))
         shutil.copy2(source_file, dst / name)
     for source_file, name in optional:
         if source_file.exists():
@@ -203,7 +204,7 @@ def _persist_if_changed(key: str, value: str) -> None:
     """값이 이전과 다르면 ``.env`` 에 조용히 저장."""
     if value and os.environ.get(key) != value:
         _write_env_var(key, value)
-        console.print(f"  [dim]→ .env 에 {key} 저장[/dim]")
+        console.print(t("publish.env.saved", key=key))
 
 
 def _prompt_hf_destination() -> tuple[Optional[str], Optional[str]]:
@@ -212,21 +213,14 @@ def _prompt_hf_destination() -> tuple[Optional[str], Optional[str]]:
     default_repo = os.environ.get("HAYAKOE_HF_REPO", "")
 
     console.print()
-    console.print(
-        "  [dim]HF repo 주소 — 아래 형식 모두 허용:\n"
-        "    lemondouble/hayakoe-voices\n"
-        "    hf://lemondouble/hayakoe-voices\n"
-        "    hf://lemondouble/hayakoe-voices@main\n"
-        "    https://huggingface.co/lemondouble/hayakoe-voices\n"
-        "    https://huggingface.co/lemondouble/hayakoe-voices/tree/dev[/dim]"
-    )
-    raw = text_input("HF repo 주소", default=default_repo).strip()
+    console.print(t("publish.hf.address_hint"))
+    raw = text_input(t("publish.hf.address_prompt"), default=default_repo).strip()
     if not raw:
         return None, None
 
     normalized = normalize_hf_uri(raw)
     if normalized is None:
-        console.print(f"  [error]해석할 수 없는 HF 주소입니다: {raw}[/error]")
+        console.print(t("publish.hf.invalid_address", raw=raw))
         return None, None
 
     token = ensure_hf_token()
@@ -246,11 +240,11 @@ def _prompt_s3_destination() -> Optional[str]:
     default_bucket = os.environ.get("HAYAKOE_S3_BUCKET", "")
     default_prefix = os.environ.get("HAYAKOE_S3_PREFIX", "")
 
-    bucket = text_input("S3 Bucket", default=default_bucket).strip()
+    bucket = text_input(t("publish.s3.bucket_prompt"), default=default_bucket).strip()
     if not bucket:
         return None
     prefix = text_input(
-        "Prefix (루트면 Enter)", default=default_prefix,
+        t("publish.s3.prefix_prompt"), default=default_prefix,
     ).strip().strip("/")
 
     _persist_if_changed("HAYAKOE_S3_BUCKET", bucket)
@@ -268,7 +262,7 @@ def _prompt_local_destination() -> Optional[str]:
     default_local = os.environ.get("HAYAKOE_LOCAL_PATH", "")
 
     raw = text_input(
-        "로컬 디렉토리 절대 경로", default=default_local,
+        t("publish.local.path_prompt"), default=default_local,
     ).strip()
     if not raw:
         return None
@@ -282,20 +276,20 @@ def _prompt_local_destination() -> Optional[str]:
 
 def _select_backends() -> list[str]:
     """항상 CPU/GPU/CPU+GPU/뒤로 를 제공. 없는 아티팩트는 즉시 export 로 만든다."""
+    label_cpu = t("publish.backend.cpu")
+    label_gpu = t("publish.backend.gpu")
+    label_both = t("publish.backend.both")
+    label_back = t("publish.backend.back")
+
     choice = select_from_list(
-        "어떤 백엔드를 배포할까요?",
-        [
-            "CPU (ONNX) — GPU 없는 서버/로컬용, BERT Q8 + ONNX Runtime",
-            "GPU (PyTorch) — torch.compile + CUDA Graph, 최소 지연",
-            "CPU + GPU (권장) — 양쪽 환경 모두 배포",
-            "뒤로",
-        ],
+        t("publish.backend.prompt"),
+        [label_cpu, label_gpu, label_both, label_back],
     )
-    if choice == "뒤로":
+    if choice == label_back:
         return []
-    if choice.startswith("CPU + GPU"):
+    if choice == label_both:
         return ["pytorch", "onnx"]
-    if choice.startswith("GPU"):
+    if choice == label_gpu:
         return ["pytorch"]
     return ["onnx"]
 
@@ -306,18 +300,19 @@ def _select_backends() -> list[str]:
 def _select_checkpoint(src: PublishSource) -> Optional[Path]:
     """``src.checkpoints`` 중 하나 선택. 1개뿐이면 자동 선택."""
     if not src.checkpoints:
-        console.print("  [error]선택 가능한 .safetensors 가 없습니다.[/error]")
+        console.print(t("publish.checkpoint.no_checkpoints"))
         return None
     if len(src.checkpoints) == 1:
         only = src.checkpoints[0]
-        console.print(f"  [dim]체크포인트 자동 선택 → {only.name}[/dim]")
+        console.print(t("publish.checkpoint.auto_selected", name=only.name))
         return only
 
-    options = [c.name for c in src.checkpoints] + ["뒤로"]
+    label_back = t("publish.menu.back")
+    options = [c.name for c in src.checkpoints] + [label_back]
     pick = select_from_list(
-        "체크포인트 선택 (품질 리포트에서 확인한 최적 모델)", options,
+        t("publish.checkpoint.select_prompt"), options,
     )
-    if pick == "뒤로":
+    if pick == label_back:
         return None
     return next(c for c in src.checkpoints if c.name == pick)
 
@@ -334,11 +329,11 @@ def _ensure_onnx_exports(src: PublishSource, ckpt: Path) -> Path:
     from cli.export.exporter import export_duration_predictor, export_synthesizer
 
     if src.existing_onnx_dir is not None:
-        console.print(f"  [dim]기존 ONNX 재사용 → {src.existing_onnx_dir}[/dim]")
+        console.print(t("publish.onnx.reuse", path=src.existing_onnx_dir))
         return src.existing_onnx_dir
 
     target = src.onnx_export_dir
-    console.print(f"  [dim]ONNX 내보내기 시작 → {target}[/dim]")
+    console.print(t("publish.onnx.export_start", path=target))
     export_synthesizer(src.config_path, ckpt, target)
     export_duration_predictor(src.config_path, ckpt, target)
     return target
@@ -634,41 +629,26 @@ def _maybe_stage_readme(
 
     if existing is None:
         console.print()
-        console.print(
-            "  [dim]목적지 루트에 README.md 가 없습니다. ko/en/ja/zh 로 작성된\n"
-            f"  데이터 저장 포맷 설명 README.md 를 자동 생성해 함께 올릴 수 있습니다.\n"
-            f"  (Runtime usage 에는 화자 {len(speakers)}개가 반영됩니다: "
-            f"{', '.join(speakers)})[/dim]"
-        )
-        if not confirm("README.md 를 자동 생성해 함께 배포할까요?", default=True):
+        console.print(t("publish.readme.no_readme", count=len(speakers), speakers=", ".join(speakers)))
+        if not confirm(t("publish.readme.confirm_create"), default=True):
             return
         (staging / "README.md").write_text(new_content, encoding="utf-8")
-        console.print("  [dim]stage → README.md (신규, ko/en/ja/zh)[/dim]")
+        console.print(t("publish.readme.staged_new"))
         return
 
     if existing.strip() == new_content.strip():
-        console.print("  [dim]README.md 최신 상태 — 건너뜁니다.[/dim]")
+        console.print(t("publish.readme.up_to_date"))
         return
 
     console.print()
-    console.print(
-        "  [warning]목적지에 이미 README.md 가 존재합니다 — 자동으로 덮어쓰지\n"
-        "  않습니다. 아래 diff 를 확인하고 승인해야만 갱신됩니다. 거부하면\n"
-        "  기존 README.md 는 그대로 유지됩니다.[/warning]"
-    )
-    console.print(
-        f"  [dim]Runtime usage 에는 화자 {len(speakers)}개가 반영됩니다: "
-        f"{', '.join(speakers)}[/dim]"
-    )
+    console.print(t("publish.readme.exists_warning"))
+    console.print(t("publish.readme.speakers_reflected", count=len(speakers), speakers=", ".join(speakers)))
     _print_readme_diff(existing, new_content)
-    if not confirm(
-        "README.md 를 새 템플릿으로 갱신할까요? (거부 시 원격 README 유지)",
-        default=False,
-    ):
-        console.print("  [dim]README.md 갱신을 건너뜁니다 — 원격 README 는 그대로 유지됩니다.[/dim]")
+    if not confirm(t("publish.readme.confirm_update"), default=False):
+        console.print(t("publish.readme.skipped"))
         return
     (staging / "README.md").write_text(new_content, encoding="utf-8")
-    console.print("  [dim]stage → README.md (갱신)[/dim]")
+    console.print(t("publish.readme.staged_update"))
 
 
 # ──────────────────────────── 업로드 후 검증 ────────────────────────────
@@ -732,15 +712,10 @@ def _verify_one(
         out_path.parent.mkdir(parents=True, exist_ok=True)
         audio.save(out_path)
         duration = len(audio.data) / audio.sr
-        console.print(
-            f"  [success]✓ {label}[/success] [dim]— {duration:.2f}s @ {audio.sr}Hz[/dim]"
-        )
+        console.print(t("publish.verify.success", label=label, duration=duration, sr=audio.sr))
         console.print(f"    [dim]→ {out_path}[/dim]")
     except Exception as e:
-        console.print(
-            f"  [error]✗ {label} 검증 실패[/error] "
-            f"[dim]{type(e).__name__}: {e}[/dim]"
-        )
+        console.print(t("publish.verify.failed", label=label, error_type=type(e).__name__, error=e))
     finally:
         _reset_gpu_state_if_needed(device)
 
@@ -758,10 +733,7 @@ def _verify_via_runtime(
     - 합성 결과는 ``dev-tools/.verify_audio/`` 에 WAV 로 저장되어 직접 들어볼 수 있다.
     """
     console.print()
-    console.print(
-        "  [accent]검증[/accent] "
-        f"[dim]— 방금 올린 주소에서 실제로 받아 \"{_VERIFY_TEXT}\" 를 합성합니다.[/dim]"
-    )
+    console.print(t("publish.verify.title", text=_VERIFY_TEXT))
 
     # dev-tools/.verify_audio/<target>_<device>.wav
     out_root = Path(__file__).resolve().parents[2] / ".verify_audio"
@@ -788,12 +760,10 @@ def _verify_via_runtime(
                 out_path=out_root / f"{target_name}_cuda.wav",
             )
         else:
-            console.print(
-                "  [dim]CUDA 를 사용할 수 없어 GPU(PyTorch) 검증은 스킵합니다.[/dim]"
-            )
+            console.print(t("publish.verify.cuda_skip"))
 
     if not backends or ("onnx" not in backends and "pytorch" not in backends):
-        console.print("  [dim]검증할 백엔드가 없습니다.[/dim]")
+        console.print(t("publish.verify.no_backends"))
 
 
 # ──────────────────────────── 기존 데이터 덮어쓰기 ────────────────────────────
@@ -910,10 +880,7 @@ def _wipe_remote_speaker_dirs(
                 )
                 console.print(f"  [dim]wipe (hf) → {p}/[/dim]")
             except Exception as e:
-                console.print(
-                    f"  [warning]HF delete_folder({p}) 실패: "
-                    f"{type(e).__name__}: {e}[/warning]"
-                )
+                console.print(t("publish.hf.delete_failed", path=p, error_type=type(e).__name__, error=e))
         return
 
 
@@ -924,13 +891,7 @@ def publish_menu():
     """화자 배포 메인 메뉴."""
     console.print()
     console.print(Panel(
-        "[accent]화자 배포 (Publish)[/accent] [dim]— HF / S3 / 로컬[/dim]\n\n"
-        "[dim]학습이 끝난 화자를 HuggingFace private repo, S3 버킷, 또는\n"
-        "로컬 디렉토리에 올려 런타임에서 다운로드 받아 쓸 수 있게 합니다.\n"
-        "이후 런타임에서\n"
-        "  TTS(...).load(name, source=\"hf://...\").prepare()\n"
-        "로 받아 쓸 수 있습니다.\n\n"
-        "CPU 배포를 고르면 필요 시 ONNX 내보내기를 자동으로 수행합니다.[/dim]",
+        t("publish.menu.intro_panel"),
         border_style="cyan",
         padding=(1, 2),
     ))
@@ -944,19 +905,18 @@ def publish_menu():
             dataset_sources.append(ps)
 
     # 화자 선택 — 학습된 dataset + "폴더에서 직접 선택" 을 한 메뉴에 섞는다
-    _FOLDER_PICK = "📁 다른 폴더에서 직접 선택..."
-    choices = [src.display_name for src in dataset_sources] + [_FOLDER_PICK, "뒤로"]
+    _FOLDER_PICK = t("publish.menu.folder_pick")
+    label_back = t("publish.menu.back")
+    choices = [src.display_name for src in dataset_sources] + [_FOLDER_PICK, label_back]
     if not dataset_sources:
-        console.print(
-            "  [dim]학습된 화자가 없습니다 — 폴더에서 직접 선택해 올릴 수 있습니다.[/dim]"
-        )
-    name = select_from_list("화자 선택", choices)
-    if name == "뒤로":
+        console.print(t("publish.menu.no_trained_speakers"))
+    name = select_from_list(t("publish.menu.speaker_select"), choices)
+    if name == label_back:
         return
 
     if name == _FOLDER_PICK:
         raw = text_input(
-            "폴더 경로 (config.json + style_vectors.npy + *.safetensors 포함)",
+            t("publish.menu.folder_path_prompt"),
         ).strip()
         if not raw:
             return
@@ -966,7 +926,7 @@ def publish_menu():
         except ValueError as e:
             console.print(f"  [error]{e}[/error]")
             return
-        console.print(f"  [dim]폴더 선택 → {folder}[/dim]")
+        console.print(t("publish.menu.folder_selected", path=folder))
     else:
         src = next(s for s in dataset_sources if s.display_name == name)
 
@@ -982,27 +942,27 @@ def publish_menu():
 
     # 배포 이름 (런타임 load() 인자로 쓰임)
     target_name = edit_value(
-        "배포 화자 이름 (런타임 load() 인자)", src.default_target_name,
+        t("publish.deploy_name.prompt"), src.default_target_name,
     )
     if not target_name:
         return
 
     # 목적지 종류
+    label_hf = t("publish.destination.hf")
+    label_s3 = t("publish.destination.s3")
+    label_local = t("publish.destination.local")
+    label_dest_back = t("publish.destination.back")
+
     dest_kind = select_from_list(
-        "어디서 다운로드 받을 수 있게 할까요?",
-        [
-            "HuggingFace Hub",
-            "S3 (또는 S3-호환)",
-            "로컬 디렉토리 (이 머신에 보관)",
-            "뒤로",
-        ],
+        t("publish.destination.prompt"),
+        [label_hf, label_s3, label_local, label_dest_back],
     )
-    if dest_kind == "뒤로":
+    if dest_kind == label_dest_back:
         return
 
-    if dest_kind == "HuggingFace Hub":
+    if dest_kind == label_hf:
         destination, token = _prompt_hf_destination()
-    elif dest_kind.startswith("S3"):
+    elif dest_kind == label_s3:
         destination = _prompt_s3_destination()
         token = None
     else:
@@ -1014,16 +974,16 @@ def publish_menu():
 
     # 요약
     console.print()
-    console.print("  [accent]배포 요약[/accent]")
-    console.print(f"  화자:        [value]{src.display_name}[/value]")
-    console.print(f"  배포 이름:   [value]{target_name}[/value]")
-    console.print(f"  백엔드:      [value]{', '.join(backends)}[/value]")
-    console.print(f"  체크포인트:  [value]{ckpt}[/value]")
-    console.print(f"  대상 종류:   [value]{dest_kind}[/value]")
-    console.print(f"  대상:        [value]{destination}[/value]")
+    console.print(t("publish.summary.title"))
+    console.print(t("publish.summary.speaker", name=src.display_name))
+    console.print(t("publish.summary.deploy_name", name=target_name))
+    console.print(t("publish.summary.backends", backends=", ".join(backends)))
+    console.print(t("publish.summary.checkpoint", ckpt=ckpt))
+    console.print(t("publish.summary.dest_kind", kind=dest_kind))
+    console.print(t("publish.summary.dest_uri", uri=destination))
     console.print()
 
-    if not confirm("배포를 시작하시겠습니까?", default=False):
+    if not confirm(t("publish.summary.confirm"), default=False):
         return
 
     # 소스 파싱
@@ -1036,17 +996,11 @@ def publish_menu():
     )
     if existing_prefixes:
         console.print()
-        console.print(
-            "  [warning]목적지에 해당 화자 디렉토리가 이미 존재합니다:[/warning]"
-        )
+        console.print(t("publish.overwrite.existing_dirs"))
         for p in existing_prefixes:
             console.print(f"    [dim]- {p}/[/dim]")
-        console.print(
-            "  [dim]그대로 업로드하면 파일명이 다른 구버전 아티팩트가 섞여 남을 수\n"
-            "  있습니다. 진행하면 위 디렉토리들을 완전히 지운 뒤 새 파일로\n"
-            "  덮어씁니다 — 다른 화자와 루트 파일(README 등) 은 건드리지 않습니다.[/dim]"
-        )
-        if not confirm("기존 디렉토리를 지우고 덮어쓸까요?", default=False):
+        console.print(t("publish.overwrite.explanation"))
+        if not confirm(t("publish.overwrite.confirm"), default=False):
             return
 
     # ONNX export (필요 시) — overwrite 확정 후 수행 (작업 낭비 방지)
@@ -1074,19 +1028,17 @@ def publish_menu():
 
         # 기존 디렉토리 정리 (upload 직전)
         if existing_prefixes:
-            console.print("  [dim]기존 디렉토리 정리 중...[/dim]")
+            console.print(t("publish.overwrite.cleaning"))
             _wipe_remote_speaker_dirs(source, existing_prefixes, token)
 
-        console.print("  [dim]업로드 중...[/dim]")
+        console.print(t("publish.uploading"))
         # root 기준으로 한 번에 업로드 — Source 가 재귀 처리
         source.upload(prefix="", local_dir=staging)
 
     console.print()
-    console.print("[success]배포 완료![/success]")
-    console.print("  [dim]런타임 사용 예:[/dim]")
-    console.print(
-        f"  [dim]TTS(...).load(\"{target_name}\", source=\"{destination}\").prepare()[/dim]"
-    )
+    console.print(t("publish.complete"))
+    console.print(t("publish.runtime_hint"))
+    console.print(t("publish.runtime_example", name=target_name, uri=destination))
 
     # 검증 — 실제로 받아서 추론까지
     _verify_via_runtime(target_name, destination, token, backends)

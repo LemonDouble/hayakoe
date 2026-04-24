@@ -2,13 +2,15 @@
 
 import typer
 
+from cli.i18n import t, _SUPPORTED
+from cli.i18n import _LANG_LABELS, set_lang, get_lang
 from cli.ui.console import console, LOGO
 from cli.ui.prompts import select_from_list
 
 
 app = typer.Typer(
     name="hayakoe-dev",
-    help="HayaKoe TTS 개발 도구",
+    help=t("app.help"),
     no_args_is_help=False,
     add_completion=False,
 )
@@ -53,49 +55,67 @@ def publish():
     publish_menu()
 
 
-INTRO = (
-    "[dim]HayaKoe TTS 모델의 학습부터 배포까지를 안내합니다.\n"
-    "아래 순서대로 진행하세요.[/dim]\n\n"
-    "[dim]  [accent]① 학습[/accent]          음성 데이터로 TTS 모델을 학습합니다.\n"
-    "  [accent]② 품질 리포트[/accent]   학습된 체크포인트의 음성을 비교 시청합니다.\n"
-    "                    만족할 때까지 ①↔② 를 반복합니다.\n"
-    "  [accent]③ 벤치마크[/accent]       CPU/GPU에서 추론 속도를 측정합니다.\n"
-    "  [accent]④ 배포 (Publish)[/accent] 학습한 화자를 HF / S3 / 로컬에 올려\n"
-    "                    런타임에서 다운로드해 쓸 수 있게 합니다.\n"
-    "                    CPU 배포는 내부적으로 ONNX 내보내기를 자동 수행합니다.[/dim]"
-)
+def _intro():
+    return t("app.intro")
 
 
 def interactive_main_menu():
     """메인 인터랙티브 메뉴."""
     console.print(LOGO)
-    console.print(INTRO)
+    console.print(_intro())
     console.print()
 
+    menu_training = t("app.menu.training")
+    menu_report = t("app.menu.report")
+    menu_benchmark = t("app.menu.benchmark")
+    menu_publish = t("app.menu.publish")
+    menu_lang = f"🌐 Language ({_LANG_LABELS[get_lang()]})"
+    menu_exit = t("app.menu.exit")
+
     while True:
-        choice = select_from_list("무엇을 할까요?", [
-            "학습 파이프라인 — 데이터 전처리 + 모델 학습",
-            "품질 리포트 — 체크포인트별 음성 비교 시청",
-            "벤치마크 — CPU/GPU 추론 속도 측정",
-            "배포 (Publish) — HF / S3 / 로컬에서 다운로드 받을 수 있게 화자 배포",
-            "종료",
+        choice = select_from_list(t("app.menu.prompt"), [
+            menu_training,
+            menu_report,
+            menu_benchmark,
+            menu_publish,
+            menu_lang,
+            menu_exit,
         ])
-        if "학습 파이프라인" in choice:
+        if choice == menu_training:
             from cli.training.menu import training_menu
 
             training_menu()
-        elif "품질 리포트" in choice:
+        elif choice == menu_report:
             from cli.report.menu import report_menu
 
             report_menu()
-        elif "벤치마크" in choice:
+        elif choice == menu_benchmark:
             from cli.benchmark.menu import benchmark_menu
 
             benchmark_menu()
-        elif "배포" in choice:
+        elif choice == menu_publish:
             from cli.publish.menu import publish_menu
 
             publish_menu()
-        elif choice == "종료":
-            console.print("  [dim]종료합니다.[/dim]")
+        elif choice == menu_lang:
+            _change_language()
+        elif choice == menu_exit:
+            console.print(t("app.exit_message"))
+            break
+
+
+def _change_language():
+    current = get_lang()
+    choices = [
+        f"{_LANG_LABELS[code]}{' ✓' if code == current else ''}"
+        for code in _SUPPORTED
+    ]
+    chosen = select_from_list("Select language / 언어 선택", choices)
+    for code in _SUPPORTED:
+        if chosen.startswith(_LANG_LABELS[code]):
+            if code != current:
+                set_lang(code)
+                console.print(f"\n  ✓ {_LANG_LABELS[code]}\n")
+                console.print(t("app.exit_message"))
+                raise SystemExit(0)
             break

@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
+from cli.i18n import t
 from cli.ui.console import console
 
 from hayakoe.models.hyper_parameters import HyperParameters
@@ -123,7 +124,7 @@ def export_duration_predictor(
         TextColumn("[progress.description]{task.description}"),
         console=console,
     ) as progress:
-        task = progress.add_task("모델 로딩 중...", total=None)
+        task = progress.add_task(t("export.model_loading"), total=None)
         net_g = get_net_g(str(checkpoint), hps.version, "cpu", hps)
         net_g.eval()
 
@@ -157,7 +158,7 @@ def export_duration_predictor(
             "durations": {1: "phone_len"},
         }
 
-        progress.update(task, description="ONNX 내보내기 중...")
+        progress.update(task, description=t("export.onnx_exporting"))
         t0 = time.time()
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=torch.jit.TracerWarning)
@@ -180,10 +181,10 @@ def export_duration_predictor(
         if data_file.exists():
             total_size += data_file.stat().st_size
 
-        progress.update(task, description="완료")
+        progress.update(task, description=t("export.done"))
 
-    console.print(f"  내보내기 시간: [value]{elapsed:.1f}s[/value]")
-    console.print(f"  파일 크기:     [value]{total_size / 1024 / 1024:.1f}MB[/value]")
+    console.print(t("export.time", elapsed=elapsed))
+    console.print(t("export.size", size=total_size / 1024 / 1024))
 
     return output_path
 
@@ -213,7 +214,7 @@ def export_synthesizer(
         console=console,
     ) as progress:
         # 모델 로드
-        task = progress.add_task("모델 로딩 중...", total=None)
+        task = progress.add_task(t("export.model_loading"), total=None)
         net_g = get_net_g(str(checkpoint), hps.version, "cpu", hps)
         net_g.eval()
 
@@ -255,7 +256,7 @@ def export_synthesizer(
         }
 
         # ONNX 내보내기 (TracerWarning / constant folding 경고 억제)
-        progress.update(task, description="ONNX 내보내기 중...")
+        progress.update(task, description=t("export.onnx_exporting"))
         t0 = time.time()
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=torch.jit.TracerWarning)
@@ -279,9 +280,9 @@ def export_synthesizer(
         if data_file.exists():
             total_size += data_file.stat().st_size
 
-        progress.update(task, description="완료")
+        progress.update(task, description=t("export.done"))
 
-    console.print(f"  내보내기 시간: [value]{elapsed:.1f}s[/value]")
-    console.print(f"  파일 크기:     [value]{total_size / 1024 / 1024:.1f}MB[/value]")
+    console.print(t("export.time", elapsed=elapsed))
+    console.print(t("export.size", size=total_size / 1024 / 1024))
 
     return output_path

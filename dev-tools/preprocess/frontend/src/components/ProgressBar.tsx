@@ -1,3 +1,5 @@
+import { t } from "../i18n";
+
 interface Props {
   progress: number; // 0~1
   message?: string;
@@ -10,7 +12,7 @@ export default function ProgressBar({ progress, message }: Props) {
   return (
     <div>
       <div className="flex justify-between text-sm mb-1.5">
-        <span className="text-fg-muted">{message || "처리 중..."}</span>
+        <span className="text-fg-muted">{message || t("progress.default_message")}</span>
         {hasProgress && <span className="text-primary font-mono font-semibold">{pct}%</span>}
       </div>
       {hasProgress ? (

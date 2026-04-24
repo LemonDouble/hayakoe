@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as clsApi from "../api/classification";
 import * as speakersApi from "../api/speakers";
 import type { SegmentInfo, ClassificationState } from "../api/classification";
+import { t } from "../i18n";
 
 interface Props {
   videoId: string;
@@ -121,7 +122,7 @@ export default function CardClassifier({ videoId, sourceFile, onDone }: Props) {
 
   // 분류 완료
   const handleDone = async () => {
-    if (!confirm("분류를 완료하시겠습니까? 미분류 세그먼트가 남아있어도 진행됩니다.")) return;
+    if (!confirm(t("classifier.confirm_done"))) return;
     await clsApi.markDone(videoId);
     onDone();
   };
@@ -163,21 +164,21 @@ export default function CardClassifier({ videoId, sourceFile, onDone }: Props) {
     }
   }, [audioUrl, current, playSegment]);
 
-  if (loading) return <div className="p-6 text-fg-muted">로딩 중...</div>;
+  if (loading) return <div className="p-6 text-fg-muted">{t("classifier.loading")}</div>;
 
   if (totalUnclassified === 0 && segments.length === 0) {
     return (
       <div className="bg-surface border border-line rounded-xl p-8 text-center">
         <div className="w-12 h-12 rounded-full bg-success/15 border border-success/40 text-success flex items-center justify-center text-lg mx-auto mb-3">
-          {"\u2713"}
+          {"✓"}
         </div>
-        <p className="font-display text-xl font-bold text-success mb-2">모든 세그먼트 분류 완료</p>
-        <p className="text-fg-muted text-sm mb-5">모든 음성 구간이 화자에게 배정되었습니다.</p>
+        <p className="font-display text-xl font-bold text-success mb-2">{t("classifier.all_done.title")}</p>
+        <p className="text-fg-muted text-sm mb-5">{t("classifier.all_done.description")}</p>
         <button
           className="bg-primary hover:bg-primary-hover text-canvas px-6 py-2.5 rounded-lg font-semibold text-sm transition-colors"
           onClick={handleDone}
         >
-          분류 완료 &rarr; 다음 단계
+          {t("classifier.all_done.next")}
         </button>
       </div>
     );
@@ -191,23 +192,22 @@ export default function CardClassifier({ videoId, sourceFile, onDone }: Props) {
     <div className="bg-surface border border-line rounded-xl p-6">
       {/* 안내 배너 */}
       <div className="bg-primary/[0.08] border border-primary/25 rounded-lg p-4 mb-5">
-        <p className="text-primary text-[11px] font-bold uppercase tracking-[1.5px] mb-1.5 font-display">화자 분류</p>
+        <p className="text-primary text-[11px] font-bold uppercase tracking-[1.5px] mb-1.5 font-display">{t("classifier.title")}</p>
         <p className="text-fg-muted text-xs leading-relaxed mb-3">
-          오디오가 자동 재생됩니다. 들리는 목소리에 해당하는 화자 버튼을 클릭하거나 키보드 단축키를 사용하세요.
-          잡음, 음악, 또는 등록하지 않은 사람의 목소리는 &ldquo;버리기&rdquo;로 제외할 수 있습니다.
+          {t("classifier.description")}
         </p>
         <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-fg-dim">
-          <span><kbd className="bg-canvas border border-line px-1.5 py-0.5 rounded text-fg font-mono text-[11px]">1-9</kbd> 화자 배정</span>
-          <span><kbd className="bg-canvas border border-line px-1.5 py-0.5 rounded text-fg font-mono text-[11px]">D</kbd> 버리기</span>
-          <span><kbd className="bg-canvas border border-line px-1.5 py-0.5 rounded text-fg font-mono text-[11px]">R</kbd> 다시 듣기</span>
-          <span><kbd className="bg-canvas border border-line px-1.5 py-0.5 rounded text-fg font-mono text-[11px]">Z</kbd> 되돌리기</span>
+          <span><kbd className="bg-canvas border border-line px-1.5 py-0.5 rounded text-fg font-mono text-[11px]">1-9</kbd> {t("classifier.shortcut.assign")}</span>
+          <span><kbd className="bg-canvas border border-line px-1.5 py-0.5 rounded text-fg font-mono text-[11px]">D</kbd> {t("classifier.shortcut.discard")}</span>
+          <span><kbd className="bg-canvas border border-line px-1.5 py-0.5 rounded text-fg font-mono text-[11px]">R</kbd> {t("classifier.shortcut.replay")}</span>
+          <span><kbd className="bg-canvas border border-line px-1.5 py-0.5 rounded text-fg font-mono text-[11px]">Z</kbd> {t("classifier.shortcut.undo")}</span>
         </div>
       </div>
 
       {/* 진행률 바 */}
       <div className="mb-5">
         <div className="flex justify-between text-sm mb-1.5">
-          <span className="text-fg-muted">분류 진행률</span>
+          <span className="text-fg-muted">{t("classifier.progress")}</span>
           <span className="text-primary font-mono font-semibold">
             {classified} / {totalAll} ({progressPct}%)
           </span>
@@ -218,7 +218,7 @@ export default function CardClassifier({ videoId, sourceFile, onDone }: Props) {
             style={{ width: `${progressPct}%` }}
           />
         </div>
-        <p className="text-xs text-fg-dim mt-1.5">남은 세그먼트: {totalUnclassified}개</p>
+        <p className="text-xs text-fg-dim mt-1.5">{t("classifier.remaining", { count: totalUnclassified })}</p>
       </div>
 
       {/* 원본 영상 플레이어 (뮤트) */}
@@ -249,7 +249,7 @@ export default function CardClassifier({ videoId, sourceFile, onDone }: Props) {
 
       {/* 화자 배정 */}
       <div className="mb-4">
-        <p className="text-xs text-fg-dim mb-2">화자 배정 (숫자 키로도 선택 가능)</p>
+        <p className="text-xs text-fg-dim mb-2">{t("classifier.assign_hint")}</p>
         <div className="grid grid-cols-3 gap-2">
           {speakers.map((s, i) => (
             <button
@@ -272,9 +272,9 @@ export default function CardClassifier({ videoId, sourceFile, onDone }: Props) {
         <button
           className="bg-canvas border border-line hover:border-error/40 hover:text-error text-fg-muted px-3 py-2 rounded-lg text-sm transition-colors"
           onClick={() => handleClassify("discarded")}
-          title="잡음, 음악, 불필요한 구간을 제외합니다"
+          title={t("classifier.shortcut.discard")}
         >
-          <span className="text-fg-dim mr-1 font-mono text-xs">D.</span> 버리기
+          <span className="text-fg-dim mr-1 font-mono text-xs">D.</span> {t("classifier.discard")}
           {countMap.has("discarded") && (
             <span className="text-fg-dim ml-1 text-xs">({countMap.get("discarded")})</span>
           )}
@@ -283,20 +283,20 @@ export default function CardClassifier({ videoId, sourceFile, onDone }: Props) {
           className="bg-canvas border border-line hover:border-line-strong text-fg-muted hover:text-fg px-3 py-2 rounded-lg text-sm transition-colors"
           onClick={playSegment}
         >
-          <span className="text-fg-dim mr-1 font-mono text-xs">R.</span> 다시듣기
+          <span className="text-fg-dim mr-1 font-mono text-xs">R.</span> {t("classifier.replay")}
         </button>
         <button
           className="bg-canvas border border-line hover:border-line-strong text-fg-muted hover:text-fg px-3 py-2 rounded-lg text-sm transition-colors"
           onClick={handleUndo}
         >
-          <span className="text-fg-dim mr-1 font-mono text-xs">Z.</span> 되돌리기
+          <span className="text-fg-dim mr-1 font-mono text-xs">Z.</span> {t("classifier.undo")}
         </button>
         <div className="flex-1" />
         <button
           className="bg-primary hover:bg-primary-hover text-canvas px-5 py-2 rounded-lg text-sm font-semibold transition-colors"
           onClick={handleDone}
         >
-          분류 완료
+          {t("classifier.done")}
         </button>
       </div>
     </div>

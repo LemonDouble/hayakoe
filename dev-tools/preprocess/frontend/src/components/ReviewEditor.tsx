@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as reviewApi from "../api/review";
 import type { TranscriptionEntry } from "../api/review";
+import { t } from "../i18n";
 
 interface Props {
   videoId: string;
@@ -81,19 +82,19 @@ export default function ReviewEditor({ videoId, onDone }: Props) {
   };
 
   const handleDelete = async (entry: TranscriptionEntry) => {
-    if (!confirm(`"${entry.file}" 전사를 삭제하시겠습니까?`)) return;
+    if (!confirm(t("review.confirm_delete", { file: entry.file }))) return;
     await reviewApi.deleteTranscription(videoId, entry.file);
     setEntries((prev) => prev.filter((e) => e.file !== entry.file));
     if (editingFile === entry.file) cancelEdit();
   };
 
   const handleDone = async () => {
-    if (!confirm("검토를 완료하시겠습니까?")) return;
+    if (!confirm(t("review.confirm_done"))) return;
     await reviewApi.markReviewDone(videoId);
     onDone();
   };
 
-  if (loading) return <div className="p-6 text-fg-muted">로딩 중...</div>;
+  if (loading) return <div className="p-6 text-fg-muted">{t("review.loading")}</div>;
 
   return (
     <div className="bg-surface border border-line rounded-xl p-6">
@@ -101,27 +102,27 @@ export default function ReviewEditor({ videoId, onDone }: Props) {
 
       {/* 안내 배너 */}
       <div className="bg-primary/[0.08] border border-primary/25 rounded-lg p-4 mb-5">
-        <p className="text-primary text-[11px] font-bold uppercase tracking-[1.5px] mb-1.5 font-display">전사 검토</p>
+        <p className="text-primary text-[11px] font-bold uppercase tracking-[1.5px] mb-1.5 font-display">{t("review.title")}</p>
         <p className="text-fg-muted text-xs leading-relaxed mb-2">
-          자동 전사(STT) 결과를 확인하고 오류를 수정하세요. 정확한 텍스트가 TTS 학습 품질에 직접 영향을 미칩니다.
+          {t("review.description")}
         </p>
         <ul className="text-xs text-fg-dim space-y-0.5 list-disc list-inside marker:text-primary">
-          <li>재생 버튼을 눌러 실제 발화를 들으며 텍스트와 비교하세요</li>
-          <li>텍스트를 클릭하면 바로 수정할 수 있습니다 (Enter로 저장, Esc로 취소)</li>
-          <li>의미 없는 구간이나 잘못된 항목은 &times; 버튼으로 삭제하세요</li>
+          <li>{t("review.hint_play")}</li>
+          <li>{t("review.hint_edit")}</li>
+          <li>{t("review.hint_delete")}</li>
         </ul>
       </div>
 
       {/* 헤더 */}
       <div className="flex justify-between items-center mb-4">
         <p className="text-sm text-fg-muted">
-          전체 <span className="font-mono text-primary font-semibold">{entries.length}</span>개 세그먼트
+          {t("review.total_segments", { count: entries.length })}
         </p>
         <button
           className="bg-primary hover:bg-primary-hover text-canvas px-5 py-2 rounded-lg text-sm font-semibold transition-colors"
           onClick={handleDone}
         >
-          검토 완료
+          {t("review.done")}
         </button>
       </div>
 
@@ -149,7 +150,7 @@ export default function ReviewEditor({ videoId, onDone }: Props) {
       <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
         {filtered.length === 0 ? (
           <div className="text-fg-dim text-sm text-center py-8">
-            이 화자의 세그먼트가 없습니다.
+            {t("review.empty_speaker")}
           </div>
         ) : (
           filtered.map((entry) => (
@@ -169,9 +170,9 @@ export default function ReviewEditor({ videoId, onDone }: Props) {
                     : "bg-surface border-line text-fg-muted hover:border-primary/50 hover:text-primary"
                 }`}
                 onClick={() => play(entry)}
-                title="재생"
+                title={t("review.hint_play")}
               >
-                {playingFile === entry.file ? "\u23F9" : "\u25B6"}
+                {playingFile === entry.file ? "⏹" : "▶"}
               </button>
 
               {/* 내용 */}
@@ -195,22 +196,22 @@ export default function ReviewEditor({ videoId, onDone }: Props) {
                       onClick={saveEdit}
                       disabled={saving}
                     >
-                      저장
+                      {t("review.save")}
                     </button>
                     <button
                       className="bg-transparent border border-line hover:border-line-strong text-fg-muted hover:text-fg px-3 py-1 rounded-md text-xs font-semibold transition-colors"
                       onClick={cancelEdit}
                     >
-                      취소
+                      {t("review.cancel")}
                     </button>
                   </div>
                 ) : (
                   <p
                     className="text-sm text-fg cursor-pointer hover:text-primary transition-colors"
                     onClick={() => startEdit(entry)}
-                    title="클릭하여 수정"
+                    title={t("review.hint_edit")}
                   >
-                    {entry.text || <span className="text-fg-dim italic">(빈 텍스트 - 클릭하여 입력하거나 삭제하세요)</span>}
+                    {entry.text || <span className="text-fg-dim italic">{t("review.empty_text")}</span>}
                   </p>
                 )}
               </div>
@@ -219,7 +220,7 @@ export default function ReviewEditor({ videoId, onDone }: Props) {
               <button
                 className="text-fg-dim hover:text-error text-sm shrink-0 mt-0.5 transition-colors"
                 onClick={() => handleDelete(entry)}
-                title="삭제"
+                title={t("review.hint_delete")}
               >
                 &times;
               </button>

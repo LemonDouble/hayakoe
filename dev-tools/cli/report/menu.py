@@ -3,22 +3,31 @@
 import json
 from pathlib import Path
 
+from cli.i18n import t
 from cli.training.dataset import DatasetInfo, discover_datasets
 from cli.ui.console import console
 from cli.ui.prompts import select_from_list, confirm
 
 
-SAMPLE_TEXTS = {
-    "짧음": [
+def _sample_keys():
+    return {
+        "short": t("report.menu.sample_label_short"),
+        "medium": t("report.menu.sample_label_medium"),
+        "long": t("report.menu.sample_label_long"),
+    }
+
+
+SAMPLE_TEXTS_RAW = {
+    "short": [
         "おはようございます。今日もよろしくお願いします。",
         "えっ、本当ですか？それはすごいですね！",
         "静かな夜に、星が綺麗に見えます。",
     ],
-    "중간": [
+    "medium": [
         "先週の土曜日、家族で動物園に行きました。子供たちはパンダを見てとても喜んでいました。天気も良くて、最高の一日になりました。",
         "音声合成の技術は年々進化しています。最近では人間の声と区別がつかないほど自然な音声を生成できるようになりました。今後の発展が楽しみです。",
     ],
-    "김": [
+    "long": [
         "春が来ると、日本中で桜が咲き始めます。人々は公園や川沿いに集まって、お花見を楽しみます。"
         "友人や家族と一緒にお弁当を広げ、美しい花びらが舞い散る様子を眺めるのは、日本の春の風物詩です。"
         "桜の季節は短く、わずか一週間ほどで散ってしまいますが、その儚さがまた人々の心を惹きつけるのかもしれません。",
@@ -62,7 +71,7 @@ def _select_checkpoints(all_ckpts: list[Path], max_count: int = 8) -> list[Path]
 
 def _input_custom_texts() -> list[str]:
     texts: list[str] = []
-    console.print("  [dim]텍스트를 한 줄씩 입력하세요. 빈 줄을 입력하면 종료됩니다.[/dim]")
+    console.print(t("report.menu.custom_text_hint"))
     while True:
         try:
             text = input(f"  [{len(texts) + 1}] ").strip()
@@ -95,21 +104,19 @@ def report_menu():
     """품질 리포트 메인 메뉴."""
     datasets = discover_datasets()
     if not datasets:
-        console.print("[warning]데이터셋을 찾을 수 없습니다.[/warning]")
+        console.print(t("report.menu.no_datasets"))
         return
 
     eligible = [ds for ds in datasets if _has_exports(ds)]
     if not eligible:
-        console.print(
-            "[warning]추론 모델(.safetensors)이 있는 데이터셋이 없습니다.\n"
-            "학습을 먼저 진행해주세요.[/warning]"
-        )
+        console.print(t("report.menu.no_exports"))
         return
 
     # 데이터셋(화자) 선택
-    choices = [ds.name for ds in eligible] + ["뒤로"]
-    selected_name = select_from_list("화자 선택", choices)
-    if selected_name == "뒤로":
+    label_back = t("report.menu.back")
+    choices = [ds.name for ds in eligible] + [label_back]
+    selected_name = select_from_list(t("report.menu.speaker_select"), choices)
+    if selected_name == label_back:
         return
     ds = next(d for d in eligible if d.name == selected_name)
 
@@ -117,57 +124,63 @@ def report_menu():
     all_ckpts = _find_checkpoints(ds.path)
     checkpoints = _select_checkpoints(all_ckpts)
 
-    console.print(f"\n  [dim]체크포인트 {len(checkpoints)}개 사용[/dim]")
+    console.print(t("report.menu.checkpoint_count", count=len(checkpoints)))
     for ckpt in checkpoints:
         console.print(f"    [dim]· {ckpt.stem}[/dim]")
     console.print()
 
     # 텍스트 선택
-    text_choice = select_from_list("텍스트 선택", [
-        "샘플 - 짧음 (3개)",
-        "샘플 - 중간 (2개)",
-        "샘플 - 김 (1개)",
-        "샘플 - 전체 (6개)",
-        "직접 입력",
-        "뒤로",
+    label_short = t("report.menu.text_short")
+    label_medium = t("report.menu.text_medium")
+    label_long = t("report.menu.text_long")
+    label_all = t("report.menu.text_all")
+    label_custom = t("report.menu.text_custom")
+
+    text_choice = select_from_list(t("report.menu.text_select"), [
+        label_short,
+        label_medium,
+        label_long,
+        label_all,
+        label_custom,
+        label_back,
     ])
 
-    if text_choice == "뒤로":
+    if text_choice == label_back:
         return
 
-    if text_choice == "직접 입력":
+    if text_choice == label_custom:
         texts = _input_custom_texts()
         if not texts:
-            console.print("  [warning]텍스트가 입력되지 않았습니다.[/warning]")
+            console.print(t("report.menu.no_text_input"))
             return
-    elif "짧음" in text_choice:
-        texts = SAMPLE_TEXTS["짧음"]
-    elif "중간" in text_choice:
-        texts = SAMPLE_TEXTS["중간"]
-    elif "김" in text_choice:
-        texts = SAMPLE_TEXTS["김"]
+    elif text_choice == label_short:
+        texts = SAMPLE_TEXTS_RAW["short"]
+    elif text_choice == label_medium:
+        texts = SAMPLE_TEXTS_RAW["medium"]
+    elif text_choice == label_long:
+        texts = SAMPLE_TEXTS_RAW["long"]
     else:
-        texts = SAMPLE_TEXTS["짧음"] + SAMPLE_TEXTS["중간"] + SAMPLE_TEXTS["김"]
+        texts = SAMPLE_TEXTS_RAW["short"] + SAMPLE_TEXTS_RAW["medium"] + SAMPLE_TEXTS_RAW["long"]
 
     # 요약
     audio_count = len(checkpoints) * len(texts)
     console.print()
-    console.print("  [accent]리포트 생성 요약[/accent]")
-    console.print(f"  화자:        [value]{ds.name}[/value]")
-    console.print(f"  체크포인트:  [value]{len(checkpoints)}개[/value]")
-    console.print(f"  텍스트:      [value]{len(texts)}개[/value]")
-    console.print(f"  생성 오디오: [value]{audio_count}개[/value]")
+    console.print(t("report.menu.summary_title"))
+    console.print(t("report.menu.summary_speaker", name=ds.name))
+    console.print(t("report.menu.summary_checkpoints", count=len(checkpoints)))
+    console.print(t("report.menu.summary_texts", count=len(texts)))
+    console.print(t("report.menu.summary_audio", count=audio_count))
     console.print()
 
-    if not confirm("리포트를 생성하시겠습니까?"):
+    if not confirm(t("report.menu.confirm_generate")):
         return
 
     from cli.report.generator import generate_report
 
     output_path = generate_report(ds.path, checkpoints, texts)
 
-    console.print(f"\n[success]리포트 생성 완료![/success]")
+    console.print(t("report.menu.complete"))
     console.print(f"  [dim]{output_path}[/dim]\n")
 
-    if confirm("브라우저에서 열시겠습니까?", default=True):
+    if confirm(t("report.menu.open_browser"), default=True):
         _open_report(output_path)

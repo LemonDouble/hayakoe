@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn
 
+from cli.i18n import t
 from cli.ui.console import console
 
 
@@ -59,10 +60,10 @@ WARMUP = 2
 RUNS = 5
 SPEAKER_NAME = "jvnv-F1-jp"
 
-TEST_TEXTS = {
-    "짧음": "こんにちは。",
-    "중간": "私はイレイナ。旅の魔女です。あちこちを旅しています。",
-    "김": (
+TEST_TEXTS_RAW = {
+    "short": "こんにちは。",
+    "medium": "私はイレイナ。旅の魔女です。あちこちを旅しています。",
+    "long": (
         "吾輩は猫である。名前はまだ無い。"
         "どこで生れたかとんと見当がつかぬ。"
         "何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している。"
@@ -96,16 +97,23 @@ def _benchmark_device(device: str, progress, task) -> list[BenchmarkResult]:
     from hayakoe import TTS
 
     backend = "ONNX" if device == "cpu" else "torch.compile"
-    progress.update(task, description=f"[dim]{backend} ({device.upper()})[/dim] 모델 로딩...")
+    progress.update(task, description=t("benchmark.runner.model_loading", backend=backend, device=device.upper()))
 
     with _quiet_loading():
         tts = TTS(device=device).load(SPEAKER_NAME).prepare()
         speaker = tts.speakers[SPEAKER_NAME]
     sr = speaker.sampling_rate
 
+    label_map = {
+        "short": t("benchmark.runner.label_short"),
+        "medium": t("benchmark.runner.label_medium"),
+        "long": t("benchmark.runner.label_long"),
+    }
+
     results = []
-    for label, text in TEST_TEXTS.items():
-        progress.update(task, description=f"[dim]{backend} ({device.upper()})[/dim] {label}...")
+    for key, text in TEST_TEXTS_RAW.items():
+        label = label_map.get(key, key)
+        progress.update(task, description=t("benchmark.runner.text_running", backend=backend, device=device.upper(), label=label))
         times = []
 
         for i in range(WARMUP + RUNS):
@@ -152,7 +160,7 @@ def run_benchmark(devices: list[str]) -> Path:
     Returns:
         생성된 HTML 파일 경로.
     """
-    total_steps = len(devices) * len(TEST_TEXTS)
+    total_steps = len(devices) * len(TEST_TEXTS_RAW)
     all_results: list[BenchmarkResult] = []
 
     with Progress(
@@ -163,7 +171,7 @@ def run_benchmark(devices: list[str]) -> Path:
         TimeRemainingColumn(),
         console=console,
     ) as progress:
-        task = progress.add_task("벤치마크 중", total=total_steps)
+        task = progress.add_task(t("benchmark.runner.running"), total=total_steps)
 
         for device in devices:
             results = _benchmark_device(device, progress, task)
@@ -171,10 +179,7 @@ def run_benchmark(devices: list[str]) -> Path:
 
     # 결과 테이블 출력
     console.print()
-    console.print(
-        "  [dim]배속 = 오디오 길이 ÷ 추론 시간 (높을수록 빠름)\n"
-        "  예: 10.0x → 1초 분량의 음성을 0.1초 만에 생성[/dim]"
-    )
+    console.print(t("benchmark.runner.speed_explanation"))
     _print_summary(all_results)
 
     # HTML 리포트 생성
@@ -197,17 +202,17 @@ def _print_summary(results: list[BenchmarkResult]):
     from rich.table import Table
 
     table = Table(
-        title="벤치마크 결과",
+        title=t("benchmark.runner.table_title"),
         show_header=True,
         header_style="bold cyan",
         border_style="bright_black",
         padding=(0, 1),
     )
-    table.add_column("백엔드", style="bold bright_white")
-    table.add_column("텍스트", style="bright_white")
-    table.add_column("추론 시간", justify="right")
-    table.add_column("오디오 길이", justify="right")
-    table.add_column("배속", justify="right")
+    table.add_column(t("benchmark.runner.col_backend"), style="bold bright_white")
+    table.add_column(t("benchmark.runner.col_text"), style="bright_white")
+    table.add_column(t("benchmark.runner.col_inference_time"), justify="right")
+    table.add_column(t("benchmark.runner.col_audio_length"), justify="right")
+    table.add_column(t("benchmark.runner.col_speed"), justify="right")
 
     for r in results:
         speed_style = "bold green" if r.speed >= 10 else "bold yellow" if r.speed >= 1 else "bold red"

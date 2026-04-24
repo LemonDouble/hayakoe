@@ -6,59 +6,66 @@ import { usePolling } from "../hooks/usePolling";
 import ProgressBar from "../components/ProgressBar";
 import CardClassifier from "../components/CardClassifier";
 import ReviewEditor from "../components/ReviewEditor";
+import { t } from "../i18n";
+
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return m > 0 ? t("dashboard.format_duration.min_sec", { m, s }) : t("dashboard.format_duration.sec", { s });
+}
 
 const STAGE_ORDER = ["extract", "separate", "vad", "classify", "transcribe", "review"];
 
-const STAGE_LABELS: Record<string, string> = {
-  extract: "추출",
-  separate: "배경음 제거",
-  vad: "VAD 세그먼팅",
-  classify: "분류",
-  transcribe: "전사",
-  review: "검토",
+const STAGE_LABEL_KEYS: Record<string, string> = {
+  extract: "detail.stages.extract",
+  separate: "detail.stages.separate",
+  vad: "detail.stages.vad",
+  classify: "detail.stages.classify",
+  transcribe: "detail.stages.transcribe",
+  review: "detail.stages.review",
 };
 
-const STAGE_DESCRIPTIONS: Record<string, { title: string; desc: string }> = {
+const STAGE_DESC_KEYS: Record<string, { titleKey: string; descKey: string }> = {
   extract: {
-    title: "오디오 추출",
-    desc: "영상 파일에서 오디오 트랙을 분리합니다. 오디오 파일인 경우 포맷을 변환합니다.",
+    titleKey: "detail.stage_desc.extract.title",
+    descKey: "detail.stage_desc.extract.desc",
   },
   separate: {
-    title: "배경음 제거",
-    desc: "음악, 효과음 등 배경 소리를 제거하고 사람 목소리(보컬)만 추출합니다. 파일 길이에 따라 수 분이 소요될 수 있습니다.",
+    titleKey: "detail.stage_desc.separate.title",
+    descKey: "detail.stage_desc.separate.desc",
   },
   vad: {
-    title: "음성 구간 분할 (VAD)",
-    desc: "음성 활동을 자동으로 감지하여 개별 대사 단위로 분할합니다. 아래 파라미터를 소스에 맞게 조정하면 분할 품질이 높아집니다.",
+    titleKey: "detail.stage_desc.vad.title",
+    descKey: "detail.stage_desc.vad.desc",
   },
   classify: {
-    title: "화자 분류",
-    desc: "분할된 각 음성 구간을 듣고 해당 화자에게 배정합니다. 잡음이나 불필요한 구간은 버릴 수 있습니다.",
+    titleKey: "detail.stage_desc.classify.title",
+    descKey: "detail.stage_desc.classify.desc",
   },
   transcribe: {
-    title: "음성 전사 (STT)",
-    desc: "각 음성 구간의 내용을 텍스트로 자동 변환합니다. 변환 결과는 다음 단계에서 직접 검토/수정할 수 있습니다.",
+    titleKey: "detail.stage_desc.transcribe.title",
+    descKey: "detail.stage_desc.transcribe.desc",
   },
   review: {
-    title: "전사 검토",
-    desc: "자동 전사 결과를 확인하고 오류를 수정합니다. 정확한 텍스트가 TTS 학습 품질에 직접 영향을 미칩니다.",
+    titleKey: "detail.stage_desc.review.title",
+    descKey: "detail.stage_desc.review.desc",
   },
 };
 
-const VAD_PRESETS: { label: string; desc: string; params: VadParams }[] = [
+const VAD_PRESETS: { labelKey: string; descKey: string; params: VadParams }[] = [
   {
-    label: "기본값",
-    desc: "일반적인 대화 영상",
+    labelKey: "detail.vad.preset.default.label",
+    descKey: "detail.vad.preset.default.desc",
     params: { min_segment_sec: 1.0, max_segment_sec: 8.0, threshold: 0.3, min_silence_ms: 50 },
   },
   {
-    label: "시끄러운 환경",
-    desc: "배경 음악/잡음이 많은 경우",
+    labelKey: "detail.vad.preset.noisy.label",
+    descKey: "detail.vad.preset.noisy.desc",
     params: { min_segment_sec: 1.5, max_segment_sec: 8.0, threshold: 0.65, min_silence_ms: 40 },
   },
   {
-    label: "긴 독백",
-    desc: "나레이션/강의 영상",
+    labelKey: "detail.vad.preset.monologue.label",
+    descKey: "detail.vad.preset.monologue.desc",
     params: { min_segment_sec: 1.0, max_segment_sec: 12.0, threshold: 0.3, min_silence_ms: 80 },
   },
 ];
@@ -101,7 +108,7 @@ export default function VideoDetail() {
       try {
         setStatus(await videosApi.getStatus(videoId));
       } catch {
-        setError("상태 조회 실패");
+        setError(t("detail.error.status_fetch"));
       }
     },
     1500,
@@ -113,7 +120,7 @@ export default function VideoDetail() {
     videosApi
       .getStatus(videoId)
       .then(setStatus)
-      .catch(() => setError("영상을 찾을 수 없습니다."));
+      .catch(() => setError(t("detail.error.not_found")));
   }, [videoId]);
 
   const refreshStatus = async () => {
@@ -123,10 +130,9 @@ export default function VideoDetail() {
 
   const handleRollback = async (stage: string) => {
     if (!videoId) return;
+    const stageLabel = STAGE_LABEL_KEYS[stage] ? t(STAGE_LABEL_KEYS[stage]) : stage;
     if (
-      !confirm(
-        `"${STAGE_LABELS[stage]}" 단계부터 재처리하시겠습니까?\n이후 단계 데이터가 모두 삭제됩니다.`
-      )
+      !confirm(t("detail.rollback_confirm", { stage: stageLabel }))
     )
       return;
     await videosApi.rollbackVideo(videoId, stage);
@@ -150,7 +156,7 @@ export default function VideoDetail() {
       if (resp?.status === 409) {
         setPendingStage(stage);
       } else {
-        setStageError(resp?.data?.detail || "실행에 실패했습니다.");
+        setStageError(resp?.data?.detail || t("detail.error.run_failed"));
       }
     }
   };
@@ -179,14 +185,14 @@ export default function VideoDetail() {
       <div className="max-w-4xl mx-auto p-6">
         <p className="text-error">{error}</p>
         <button className="text-primary mt-2 hover:text-primary-hover" onClick={() => navigate("/")}>
-          돌아가기
+          {t("detail.back")}
         </button>
       </div>
     );
   }
 
   if (!status) {
-    return <div className="max-w-4xl mx-auto p-6 text-fg-muted">로딩 중...</div>;
+    return <div className="max-w-4xl mx-auto p-6 text-fg-muted">{t("detail.loading")}</div>;
   }
 
   const stage = status.stage;
@@ -201,7 +207,7 @@ export default function VideoDetail() {
           className="bg-transparent border border-line hover:border-line-strong text-fg-muted hover:text-fg px-3.5 py-1.5 rounded-md text-[13px] font-semibold transition-colors"
           onClick={() => navigate("/")}
         >
-          &larr; 목록
+          {t("detail.back")}
         </button>
         <div>
           <h1 className="font-display text-xl font-bold text-fg">{status.filename}</h1>
@@ -218,6 +224,11 @@ export default function VideoDetail() {
             const isCompleted = isDone ? stage === "done" : stageIdx < currentIdx;
             const isCurrent = stageIdx === currentIdx && stage !== "done";
             const isClickable = !isDone && isCompleted;
+            const stageLabel = isDone
+              ? t("detail.stages.done")
+              : STAGE_LABEL_KEYS[s]
+                ? t(STAGE_LABEL_KEYS[s])
+                : s;
 
             return (
               <Fragment key={s}>
@@ -233,7 +244,7 @@ export default function VideoDetail() {
                 <div
                   className={`flex flex-col items-center ${isClickable ? "cursor-pointer group" : ""}`}
                   onClick={() => isClickable && handleRollback(s)}
-                  title={isClickable ? `"${STAGE_LABELS[s]}" 단계부터 재처리` : ""}
+                  title={isClickable ? t("detail.rollback_title", { stage: stageLabel }) : ""}
                 >
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${
@@ -244,7 +255,7 @@ export default function VideoDetail() {
                           : "bg-surface-2 border border-line text-fg-dim"
                     }`}
                   >
-                    {isCompleted ? "\u2713" : isDone ? "" : i + 1}
+                    {isCompleted ? "✓" : isDone ? "" : i + 1}
                   </div>
                   <span
                     className={`text-[10px] mt-1.5 whitespace-nowrap transition-colors font-semibold ${
@@ -255,7 +266,7 @@ export default function VideoDetail() {
                           : "text-fg-dim"
                     }`}
                   >
-                    {isDone ? "완료" : STAGE_LABELS[s]}
+                    {stageLabel}
                   </span>
                 </div>
               </Fragment>
@@ -267,7 +278,7 @@ export default function VideoDetail() {
       {/* 롤백 힌트 */}
       {currentIdx > 0 && stage !== "done" && (
         <p className="text-fg-dim text-[11px] text-center mb-6">
-          완료된 단계를 클릭하면 해당 단계부터 재처리할 수 있습니다
+          {t("detail.rollback_hint")}
         </p>
       )}
       {(currentIdx === 0 || stage === "done") && <div className="mb-6" />}
@@ -276,13 +287,17 @@ export default function VideoDetail() {
       {status.error && (
         <div className="bg-error/[0.06] border border-error/25 rounded-xl p-5 mb-6">
           <p className="text-error font-semibold mb-2">
-            {STAGE_LABELS[status.error.stage] || status.error.stage} 단계에서 오류 발생
+            {t("detail.error.stage_error", {
+              stage: STAGE_LABEL_KEYS[status.error.stage]
+                ? t(STAGE_LABEL_KEYS[status.error.stage])
+                : status.error.stage,
+            })}
           </p>
           <pre className="text-error/90 text-sm whitespace-pre-wrap break-words bg-canvas border border-line rounded-lg p-3 font-mono">
             {status.error.message}
           </pre>
           <p className="text-fg-dim text-xs mt-3">
-            아래 버튼으로 재실행하거나, 위 스테퍼에서 이전 단계를 클릭하여 롤백할 수 있습니다.
+            {t("detail.error.retry_hint")}
           </p>
         </div>
       )}
@@ -291,7 +306,11 @@ export default function VideoDetail() {
       {isProcessing && status.processing && (
         <div className="bg-surface border border-line rounded-xl p-6 mb-6">
           <p className="text-fg text-sm font-semibold mb-3">
-            {STAGE_DESCRIPTIONS[status.processing.stage]?.title || STAGE_LABELS[status.processing.stage] || "처리 중"}
+            {STAGE_DESC_KEYS[status.processing.stage]
+              ? t(STAGE_DESC_KEYS[status.processing.stage].titleKey)
+              : STAGE_LABEL_KEYS[status.processing.stage]
+                ? t(STAGE_LABEL_KEYS[status.processing.stage])
+                : t("detail.processing")}
           </p>
           <ProgressBar
             progress={status.processing.progress}
@@ -299,7 +318,7 @@ export default function VideoDetail() {
           />
           {status.processing.stage === "separate" && (
             <p className="text-fg-dim text-xs mt-3">
-              배경음 제거는 음원 길이에 따라 수 분~수십 분 소요될 수 있습니다. 이 페이지를 벗어나도 처리는 계속됩니다.
+              {t("detail.separate_hint")}
             </p>
           )}
         </div>
@@ -314,16 +333,16 @@ export default function VideoDetail() {
             <div className="text-center mb-5">
               <p className="text-primary text-[11px] font-bold uppercase tracking-[1.5px] mb-2 font-display">NEXT STEP</p>
               <p className="font-display text-xl font-bold text-fg mb-2">
-                {STAGE_DESCRIPTIONS[stage]?.title || STAGE_LABELS[stage]}
+                {STAGE_DESC_KEYS[stage] ? t(STAGE_DESC_KEYS[stage].titleKey) : STAGE_LABEL_KEYS[stage] ? t(STAGE_LABEL_KEYS[stage]) : stage}
               </p>
               <p className="text-fg-muted text-sm max-w-md mx-auto leading-relaxed">
-                {STAGE_DESCRIPTIONS[stage]?.desc}
+                {STAGE_DESC_KEYS[stage] ? t(STAGE_DESC_KEYS[stage].descKey) : ""}
               </p>
             </div>
             {pendingStage && (
               <div className="bg-warning/[0.06] border border-warning/25 rounded-lg p-4 mb-4 text-center">
-                <p className="text-warning text-sm font-semibold mb-1">다른 영상의 배경음 제거가 진행 중입니다</p>
-                <p className="text-fg-muted text-xs">완료되면 자동으로 시작됩니다. 이 페이지에서 기다려주세요.</p>
+                <p className="text-warning text-sm font-semibold mb-1">{t("detail.pending.title")}</p>
+                <p className="text-fg-muted text-xs">{t("detail.pending.desc")}</p>
               </div>
             )}
             {stageError && !pendingStage && (
@@ -341,7 +360,11 @@ export default function VideoDetail() {
                 onClick={() => !pendingStage && handleRunStage(stage)}
                 disabled={!!pendingStage}
               >
-                {pendingStage ? "대기 중..." : `${STAGE_LABELS[stage]} 실행`}
+                {pendingStage
+                  ? t("detail.pending.waiting")
+                  : t("detail.run_stage", {
+                      stage: STAGE_LABEL_KEYS[stage] ? t(STAGE_LABEL_KEYS[stage]) : stage,
+                    })}
               </button>
             </div>
           </div>
@@ -354,25 +377,25 @@ export default function VideoDetail() {
           <div className="text-center mb-6">
             <p className="text-primary text-[11px] font-bold uppercase tracking-[1.5px] mb-2 font-display">NEXT STEP</p>
             <p className="font-display text-xl font-bold text-fg mb-2">
-              {STAGE_DESCRIPTIONS.vad.title}
+              {t("detail.stage_desc.vad.title")}
             </p>
             <p className="text-fg-muted text-sm max-w-lg mx-auto leading-relaxed">
-              {STAGE_DESCRIPTIONS.vad.desc}
+              {t("detail.stage_desc.vad.desc")}
             </p>
           </div>
 
           {/* 프리셋 */}
           <div className="max-w-lg mx-auto mb-6">
-            <p className="text-fg text-sm font-semibold mb-2">빠른 설정</p>
+            <p className="text-fg text-sm font-semibold mb-2">{t("detail.vad.quick_settings")}</p>
             <div className="grid grid-cols-3 gap-2">
               {VAD_PRESETS.map((preset) => (
                 <button
-                  key={preset.label}
+                  key={preset.labelKey}
                   className="bg-canvas border border-line hover:border-primary/40 rounded-lg px-3 py-2.5 text-left transition-colors"
                   onClick={() => setVadParams({ ...preset.params })}
                 >
-                  <p className="text-fg text-xs font-semibold">{preset.label}</p>
-                  <p className="text-fg-dim text-[10px] mt-0.5">{preset.desc}</p>
+                  <p className="text-fg text-xs font-semibold">{t(preset.labelKey)}</p>
+                  <p className="text-fg-dim text-[10px] mt-0.5">{t(preset.descKey)}</p>
                 </button>
               ))}
             </div>
@@ -382,7 +405,7 @@ export default function VideoDetail() {
           <div className="space-y-4 mb-6 max-w-lg mx-auto text-sm">
             <label className="block text-fg-muted">
               <div className="flex items-center justify-between">
-                <span>세그먼트 최소 길이 (초)</span>
+                <span>{t("detail.vad.min_segment")}</span>
                 <input
                   type="number"
                   step="0.1"
@@ -392,12 +415,12 @@ export default function VideoDetail() {
                 />
               </div>
               <p className="text-fg-dim text-xs mt-1">
-                이보다 짧은 대사는 버립니다. 너무 짧은 음성은 학습에 부적합하므로 1~2초를 권장합니다.
+                {t("detail.vad.min_segment_hint")}
               </p>
             </label>
             <label className="block text-fg-muted">
               <div className="flex items-center justify-between">
-                <span>세그먼트 최대 길이 (초)</span>
+                <span>{t("detail.vad.max_segment")}</span>
                 <input
                   type="number"
                   step="0.5"
@@ -407,12 +430,12 @@ export default function VideoDetail() {
                 />
               </div>
               <p className="text-fg-dim text-xs mt-1">
-                이보다 긴 대사는 자동으로 분할됩니다. TTS 학습에는 5~15초가 적합합니다.
+                {t("detail.vad.max_segment_hint")}
               </p>
             </label>
             <label className="block text-fg-muted">
               <div className="flex items-center justify-between">
-                <span>음성 감지 임계값</span>
+                <span>{t("detail.vad.threshold")}</span>
                 <input
                   type="number"
                   step="0.05"
@@ -424,13 +447,12 @@ export default function VideoDetail() {
                 />
               </div>
               <p className="text-fg-dim text-xs mt-1">
-                낮추면 더 많은 대사를 잡아내고, 올리면 확실한 음성만 남깁니다.
-                배경 잡음이 많으면 0.6~0.7로 올리고, 조용한 환경이면 0.3~0.5로 낮추세요.
+                {t("detail.vad.threshold_hint")}
               </p>
             </label>
             <label className="block text-fg-muted">
               <div className="flex items-center justify-between">
-                <span>대사 간 최소 무음 (ms)</span>
+                <span>{t("detail.vad.min_silence")}</span>
                 <input
                   type="number"
                   step="10"
@@ -440,8 +462,7 @@ export default function VideoDetail() {
                 />
               </div>
               <p className="text-fg-dim text-xs mt-1">
-                대사와 대사 사이에 이 길이 이상의 무음이 있어야 별도 세그먼트로 분리합니다.
-                값이 너무 작으면 한 문장이 여러 조각으로 쪼개지고, 너무 크면 서로 다른 대사가 하나로 합쳐집니다.
+                {t("detail.vad.min_silence_hint")}
               </p>
             </label>
           </div>
@@ -449,24 +470,24 @@ export default function VideoDetail() {
           {/* 상황별 팁 */}
           <details className="max-w-lg mx-auto mb-6">
             <summary className="text-fg-muted text-xs cursor-pointer hover:text-fg transition-colors">
-              상황별 조정 가이드 보기
+              {t("detail.vad.tips_toggle")}
             </summary>
             <div className="bg-canvas border border-line rounded-lg p-4 mt-2 text-xs text-fg-muted space-y-1.5 leading-relaxed">
               <p>
-                <span className="text-primary font-semibold">두 화자가 빠르게 대화하는 영상</span>
-                {" \u2192 최소 무음을 30~50ms로 낮추면 대사가 더 잘 분리됩니다."}
+                <span className="text-primary font-semibold">{t("detail.vad.tip_fast_dialogue_title")}</span>
+                {t("detail.vad.tip_fast_dialogue_desc")}
               </p>
               <p>
-                <span className="text-primary font-semibold">배경 음악/잡음이 남아있는 경우</span>
-                {" \u2192 감지 임계값을 0.6~0.7로 올려 잡음을 걸러내세요."}
+                <span className="text-primary font-semibold">{t("detail.vad.tip_noisy_title")}</span>
+                {t("detail.vad.tip_noisy_desc")}
               </p>
               <p>
-                <span className="text-primary font-semibold">긴 독백이 많은 영상</span>
-                {" \u2192 최대 길이를 10~15초로 설정하면 자연스러운 분할이 됩니다."}
+                <span className="text-primary font-semibold">{t("detail.vad.tip_monologue_title")}</span>
+                {t("detail.vad.tip_monologue_desc")}
               </p>
               <p>
-                <span className="text-primary font-semibold">짧은 감탄사/추임새가 많은 경우</span>
-                {" \u2192 최소 길이를 1.5~2초로 올려 불필요한 세그먼트를 줄이세요."}
+                <span className="text-primary font-semibold">{t("detail.vad.tip_interjection_title")}</span>
+                {t("detail.vad.tip_interjection_desc")}
               </p>
             </div>
           </details>
@@ -480,10 +501,10 @@ export default function VideoDetail() {
                 setTimeout(refreshStatus, 500);
               }}
             >
-              VAD 세그먼팅 실행
+              {t("detail.vad.run")}
             </button>
             <p className="text-fg-dim text-xs mt-3">
-              실행 후 에러 메시지가 나타나지 않으면 정상적으로 진행 중입니다. 잠시 기다려주세요.
+              {t("detail.run_after_hint")}
             </p>
           </div>
         </div>
@@ -503,10 +524,10 @@ export default function VideoDetail() {
       {stage === "done" && (
         <div className="bg-success/[0.06] border border-success/25 rounded-xl p-8 text-center">
           <div className="w-14 h-14 rounded-full bg-success/15 border border-success/40 text-success flex items-center justify-center text-xl mx-auto mb-4">
-            {"\u2713"}
+            {"✓"}
           </div>
-          <p className="font-display text-xl font-bold text-success mb-2">전처리 완료</p>
-          <p className="text-fg-muted text-sm mb-6">이 영상의 모든 전처리 단계가 완료되었습니다.</p>
+          <p className="font-display text-xl font-bold text-success mb-2">{t("detail.done.title")}</p>
+          <p className="text-fg-muted text-sm mb-6">{t("detail.done.description")}</p>
 
           {status.summary && status.summary.length > 0 && (
             <div className="max-w-sm mx-auto space-y-2 mb-6">
@@ -516,10 +537,10 @@ export default function VideoDetail() {
                   className="flex justify-between items-center bg-canvas border border-line rounded-lg px-4 py-2.5 text-sm"
                 >
                   <span className={s.name === "discarded" ? "text-fg-dim" : "text-fg font-semibold"}>
-                    {s.name === "discarded" ? "버림" : s.name}
+                    {s.name === "discarded" ? t("detail.done.discarded") : s.name}
                   </span>
                   <span className="text-fg-muted font-mono text-xs">
-                    {s.count}개 / {Math.floor(s.total_duration / 60)}분 {Math.round(s.total_duration % 60)}초
+                    {t("common.count_duration", { count: s.count, duration: formatDuration(s.total_duration) })}
                   </span>
                 </div>
               ))}
@@ -527,7 +548,7 @@ export default function VideoDetail() {
           )}
 
           <p className="text-fg-dim text-sm">
-            대시보드로 돌아가 데이터셋을 생성하거나, 추가 영상을 업로드하여 데이터를 더 수집하세요.
+            {t("detail.done.back_hint")}
           </p>
         </div>
       )}

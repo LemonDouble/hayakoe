@@ -16,6 +16,10 @@ sys.path.insert(0, str(_PROJECT_ROOT))
 sys.path.insert(0, str(_DEV_TOOLS_DIR))
 sys.path.insert(0, str(_CLI_DIR / "training" / "core"))
 
+from cli import i18n  # noqa: E402
+
+i18n.init()
+
 from cli.app import app  # noqa: E402
 
 

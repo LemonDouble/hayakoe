@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
+from cli.i18n import t
 from cli.ui.console import console
 from cli.ui.prompts import confirm, secret_input, text_input
 
@@ -74,12 +75,12 @@ def _maybe_persist(prompt: str, items: dict[str, str]) -> None:
     if confirm(prompt, default=True):
         for key, value in items.items():
             _write_env_var(key, value)
-        console.print(f"  [dim]→ {_env_path()} 에 저장되었습니다 (chmod 600).[/dim]")
+        console.print(t("publish.credentials.saved", path=_env_path()))
     else:
         # 세션 한정: os.environ 만 갱신
         for key, value in items.items():
             os.environ[key] = value
-        console.print("  [dim]→ 이번 세션에만 적용됩니다.[/dim]")
+        console.print(t("publish.credentials.session_only"))
 
 
 # ──────────────────────────── HuggingFace ────────────────────────────
@@ -98,22 +99,17 @@ def ensure_hf_token() -> Optional[str]:
             return token
 
     console.print()
-    console.print(
-        "  [warning]HuggingFace 토큰이 설정되어 있지 않습니다.[/warning]"
-    )
-    console.print(
-        "  [dim]https://huggingface.co/settings/tokens 에서 "
-        "write 권한 토큰을 생성하세요.[/dim]"
-    )
+    console.print(t("publish.credentials.hf_not_set"))
+    console.print(t("publish.credentials.hf_hint"))
     console.print()
 
     token = secret_input("HF_TOKEN").strip()
     if not token:
-        console.print("  [error]토큰이 입력되지 않아 업로드를 중단합니다.[/error]")
+        console.print(t("publish.credentials.hf_no_token"))
         return None
 
     _maybe_persist(
-        "이 토큰을 .env 에 저장할까요?",
+        t("publish.credentials.persist_prompt"),
         {"HF_TOKEN": token},
     )
     return token
@@ -139,29 +135,26 @@ def ensure_s3_credentials() -> bool:
         return True
 
     console.print()
-    console.print("  [warning]AWS 자격 증명이 설정되어 있지 않습니다.[/warning]")
-    console.print(
-        "  [dim]MinIO / R2 / Tigris 등 S3-호환 엔드포인트를 쓰려면\n"
-        "    Endpoint URL 도 함께 입력하세요 (AWS_ENDPOINT_URL_S3).[/dim]"
-    )
+    console.print(t("publish.credentials.aws_not_set"))
+    console.print(t("publish.credentials.aws_hint"))
     console.print()
 
     access_key = text_input("AWS_ACCESS_KEY_ID").strip()
     if not access_key:
-        console.print("  [error]Access Key 가 입력되지 않았습니다.[/error]")
+        console.print(t("publish.credentials.no_access_key"))
         return False
 
     secret_key = secret_input("AWS_SECRET_ACCESS_KEY").strip()
     if not secret_key:
-        console.print("  [error]Secret Key 가 입력되지 않았습니다.[/error]")
+        console.print(t("publish.credentials.no_secret_key"))
         return False
 
     endpoint = text_input(
-        "Endpoint URL (MinIO/R2 등, 일반 AWS 면 Enter)",
+        t("publish.credentials.endpoint_prompt"),
         default=os.environ.get("AWS_ENDPOINT_URL_S3", ""),
     ).strip()
     region = text_input(
-        "Region (선택)",
+        t("publish.credentials.region_prompt"),
         default=os.environ.get("AWS_REGION", ""),
     ).strip()
 
@@ -175,7 +168,7 @@ def ensure_s3_credentials() -> bool:
         items["AWS_REGION"] = region
 
     _maybe_persist(
-        "자격 증명을 .env 에 저장할까요?",
+        t("publish.credentials.persist_aws"),
         items,
     )
     return True

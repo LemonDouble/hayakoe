@@ -5,6 +5,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from cli.i18n import t
+
 
 DATA_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "dataset"
 
@@ -39,9 +41,9 @@ class DatasetInfo:
     def status_label(self) -> str:
         if self.all_preprocessed:
             if self.has_checkpoints:
-                return "학습 재개 가능"
-            return "학습 준비 완료"
-        return "전처리 필요"
+                return t("training.dataset.status_resume")
+            return t("training.dataset.status_ready")
+        return t("training.dataset.status_need_preprocess")
 
 
 def _count_lines(path: Path) -> int:
