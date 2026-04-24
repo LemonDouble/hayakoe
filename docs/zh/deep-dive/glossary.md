@@ -129,7 +129,7 @@ Synthesizer 的最后一个模块。接收 Flow 生成的 latent 向量,生成 *
 
 这是 Style-Bert-VITS2 系列特有的组件,与每个说话人的 safetensors 一起以 `style_vectors.npy` 提供。
 
-HayaKoe 目前为简化 **仅使用 Normal 风格**。多样风格选择支持计划在后续改进中加入。
+HayaKoe 目前为简化 **仅使用 Neutral 风格**。多样风格选择支持计划在后续改进中加入。
 
 ### Prosody (韵律)
 

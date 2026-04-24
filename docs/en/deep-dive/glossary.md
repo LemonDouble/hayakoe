@@ -133,7 +133,7 @@ Even for the same speaker, you can switch between styles like "calm," "happy," a
 
 This is a component unique to the Style-Bert-VITS2 lineage, provided as `style_vectors.npy` alongside the per-speaker safetensors.
 
-HayaKoe currently uses **only the Normal style** for simplification. Support for diverse style selection is planned for future improvement.
+HayaKoe currently uses **only the Neutral style** for simplification. Support for diverse style selection is planned for future improvement.
 
 ### Prosody
 

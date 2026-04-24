@@ -73,7 +73,7 @@ Additionally, when processing multiple sentences, they are **batched together fo
 
 This is where the actual audio is produced. The input is `(phoneme sequence, accent, BERT embedding, style vector)`, and the output is **the waveform for that sentence**.
 
-The **style vector** is loaded from the speaker's `style_vectors.npy` at `.load(speaker)` time — a representation that compresses the speaker's speaking style and tone characteristics into a single vector. HayaKoe currently uses only the Normal style for simplification (-> [Glossary — Style Vector](./glossary#style-vector)), and this value is injected as-is with every synthesis call.
+The **style vector** is loaded from the speaker's `style_vectors.npy` at `.load(speaker)` time — a representation that compresses the speaker's speaking style and tone characteristics into a single vector. HayaKoe currently uses only the Neutral style for simplification (-> [Glossary — Style Vector](./glossary#style-vector)), and this value is injected as-is with every synthesis call.
 
 The Synthesizer is internally divided into four sub-modules, and text information flows through them in this order to become a waveform.
 
