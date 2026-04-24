@@ -29,7 +29,7 @@ features:
     link: /en/quickstart/benchmark#raspberry-pi-4b
     linkText: Raspberry Pi Benchmark
   - title: 47% Memory Savings
-    details: "BERT Q8 quantization reduces RAM by 47% compared to PyTorch.<br>Approx. 2.4 GB RAM in CPU mode, approx. 1.7 GB VRAM in GPU mode."
+    details: "BERT Q8 quantization reduces RAM by 47% compared to PyTorch.<br>Approx. 2.0 GB RAM in CPU mode, approx. 1.7 GB VRAM in GPU mode."
     link: /en/deep-dive/onnx-optimization
     linkText: How we did it
   - title: Lightweight Multi-speaker

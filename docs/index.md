@@ -29,7 +29,7 @@ features:
     link: /quickstart/benchmark#라즈베리파이-4b-에서는-어떨까
     linkText: 라즈베리파이 벤치마크
   - title: 메모리 47% 절감
-    details: "BERT Q8 양자화로 PyTorch 대비 RAM 47% 절감.<br>CPU 모드 약 2.4 GB RAM, GPU 모드 약 1.7 GB VRAM."
+    details: "BERT Q8 양자화로 PyTorch 대비 RAM 47% 절감.<br>CPU 모드 약 2.0 GB RAM, GPU 모드 약 1.7 GB VRAM."
     link: /deep-dive/onnx-optimization
     linkText: 어떻게 했나
   - title: 다화자도 가볍게

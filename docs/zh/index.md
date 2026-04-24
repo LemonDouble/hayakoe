@@ -29,7 +29,7 @@ features:
     link: /zh/quickstart/benchmark#拉-raspberry-pi-4b-实测
     linkText: 树莓派基准测试
   - title: 内存减少 47%
-    details: "通过 BERT Q8 量化,相比 PyTorch 减少 47% 的 RAM 占用。<br>CPU 模式约 2.4 GB RAM,GPU 模式约 1.7 GB VRAM。"
+    details: "通过 BERT Q8 量化,相比 PyTorch 减少 47% 的 RAM 占用。<br>CPU 模式约 2.0 GB RAM,GPU 模式约 1.7 GB VRAM。"
     link: /zh/deep-dive/onnx-optimization
     linkText: 是怎么做到的
   - title: 多说话人也很轻量

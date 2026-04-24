@@ -29,7 +29,7 @@ features:
     link: /ja/quickstart/benchmark#ラズベリーパイ-4b-ではどうか
     linkText: ラズベリーパイ ベンチマーク
   - title: メモリ 47% 削減
-    details: "BERT Q8 量子化により PyTorch 比で RAM 47% 削減。<br>CPU モード約 2.4 GB RAM、GPU モード約 1.7 GB VRAM。"
+    details: "BERT Q8 量子化により PyTorch 比で RAM 47% 削減。<br>CPU モード約 2.0 GB RAM、GPU モード約 1.7 GB VRAM。"
     link: /ja/deep-dive/onnx-optimization
     linkText: どうやったのか
   - title: 多話者でも軽量
