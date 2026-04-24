@@ -71,7 +71,7 @@ HayaKoe 中对 **VITS 本体(Text Encoder + Duration Predictor + Flow + Decoder)
 
 接收音素序列和 BERT 特征作为输入,生成最终波形的部分。
 
-BERT 存在于 Synthesizer **之外** 并由所有说话人共享。每个说话人不同的是 Synthesizer 的权重(约 300 MB)。
+BERT 存在于 Synthesizer **之外** 并由所有说话人共享。每个说话人不同的是 Synthesizer 的权重(约 250 MB)。
 
 ### BERT
 

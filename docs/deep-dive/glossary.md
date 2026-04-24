@@ -75,7 +75,7 @@ HayaKoe 에서 **VITS 본체 (Text Encoder + Duration Predictor + Flow + Decoder
 
 음소 시퀀스와 BERT 특징을 입력으로 받아, 최종 파형을 만들어내는 부분입니다.
 
-BERT 는 Synthesizer **밖** 에 별도로 존재하고 모든 화자가 공유합니다. 화자마다 달라지는 건 Synthesizer 의 가중치 (약 300 MB) 입니다.
+BERT 는 Synthesizer **밖** 에 별도로 존재하고 모든 화자가 공유합니다. 화자마다 달라지는 건 Synthesizer 의 가중치 (약 250 MB) 입니다.
 
 ### BERT
 

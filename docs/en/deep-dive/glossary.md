@@ -75,7 +75,7 @@ In HayaKoe, the collective name for the **VITS core (Text Encoder + Duration Pre
 
 It takes phoneme sequences and BERT features as input and produces the final waveform.
 
-BERT exists **outside** the Synthesizer as a separate module shared by all speakers. What changes per speaker is the Synthesizer weights (~300 MB).
+BERT exists **outside** the Synthesizer as a separate module shared by all speakers. What changes per speaker is the Synthesizer weights (~250 MB).
 
 ### BERT
 
