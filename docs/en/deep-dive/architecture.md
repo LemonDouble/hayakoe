@@ -33,7 +33,7 @@ Let us walk through each step below.
 
 ### 1. Sentence Splitting
 
-The input text is first **split into sentences.** It is divided at Japanese punctuation (`。`, `！`, `？`) and ASCII punctuation (`.`, `!`, `?`), and all subsequent processing is performed **individually** per sentence.
+The input text is first **split into sentences.** It is divided at Japanese punctuation (`。`, `！`, `？`), ASCII punctuation (`!`, `?`), and newlines (`\n`), and all subsequent processing is performed **individually** per sentence.
 
 The reason HayaKoe splits rather than feeding everything at once is **quality**. Synthesizing long texts whole tends to blur intonation (prosody instability), and the context captured by BERT becomes excessively long, causing certain syllables to be exaggerated. Splitting by sentence ensures stable prosody for each sentence.
 
