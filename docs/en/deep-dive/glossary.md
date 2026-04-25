@@ -22,9 +22,9 @@ HayaKoe falls into this category, taking Japanese input and generating WAV wavef
 
 The smallest unit of sound that distinguishes meaning in speech.
 
-In Korean, "bal" and "dal" differ by only the first sound (b vs d) yet have completely different meanings. These **meaning-distinguishing sound units** are phonemes.
+In English, "bat" and "pat" differ by only the first sound (b vs p) yet have completely different meanings. These **meaning-distinguishing sound units** are phonemes.
 
-In Korean, written characters and actual pronunciation often differ. For example, "같이" (gat-i) is two characters but pronounced "gachi," so the number of characters and phonemes do not always match.
+Written characters and actual pronunciation often differ. For example, Japanese `今日` would be read character-by-character as "kon-nichi," but the actual pronunciation is "kyou." The number of characters and phonemes do not always match.
 
 TTS models receive phonemes, not characters, as input. If characters were used directly, the model would also need to learn all the pronunciation rules about "how to read in which context." Converting to phonemes first lets the model focus solely on "how to make this sound audible."
 
@@ -34,7 +34,7 @@ The module responsible for this conversion is the **G2P**.
 
 The process, or module, that converts characters (Graphemes) to phonemes (Phonemes).
 
-This handles all language-specific pronunciation rules: Korean palatalization ("같이 -> 가치"), nasalization ("독립 -> 동닙"), Japanese kanji readings, liaison rules, etc.
+This handles all language-specific pronunciation rules: Japanese kanji readings (`今日` -> "kyou"), rendaku (`人々` -> "hitobito," not "hitohito"), liaison rules, etc.
 
 It sits at the stage just before feeding input to the model in the TTS pipeline.
 
