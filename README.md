@@ -4,7 +4,7 @@
 
 [Style-Bert-VITS2](https://github.com/litagin02/Style-Bert-VITS2)를 기반으로 한 고속 일본어 TTS 라이브러리.
 
-**[문서 사이트](https://lemondouble.github.io/hayakoe/)** · **[음성 샘플 듣기](https://lemondouble.github.io/hayakoe/quickstart/#공식-화자-음성-샘플)** · **[깊이 읽기](https://lemondouble.github.io/hayakoe/deep-dive/)**
+**[문서 사이트](https://lemondouble.github.io/hayakoe/)** · **[음성 샘플 듣기](https://lemondouble.github.io/hayakoe/quickstart/#이런-음성을-마음껏-만들-수-있어요)** · **[깊이 읽기](https://lemondouble.github.io/hayakoe/deep-dive/)**
 
 > **📖 문서 사이트를 먼저 읽어보세요!** 설치부터 파라미터 조절, 자체 화자 학습, 서버 배포, 아키텍처 상세까지 모든 내용을 정리해 두었습니다.
 >
@@ -152,7 +152,7 @@ audio = speaker.generate(
 | `amitaro_sasayaki_a` | あみたろ — 속삭임A | Neutral |
 | `amitaro_sasayaki_b` | あみたろ — 속삭임B | Neutral |
 
-각 화자의 음성 샘플은 **[문서 사이트에서 직접 들어볼 수 있습니다](https://lemondouble.github.io/hayakoe/quickstart/#공식-화자-음성-샘플)**.
+각 화자의 음성 샘플은 **[문서 사이트에서 직접 들어볼 수 있습니다](https://lemondouble.github.io/hayakoe/quickstart/#이런-음성을-마음껏-만들-수-있어요)**.
 
 ### FastAPI 싱글톤 서빙
 

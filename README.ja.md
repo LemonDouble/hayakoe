@@ -4,7 +4,7 @@
 
 [Style-Bert-VITS2](https://github.com/litagin02/Style-Bert-VITS2)をベースにした高速日本語TTSライブラリ。
 
-**[ドキュメントサイト](https://lemondouble.github.io/hayakoe/ja/)** · **[音声サンプルを聴く](https://lemondouble.github.io/hayakoe/ja/quickstart/#公式話者音声サンプル)** · **[ディープダイブ](https://lemondouble.github.io/hayakoe/ja/deep-dive/)**
+**[ドキュメントサイト](https://lemondouble.github.io/hayakoe/ja/)** · **[音声サンプルを聴く](https://lemondouble.github.io/hayakoe/ja/quickstart/#このような音声を自由に作れます)** · **[ディープダイブ](https://lemondouble.github.io/hayakoe/ja/deep-dive/)**
 
 > **📖 ドキュメントサイトをぜひご覧ください！** インストールからパラメータ調整、話者学習、サーバーデプロイ、アーキテクチャ詳細まですべてまとめています。
 >
@@ -146,7 +146,7 @@ audio = speaker.generate(
 | `amitaro_sasayaki_a` | あみたろ — ささやきA | Neutral |
 | `amitaro_sasayaki_b` | あみたろ — ささやきB | Neutral |
 
-各話者の音声サンプルは**[ドキュメントサイトで直接聴くことができます](https://lemondouble.github.io/hayakoe/ja/quickstart/#公式話者音声サンプル)**。
+各話者の音声サンプルは**[ドキュメントサイトで直接聴くことができます](https://lemondouble.github.io/hayakoe/ja/quickstart/#このような音声を自由に作れます)**。
 
 ### FastAPIシングルトンサービング
 

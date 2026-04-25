@@ -4,7 +4,7 @@
 
 A high-speed Japanese TTS library based on [Style-Bert-VITS2](https://github.com/litagin02/Style-Bert-VITS2).
 
-**[Documentation](https://lemondouble.github.io/hayakoe/en/)** · **[Listen to Voice Samples](https://lemondouble.github.io/hayakoe/en/quickstart/#official-speaker-voice-samples)** · **[Deep Dive](https://lemondouble.github.io/hayakoe/en/deep-dive/)**
+**[Documentation](https://lemondouble.github.io/hayakoe/en/)** · **[Listen to Voice Samples](https://lemondouble.github.io/hayakoe/en/quickstart/#voices-you-can-create)** · **[Deep Dive](https://lemondouble.github.io/hayakoe/en/deep-dive/)**
 
 > **📖 Check out the docs site first!** Everything from installation to parameter tuning, speaker training, server deployment, and architecture deep dives — all in one place.
 >
@@ -146,7 +146,7 @@ audio = speaker.generate(
 | `amitaro_sasayaki_a` | Amitaro — Whisper A | Neutral |
 | `amitaro_sasayaki_b` | Amitaro — Whisper B | Neutral |
 
-You can **[listen to voice samples for each speaker on the documentation site](https://lemondouble.github.io/hayakoe/en/quickstart/#official-speaker-voice-samples)**.
+You can **[listen to voice samples for each speaker on the documentation site](https://lemondouble.github.io/hayakoe/en/quickstart/#voices-you-can-create)**.
 
 ### FastAPI Singleton Serving
 
