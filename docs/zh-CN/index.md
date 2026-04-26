@@ -8,45 +8,45 @@ hero:
   actions:
     - theme: brand
       text: 10 分钟快速体验
-      link: /zh/quickstart/
+      link: /zh-CN/quickstart/
     - theme: alt
       text: 训练
-      link: /zh/training/
+      link: /zh-CN/training/
     - theme: alt
       text: 部署
-      link: /zh/deploy/
+      link: /zh-CN/deploy/
     - theme: alt
       text: 深入解读
-      link: /zh/deep-dive/
+      link: /zh-CN/deep-dive/
 
 features:
   - title: CPU 实时推理
     details: "通过 ONNX 优化,相比 Style-Bert-VITS2,短文本快 1.5 倍,长文本快 3.3 倍,仅用 CPU 即可推理。<br>在 GPU 上还可通过 torch.compile 进一步加速。"
-    link: /zh/deep-dive/onnx-optimization
+    link: /zh-CN/deep-dive/onnx-optimization
     linkText: 是怎么做到的
   - title: AMD64 · ARM64 全平台
     details: "x86_64 · aarch64 Linux 均可用同一条命令安装。<br>在 Raspberry Pi 等 ARM 开发板上同样可以进行 CPU 推理。"
-    link: /zh/quickstart/benchmark#拉-raspberry-pi-4b-实测
+    link: /zh-CN/quickstart/benchmark#raspberry-pi-4b-实测
     linkText: 树莓派基准测试
   - title: 内存减少 47%
     details: "通过 BERT Q8 量化,相比 PyTorch 减少 47% 的 RAM 占用。<br>CPU 模式约 2.0 GB RAM,GPU 模式约 1.7 GB VRAM。"
-    link: /zh/deep-dive/onnx-optimization
+    link: /zh-CN/deep-dive/onnx-optimization
     linkText: 是怎么做到的
   - title: 多说话人也很轻量
     details: "BERT 由所有说话人共享的架构。<br>每新增一个说话人,RAM 仅增加约 300 MB。"
-    link: /zh/deploy/fastapi
+    link: /zh-CN/deploy/fastapi
     linkText: 多说话人服务
   - title: 句子级流式传输
     details: "通过 astream() 在句子合成完毕后立即发送。<br>比等待全部合成完毕更快地获取首条语音。"
-    link: /zh/deploy/fastapi
+    link: /zh-CN/deploy/fastapi
     linkText: 流式传输示例
   - title: 用我想要的声音
     details: "只需准备包含喜欢声音的视频。<br>从预处理、训练、质量对比、优化到部署,我们全部搞定。"
-    link: /zh/training/
+    link: /zh-CN/training/
     linkText: 训练指南
   - title: HF · S3 兼容 · 本地可插拔
     details: "CLI 部署可发布到 HuggingFace · S3 兼容存储 · 本地任意位置。<br>运行时加载同样支持相同的三种路径。"
-    link: /zh/deep-dive/source-abstraction
+    link: /zh-CN/deep-dive/source-abstraction
     linkText: Source 抽象层
 ---
 
@@ -66,7 +66,7 @@ features:
 <SpeakerSample badge="あみたろ" badgeIcon="/hayakoe/images/speakers/amitaro.png" name="amitaro_sasayaki_a  —  低语A" src="/hayakoe/samples/hello_amitaro_sasayaki_a.wav" />
 <SpeakerSample badge="あみたろ" badgeIcon="/hayakoe/images/speakers/amitaro.png" name="amitaro_sasayaki_b  —  低语B" src="/hayakoe/samples/hello_amitaro_sasayaki_b.wav" />
 
-想在自己的笔记本上,仅用 CPU 亲自制作上述示例的话,请前往 [10 分钟快速体验](/zh/quickstart/)。
+想在自己的笔记本上,仅用 CPU 亲自制作上述示例的话,请前往 [10 分钟快速体验](/zh-CN/quickstart/)。
 
 ## 快速试用
 
@@ -111,11 +111,11 @@ tts.speakers["jvnv-F1-jp"].generate(text).save("hello.wav")
 
 ## 应该阅读哪些文档?
 
-1. **首先跟着 [快速开始](/zh/quickstart/)** 走一遍。从安装到首次合成、基准测试,亲自体验这个 TTS 有多快、音质如何。
-2. **想要更多的话,前往 [自定义说话人训练](/zh/training/)**。只需一段包含喜欢声音的视频,从数据准备到部署全程指引。
-3. **想分享给更多人的话,前往 [服务器部署](/zh/deploy/)**。整理了在 FastAPI · Docker 上以 API 形式发布的方法。
-4. **想深入技术细节的话,前往 [深入解读](/zh/deep-dive/)**。逐一解析是如何做到这样的速度和内存优化的。
-5. **遇到问题的话,前往 [FAQ](/zh/faq/)**。汇集了缓存路径、Private HF、S3、多说话人内存等高级设置。
+1. **首先跟着 [快速开始](/zh-CN/quickstart/)** 走一遍。从安装到首次合成、基准测试,亲自体验这个 TTS 有多快、音质如何。
+2. **想要更多的话,前往 [自定义说话人训练](/zh-CN/training/)**。只需一段包含喜欢声音的视频,从数据准备到部署全程指引。
+3. **想分享给更多人的话,前往 [服务器部署](/zh-CN/deploy/)**。整理了在 FastAPI · Docker 上以 API 形式发布的方法。
+4. **想深入技术细节的话,前往 [深入解读](/zh-CN/deep-dive/)**。逐一解析是如何做到这样的速度和内存优化的。
+5. **遇到问题的话,前往 [FAQ](/zh-CN/faq/)**。汇集了缓存路径、Private HF、S3、多说话人内存等高级设置。
 
 ## 语音数据致谢
 

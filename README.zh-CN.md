@@ -1,14 +1,14 @@
-**[한국어](./README.md)** | **[日本語](./README.ja.md)** | **中文** | **[English](./README.en.md)**
+**[한국어](./README.md)** | **[日本語](./README.ja.md)** | **简体中文** | **[繁體中文](./README.zh-TW.md)** | **[English](./README.en.md)**
 
 # HayaKoe
 
 基于 [Style-Bert-VITS2](https://github.com/litagin02/Style-Bert-VITS2) 的高速日语 TTS 库。
 
-**[文档站点](https://lemondouble.github.io/hayakoe/zh/)** · **[试听语音样本](https://lemondouble.github.io/hayakoe/zh/quickstart/#可以随意制作这样的语音)** · **[深入阅读](https://lemondouble.github.io/hayakoe/zh/deep-dive/)**
+**[文档站点](https://lemondouble.github.io/hayakoe/zh-CN/)** · **[试听语音样本](https://lemondouble.github.io/hayakoe/zh-CN/quickstart/#可以随意制作这样的语音)** · **[深入阅读](https://lemondouble.github.io/hayakoe/zh-CN/deep-dive/)**
 
 > **📖 请先阅读文档站点！** 从安装到参数调节、话者训练、服务器部署、架构详解，所有内容都已整理完毕。
 >
-> [한국어](https://lemondouble.github.io/hayakoe/) · [日本語](https://lemondouble.github.io/hayakoe/ja/) · [中文](https://lemondouble.github.io/hayakoe/zh/) · [English](https://lemondouble.github.io/hayakoe/en/)
+> [한국어](https://lemondouble.github.io/hayakoe/) · [日本語](https://lemondouble.github.io/hayakoe/ja/) · [简体中文](https://lemondouble.github.io/hayakoe/zh-CN/) · [繁體中文](https://lemondouble.github.io/hayakoe/zh-TW/) · [English](https://lemondouble.github.io/hayakoe/en/)
 
 > Based on [Style-Bert-VITS2](https://github.com/litagin02/Style-Bert-VITS2) by litagin02 (AGPL-3.0)
 
@@ -146,7 +146,7 @@ audio = speaker.generate(
 | `amitaro_sasayaki_a` | あみたろ — 耳语A | Neutral |
 | `amitaro_sasayaki_b` | あみたろ — 耳语B | Neutral |
 
-各话者的语音样本可以在 **[文档站点直接试听](https://lemondouble.github.io/hayakoe/zh/quickstart/#可以随意制作这样的语音)**。
+各话者的语音样本可以在 **[文档站点直接试听](https://lemondouble.github.io/hayakoe/zh-CN/quickstart/#可以随意制作这样的语音)**。
 
 ### FastAPI 单例部署
 

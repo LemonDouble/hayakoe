@@ -1,6 +1,6 @@
 # ② 预处理 & 训练
 
-将 [① 数据准备](/zh/training/data-prep) 中制作的数据集加工为训练用格式,并训练声音。
+将 [① 数据准备](/zh-CN/training/data-prep) 中制作的数据集加工为训练用格式,并训练声音。
 
 训练是极其消耗计算资源的长时间任务。GUI 同样消耗计算资源,因此在必须使用 UI 的数据预处理流水线之后,分离为几乎不消耗计算资源的 CLI。
 
@@ -137,7 +137,7 @@ HayaKoe TTS 模型从训练到部署全程引导。
 ::: tip 总步数 2000~4000 是一般标准
 经验上 **总步数 2000~4000** 区间内往往能产出可用的语音。轮数因数据集大小和批大小而异,请调整 `epochs` 使简报面板中的 `总步数` 落在此范围内。
 
-在此范围内设置 `eval_interval` 为 500~1000 使多个检查点产出,之后在 [质量报告](/zh/training/quality-check) 中选择最佳时间点时会更方便。
+在此范围内设置 `eval_interval` 为 500~1000 使多个检查点产出,之后在 [质量报告](/zh-CN/training/quality-check) 中选择最佳时间点时会更方便。
 :::
 
 各参数的含义和建议值(提高/降低/建议)已折叠。需要调整时展开查看。
@@ -272,7 +272,7 @@ HayaKoe TTS 模型从训练到部署全程引导。
 训练完成后数据集目录下会填充两个路径。
 
 - **`training/`** — 训练中间快照(检查点·TensorBoard 日志)。占用磁盘较多,训练后不需要的检查点可以删除。
-- **`exports/<model_name>/`** — 作为部署和评估基准的最终模型。下一步([③ 质量报告](/zh/training/quality-check),[④ 部署](/zh/training/publish))读取此目录。
+- **`exports/<model_name>/`** — 作为部署和评估基准的最终模型。下一步([③ 质量报告](/zh-CN/training/quality-check),[④ 部署](/zh-CN/training/publish))读取此目录。
 
 ::: details 内部机制 — 目录结构
 ```
@@ -295,5 +295,5 @@ HayaKoe TTS 模型从训练到部署全程引导。
 
 ## 下一步
 
-- 选出哪个检查点最好:[③ 质量报告](/zh/training/quality-check)
-- 将完成的模型上传到 HF/S3/本地:[④ 部署](/zh/training/publish)
+- 选出哪个检查点最好:[③ 质量报告](/zh-CN/training/quality-check)
+- 将完成的模型上传到 HF/S3/本地:[④ 部署](/zh-CN/training/publish)

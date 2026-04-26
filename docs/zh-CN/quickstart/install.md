@@ -34,7 +34,7 @@ poetry add hayakoe
 ::: tip arm64 同样可以运行
 在 Raspberry Pi (4B 及以上) 等 aarch64 Linux 环境下,同样可以用一条命令安装并进行 CPU 推理。
 
-实测数据请参考 [树莓派 4B 基准测试](./benchmark#拉-raspberry-pi-4b-实测)。
+实测数据请参考 [树莓派 4B 基准测试](./benchmark#raspberry-pi-4b-实测)。
 :::
 
 ### 验证

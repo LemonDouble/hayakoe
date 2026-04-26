@@ -54,11 +54,11 @@ CPU + GPU (推荐)  — 同时部署到两种环境
 
 **只需上传一次即可在两种环境下以相同名称复用**,所以没有特殊原因的话请选这个选项。
 
-两种后端的差异在 [后端选择](/zh/deploy/backend) 中详细说明。
+两种后端的差异在 [后端选择](/zh-CN/deploy/backend) 中详细说明。
 
 ## 3. 检查点与说话人名称
 
-- 检查点只有 1 个时自动选择,多个时手动选择(通常是在 [③ 质量报告](/zh/training/quality-check) 中选定的)。
+- 检查点只有 1 个时自动选择,多个时手动选择(通常是在 [③ 质量报告](/zh-CN/training/quality-check) 中选定的)。
 - **说话人名称** 是运行时用 `TTS().load("我的名字")` 时使用的标识符。建议简洁的小写加连字符风格(例如:`tsukuyomi`)。
 
 ## 4. 选择目标位置
@@ -260,9 +260,9 @@ audio = tts.speakers["tsukuyomi"].generate("こんにちは。")
 
 只需更改 `device` 即可自动使用 CPU(ONNX) / GPU(PyTorch) 后端 — 这是因为 publish 步骤选择了 `CPU + GPU`,两侧文件都在仓库中。
 
-但运行时侧也需要安装对应后端的依赖。使用 `device="cuda"` 时实际运行的机器上需要安装 **PyTorch CUDA 构建**,`device="cpu"` 仅需基本安装。详情请参考 [安装 — CPU vs GPU](/zh/quickstart/install)。
+但运行时侧也需要安装对应后端的依赖。使用 `device="cuda"` 时实际运行的机器上需要安装 **PyTorch CUDA 构建**,`device="cpu"` 仅需基本安装。详情请参考 [安装 — CPU vs GPU](/zh-CN/quickstart/install)。
 
 ## 下一步
 
-- 下载使用:[服务器部署](/zh/deploy/)
-- 运行时选择哪个后端:[后端选择](/zh/deploy/backend)
+- 下载使用:[服务器部署](/zh-CN/deploy/)
+- 运行时选择哪个后端:[后端选择](/zh-CN/deploy/backend)
