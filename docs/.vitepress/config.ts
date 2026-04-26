@@ -32,14 +32,30 @@ const jaNav = [
   },
 ]
 
-const zhNav = [
-  { text: '快速开始', link: '/zh/quickstart/' },
-  { text: '话者训练', link: '/zh/training/' },
-  { text: '服务器部署', link: '/zh/deploy/' },
-  { text: '深入了解', link: '/zh/deep-dive/' },
-  { text: 'FAQ', link: '/zh/faq/' },
+const zhCNNav = [
+  { text: '快速开始', link: '/zh-CN/quickstart/' },
+  { text: '话者训练', link: '/zh-CN/training/' },
+  { text: '服务器部署', link: '/zh-CN/deploy/' },
+  { text: '深入了解', link: '/zh-CN/deep-dive/' },
+  { text: 'FAQ', link: '/zh-CN/faq/' },
   {
     text: '链接',
+    items: [
+      { text: 'GitHub', link: 'https://github.com/LemonDouble/hayakoe' },
+      { text: 'PyPI', link: 'https://pypi.org/project/hayakoe/' },
+      { text: 'HuggingFace', link: 'https://huggingface.co/lemondouble/hayakoe' },
+    ],
+  },
+]
+
+const zhTWNav = [
+  { text: '快速開始', link: '/zh-TW/quickstart/' },
+  { text: '話者訓練', link: '/zh-TW/training/' },
+  { text: '伺服器部署', link: '/zh-TW/deploy/' },
+  { text: '深入瞭解', link: '/zh-TW/deep-dive/' },
+  { text: 'FAQ', link: '/zh-TW/faq/' },
+  {
+    text: '連結',
     items: [
       { text: 'GitHub', link: 'https://github.com/LemonDouble/hayakoe' },
       { text: 'PyPI', link: 'https://pypi.org/project/hayakoe/' },
@@ -186,64 +202,125 @@ const jaSidebar = {
   ],
 }
 
-const zhSidebar = {
-  '/zh/quickstart/': [
+const zhCNSidebar = {
+  '/zh-CN/quickstart/': [
     {
       text: '快速开始',
       items: [
-        { text: '入门', link: '/zh/quickstart/' },
-        { text: '安装 — CPU vs GPU', link: '/zh/quickstart/install' },
-        { text: '第一个语音', link: '/zh/quickstart/first-voice' },
-        { text: '速度·韵律调节', link: '/zh/quickstart/parameters' },
-        { text: '自定义词汇注册', link: '/zh/quickstart/custom-words' },
-        { text: '逐句流式生成', link: '/zh/quickstart/streaming' },
-        { text: '基准测试', link: '/zh/quickstart/benchmark' },
+        { text: '入门', link: '/zh-CN/quickstart/' },
+        { text: '安装 — CPU vs GPU', link: '/zh-CN/quickstart/install' },
+        { text: '第一个语音', link: '/zh-CN/quickstart/first-voice' },
+        { text: '速度·韵律调节', link: '/zh-CN/quickstart/parameters' },
+        { text: '自定义词汇注册', link: '/zh-CN/quickstart/custom-words' },
+        { text: '逐句流式生成', link: '/zh-CN/quickstart/streaming' },
+        { text: '基准测试', link: '/zh-CN/quickstart/benchmark' },
       ],
     },
   ],
-  '/zh/training/': [
+  '/zh-CN/training/': [
     {
       text: '话者训练',
       items: [
-        { text: '整体流程', link: '/zh/training/' },
-        { text: '① 数据准备', link: '/zh/training/data-prep' },
-        { text: '② 预处理 & 训练', link: '/zh/training/training' },
-        { text: '③ 质量报告', link: '/zh/training/quality-check' },
-        { text: '④ 发布 (HF·S3·本地)', link: '/zh/training/publish' },
-        { text: '故障排除', link: '/zh/training/troubleshooting' },
+        { text: '整体流程', link: '/zh-CN/training/' },
+        { text: '① 数据准备', link: '/zh-CN/training/data-prep' },
+        { text: '② 预处理 & 训练', link: '/zh-CN/training/training' },
+        { text: '③ 质量报告', link: '/zh-CN/training/quality-check' },
+        { text: '④ 发布 (HF·S3·本地)', link: '/zh-CN/training/publish' },
+        { text: '故障排除', link: '/zh-CN/training/troubleshooting' },
       ],
     },
   ],
-  '/zh/deploy/': [
+  '/zh-CN/deploy/': [
     {
       text: '服务器部署',
       items: [
-        { text: '概述', link: '/zh/deploy/' },
-        { text: 'FastAPI 集成', link: '/zh/deploy/fastapi' },
-        { text: 'Docker 镜像', link: '/zh/deploy/docker' },
-        { text: '后端选择 (CPU vs GPU)', link: '/zh/deploy/backend' },
+        { text: '概述', link: '/zh-CN/deploy/' },
+        { text: 'FastAPI 集成', link: '/zh-CN/deploy/fastapi' },
+        { text: 'Docker 镜像', link: '/zh-CN/deploy/docker' },
+        { text: '后端选择 (CPU vs GPU)', link: '/zh-CN/deploy/backend' },
       ],
     },
   ],
-  '/zh/deep-dive/': [
+  '/zh-CN/deep-dive/': [
     {
       text: '深入了解',
       items: [
-        { text: '为什么要做', link: '/zh/deep-dive/' },
-        { text: '术语表', link: '/zh/deep-dive/glossary' },
-        { text: '架构概览', link: '/zh/deep-dive/architecture' },
-        { text: 'ONNX 优化 / 量化', link: '/zh/deep-dive/onnx-optimization' },
-        { text: '句子边界 pause — Duration Predictor', link: '/zh/deep-dive/duration-predictor' },
-        { text: 'BERT GPU 常驻 & 批量推理', link: '/zh/deep-dive/bert-gpu' },
-        { text: 'Source 抽象化 (HF·S3·本地)', link: '/zh/deep-dive/source-abstraction' },
-        { text: 'OpenJTalk 词典捆绑', link: '/zh/deep-dive/openjtalk-dict' },
-        { text: 'arm64 支持', link: '/zh/deep-dive/arm64' },
-        { text: 'Issue 提报 & 许可证', link: '/zh/deep-dive/contributing' },
+        { text: '为什么要做', link: '/zh-CN/deep-dive/' },
+        { text: '术语表', link: '/zh-CN/deep-dive/glossary' },
+        { text: '架构概览', link: '/zh-CN/deep-dive/architecture' },
+        { text: 'ONNX 优化 / 量化', link: '/zh-CN/deep-dive/onnx-optimization' },
+        { text: '句子边界 pause — Duration Predictor', link: '/zh-CN/deep-dive/duration-predictor' },
+        { text: 'BERT GPU 常驻 & 批量推理', link: '/zh-CN/deep-dive/bert-gpu' },
+        { text: 'Source 抽象化 (HF·S3·本地)', link: '/zh-CN/deep-dive/source-abstraction' },
+        { text: 'OpenJTalk 词典捆绑', link: '/zh-CN/deep-dive/openjtalk-dict' },
+        { text: 'arm64 支持', link: '/zh-CN/deep-dive/arm64' },
+        { text: 'Issue 提报 & 许可证', link: '/zh-CN/deep-dive/contributing' },
       ],
     },
   ],
-  '/zh/faq/': [
-    { text: 'FAQ', items: [{ text: '全部', link: '/zh/faq/' }] },
+  '/zh-CN/faq/': [
+    { text: 'FAQ', items: [{ text: '全部', link: '/zh-CN/faq/' }] },
+  ],
+}
+
+const zhTWSidebar = {
+  '/zh-TW/quickstart/': [
+    {
+      text: '快速開始',
+      items: [
+        { text: '入門', link: '/zh-TW/quickstart/' },
+        { text: '安裝 — CPU vs GPU', link: '/zh-TW/quickstart/install' },
+        { text: '第一個語音', link: '/zh-TW/quickstart/first-voice' },
+        { text: '速度・韻律調整', link: '/zh-TW/quickstart/parameters' },
+        { text: '自訂詞彙註冊', link: '/zh-TW/quickstart/custom-words' },
+        { text: '逐句串流產生', link: '/zh-TW/quickstart/streaming' },
+        { text: '基準測試', link: '/zh-TW/quickstart/benchmark' },
+      ],
+    },
+  ],
+  '/zh-TW/training/': [
+    {
+      text: '話者訓練',
+      items: [
+        { text: '整體流程', link: '/zh-TW/training/' },
+        { text: '① 資料準備', link: '/zh-TW/training/data-prep' },
+        { text: '② 前處理 & 訓練', link: '/zh-TW/training/training' },
+        { text: '③ 品質報告', link: '/zh-TW/training/quality-check' },
+        { text: '④ 發布 (HF・S3・本地)', link: '/zh-TW/training/publish' },
+        { text: '疑難排解', link: '/zh-TW/training/troubleshooting' },
+      ],
+    },
+  ],
+  '/zh-TW/deploy/': [
+    {
+      text: '伺服器部署',
+      items: [
+        { text: '概述', link: '/zh-TW/deploy/' },
+        { text: 'FastAPI 整合', link: '/zh-TW/deploy/fastapi' },
+        { text: 'Docker 映像檔', link: '/zh-TW/deploy/docker' },
+        { text: '後端選擇 (CPU vs GPU)', link: '/zh-TW/deploy/backend' },
+      ],
+    },
+  ],
+  '/zh-TW/deep-dive/': [
+    {
+      text: '深入瞭解',
+      items: [
+        { text: '為什麼要做', link: '/zh-TW/deep-dive/' },
+        { text: '術語表', link: '/zh-TW/deep-dive/glossary' },
+        { text: '架構概覽', link: '/zh-TW/deep-dive/architecture' },
+        { text: 'ONNX 最佳化 / 量化', link: '/zh-TW/deep-dive/onnx-optimization' },
+        { text: '句子邊界 pause — Duration Predictor', link: '/zh-TW/deep-dive/duration-predictor' },
+        { text: 'BERT GPU 常駐 & 批次推論', link: '/zh-TW/deep-dive/bert-gpu' },
+        { text: 'Source 抽象化 (HF・S3・本地)', link: '/zh-TW/deep-dive/source-abstraction' },
+        { text: 'OpenJTalk 字典捆綁', link: '/zh-TW/deep-dive/openjtalk-dict' },
+        { text: 'arm64 支援', link: '/zh-TW/deep-dive/arm64' },
+        { text: 'Issue 回報 & 授權', link: '/zh-TW/deep-dive/contributing' },
+      ],
+    },
+  ],
+  '/zh-TW/faq/': [
+    { text: 'FAQ', items: [{ text: '全部', link: '/zh-TW/faq/' }] },
   ],
 }
 
@@ -366,18 +443,32 @@ export default defineConfig({
         sidebarMenuLabel: 'メニュー',
       },
     },
-    zh: {
-      label: '中文',
+    'zh-CN': {
+      label: '简体中文',
       lang: 'zh-CN',
       themeConfig: {
-        nav: zhNav,
-        sidebar: zhSidebar,
+        nav: zhCNNav,
+        sidebar: zhCNSidebar,
         lastUpdated: { text: '最后更新', formatOptions: { dateStyle: 'medium' } },
         outline: { label: '目录', level: [2, 3] },
         docFooter: { prev: '上一页', next: '下一页' },
         darkModeSwitchLabel: '主题',
         returnToTopLabel: '回到顶部',
         sidebarMenuLabel: '菜单',
+      },
+    },
+    'zh-TW': {
+      label: '繁體中文',
+      lang: 'zh-TW',
+      themeConfig: {
+        nav: zhTWNav,
+        sidebar: zhTWSidebar,
+        lastUpdated: { text: '最後更新', formatOptions: { dateStyle: 'medium' } },
+        outline: { label: '目錄', level: [2, 3] },
+        docFooter: { prev: '上一頁', next: '下一頁' },
+        darkModeSwitchLabel: '主題',
+        returnToTopLabel: '回到頂端',
+        sidebarMenuLabel: '選單',
       },
     },
     en: {

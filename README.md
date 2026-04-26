@@ -1,4 +1,4 @@
-**한국어** | **[日本語](./README.ja.md)** | **[中文](./README.zh.md)** | **[English](./README.en.md)**
+**한국어** | **[日本語](./README.ja.md)** | **[简体中文](./README.zh-CN.md)** | **[繁體中文](./README.zh-TW.md)** | **[English](./README.en.md)**
 
 # HayaKoe
 
@@ -14,7 +14,7 @@
 >
 > **📖 Check out the docs site first!** Everything from installation to parameter tuning, speaker training, server deployment, and architecture deep dives — all in one place.
 >
-> [한국어](https://lemondouble.github.io/hayakoe/) · [日本語](https://lemondouble.github.io/hayakoe/ja/) · [中文](https://lemondouble.github.io/hayakoe/zh/) · [English](https://lemondouble.github.io/hayakoe/en/)
+> [한국어](https://lemondouble.github.io/hayakoe/) · [日本語](https://lemondouble.github.io/hayakoe/ja/) · [简体中文](https://lemondouble.github.io/hayakoe/zh-CN/) · [繁體中文](https://lemondouble.github.io/hayakoe/zh-TW/) · [English](https://lemondouble.github.io/hayakoe/en/)
 
 > Based on [Style-Bert-VITS2](https://github.com/litagin02/Style-Bert-VITS2) by litagin02 (AGPL-3.0)
 
