@@ -6,6 +6,12 @@ from numpy.typing import NDArray
 from hayakoe.constants import Languages
 from hayakoe.logging import logger
 from hayakoe.models import commons, utils
+# 문장 경계 pause 헬퍼는 torch-free 모듈로 분리되어 있다 (CPU/ONNX 경로가
+# torch 없이 import 할 수 있도록). 하위 호환을 위해 여기서 re-export 한다.
+from hayakoe.models.boundary_pauses import (
+    durations_to_boundary_pauses,
+    find_boundary_punct_positions,
+)
 from hayakoe.models.hyper_parameters import HyperParameters
 from hayakoe.models.models_jp_extra import (
     SynthesizerTrn as SynthesizerTrnJPExtra,
@@ -18,10 +24,6 @@ from hayakoe.nlp import (
     extract_bert_feature,
 )
 from hayakoe.nlp.symbols import SYMBOLS
-
-_BOUNDARY_PUNCT_IDS = frozenset(
-    SYMBOLS.index(p) for p in (".", "!", "?") if p in SYMBOLS
-)
 
 
 def get_net_g(
@@ -195,38 +197,6 @@ def infer(
             torch.cuda.empty_cache()
 
         return audio
-
-
-def find_boundary_punct_positions(phone_list: list[int]) -> list[int]:
-    """phoneme 시퀀스에서 문장 경계 구두점(. ! ?)의 위치를 반환한다."""
-    return [i for i, p in enumerate(phone_list) if p in _BOUNDARY_PUNCT_IDS]
-
-
-def durations_to_boundary_pauses(
-    durations: NDArray[Any],
-    phone_list: list[int],
-    punct_positions: list[int],
-    num_sentences: int,
-    hps: HyperParameters,
-) -> list[float]:
-    """예측된 phoneme별 frame 수를 문장 경계 pause 길이(초)로 변환한다."""
-    num_boundaries = num_sentences - 1
-    if not punct_positions or num_boundaries <= 0:
-        return []
-
-    hop_length = hps.data.hop_length
-    sr = hps.data.sampling_rate
-
-    pauses: list[float] = []
-    for pos in punct_positions[:num_boundaries]:
-        frames = float(durations[pos])
-        if pos > 0 and phone_list[pos - 1] == 0:
-            frames += float(durations[pos - 1])
-        if pos + 1 < len(phone_list) and phone_list[pos + 1] == 0:
-            frames += float(durations[pos + 1])
-        pauses.append(frames * hop_length / sr)
-
-    return pauses
 
 
 def predict_boundary_pauses(

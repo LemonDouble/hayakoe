@@ -792,7 +792,10 @@ class Speaker:
     ) -> Optional[list[float]]:
         """ONNX duration predictor로 문장 경계 pause를 예측한다."""
         from hayakoe.models.infer_onnx import get_text_onnx
-        from hayakoe.models.infer import (
+        # torch-free 모듈에서 가져온다. infer.py 는 top-level 에서 torch 를
+        # import 하므로, torch 없는 CPU 환경에서 이 경로가 크래시하지 않도록
+        # 순수 헬퍼는 boundary_pauses 에서 직접 import 한다.
+        from hayakoe.models.boundary_pauses import (
             durations_to_boundary_pauses,
             find_boundary_punct_positions,
         )
