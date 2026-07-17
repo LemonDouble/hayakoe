@@ -23,8 +23,6 @@ dependencies = [
     "lemon-pyopenjtalk-prebuilt==0.0.9",
     "pyworld-prebuilt==0.3.5.post2",
     "num2words>=0.5.12,<0.6",
-    # numba 하한은 numpy>=2.0 제약에 묶인다 (numpy 2.x 지원은 numba 0.61+).
-    "numba>=0.61,<0.66",
 ]
 
 [project.optional-dependencies]
@@ -80,6 +78,8 @@ dev = [
     "tensorboard>=2.20.0",
     "torchaudio>=2.11.0",
     "pyannote-audio>=3.3",
+    # MAS(monotonic alignment). 학습 시에만 사용되며 추론 경로는 쓰지 않는다.
+    "numba>=0.61,<0.66",
     # CLI
     "typer>=0.15",
     "InquirerPy>=0.3.4",
