@@ -287,9 +287,12 @@ uv run poe cli
 ## ライセンス
 
 - コード: AGPL-3.0（オリジナルのStyle-Bert-VITS2）
+- ユーザー辞書モジュール (`user_dict`): LGPL-3.0（[VOICEVOX ENGINE](https://github.com/VOICEVOX/voicevox_engine) 由来）
 - JVNV音声モデル: CC BY-SA 4.0 ([JVNV Corpus](https://sites.google.com/site/shinnosuketakamichi/research-topics/jvnv_corpus))
 - 事前学習モデル (DeBERTa): MIT
 - 英語→カタカナ辞書データ: GPL-3.0 ([loanwords_gairaigo](https://github.com/jamesohortle/loanwords_gairaigo))
+
+ライセンス全文は [LICENSE](./LICENSE)・[LGPL_LICENSE](./LGPL_LICENSE)・[GPL_LICENSE](./GPL_LICENSE) にあり、配布パッケージ（wheel）の `hayakoe-*.dist-info/licenses/` にも同梱されます。
 
 ## Credits
 

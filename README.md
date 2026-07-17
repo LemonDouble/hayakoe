@@ -293,9 +293,12 @@ uv run poe cli
 ## 라이선스
 
 - 코드: AGPL-3.0 (원본 Style-Bert-VITS2)
+- 유저 사전 모듈 (`user_dict`): LGPL-3.0 ([VOICEVOX ENGINE](https://github.com/VOICEVOX/voicevox_engine) 유래)
 - JVNV 음성 모델: CC BY-SA 4.0 ([JVNV Corpus](https://sites.google.com/site/shinnosuketakamichi/research-topics/jvnv_corpus))
 - 사전학습 모델 (DeBERTa): MIT
 - 영어→카타카나 사전 데이터: GPL-3.0 ([loanwords_gairaigo](https://github.com/jamesohortle/loanwords_gairaigo))
+
+라이선스 전문은 [LICENSE](./LICENSE) · [LGPL_LICENSE](./LGPL_LICENSE) · [GPL_LICENSE](./GPL_LICENSE) 파일에 있으며, 배포 패키지(wheel)의 `hayakoe-*.dist-info/licenses/` 에도 동봉됩니다.
 
 ## Credits
 

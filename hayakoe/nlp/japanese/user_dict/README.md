@@ -23,5 +23,5 @@ VOICEVOX プロジェクトのチームに深く感謝し、その貢献を尊�
 元の VOICEVOX ENGINE のリポジトリのコードは、LGPL v3 と、ソースコードの公開が不要な別ライセンスのデュアルライセンスの下で使用されています。  
 当プロジェクトにおけるこのモジュールも LGPL ライセンスの下にあります。
 
-詳細については、プロジェクトのルートディレクトリにある [LGPL_LICENSE](/LGPL_LICENSE) ファイルをご参照ください。  
+詳細については、プロジェクトのルートディレクトリにある [LGPL_LICENSE](/LGPL_LICENSE) ファイル（pip でインストールした場合は `hayakoe-*.dist-info/licenses/LGPL_LICENSE`）をご参照ください。  
 また、元の VOICEVOX ENGINE プロジェクトのライセンスについては、[こちら](https://github.com/VOICEVOX/voicevox_engine/blob/master/LICENSE) をご覧ください。

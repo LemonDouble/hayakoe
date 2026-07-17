@@ -286,9 +286,12 @@ uv run poe cli
 ## 许可证
 
 - 代码: AGPL-3.0（原版 Style-Bert-VITS2）
+- 用户词典模块 (`user_dict`): LGPL-3.0（源自 [VOICEVOX ENGINE](https://github.com/VOICEVOX/voicevox_engine)）
 - JVNV 语音模型: CC BY-SA 4.0 ([JVNV Corpus](https://sites.google.com/site/shinnosuketakamichi/research-topics/jvnv_corpus))
 - 预训练模型 (DeBERTa): MIT
 - 英语→片假名词典数据: GPL-3.0 ([loanwords_gairaigo](https://github.com/jamesohortle/loanwords_gairaigo))
+
+许可证全文见 [LICENSE](./LICENSE)、[LGPL_LICENSE](./LGPL_LICENSE) 和 [GPL_LICENSE](./GPL_LICENSE) 文件，发行包（wheel）的 `hayakoe-*.dist-info/licenses/` 中也附带全文。
 
 ## Credits
 

@@ -287,9 +287,12 @@ uv run poe cli
 ## License
 
 - Code: AGPL-3.0 (original Style-Bert-VITS2)
+- User dictionary module (`user_dict`): LGPL-3.0 (derived from [VOICEVOX ENGINE](https://github.com/VOICEVOX/voicevox_engine))
 - JVNV Voice Models: CC BY-SA 4.0 ([JVNV Corpus](https://sites.google.com/site/shinnosuketakamichi/research-topics/jvnv_corpus))
 - Pretrained Model (DeBERTa): MIT
 - English-to-Katakana Dictionary Data: GPL-3.0 ([loanwords_gairaigo](https://github.com/jamesohortle/loanwords_gairaigo))
+
+Full license texts are available in [LICENSE](./LICENSE) · [LGPL_LICENSE](./LGPL_LICENSE) · [GPL_LICENSE](./GPL_LICENSE), and are also bundled with the distributed package (wheel) under `hayakoe-*.dist-info/licenses/`.
 
 ## Credits
 
