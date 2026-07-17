@@ -13,6 +13,7 @@ import atexit
 import shutil
 import sys
 import tempfile
+import threading
 import traceback
 from pathlib import Path
 from typing import Optional
@@ -30,6 +31,11 @@ from hayakoe.nlp.japanese.user_dict.word_model import UserDictWord, WordTypes
 
 # 프로세스 메모리 상에 유지되는 사용자 사전. 키는 단어 UUID.
 _user_dict: dict[str, UserDictWord] = {}
+
+# apply_word 의 스냅샷→재빌드→커밋을 직렬화하는 락. 락 없이 동시 호출되면
+# 각 호출이 서로의 단어가 빠진 스냅샷으로 사전을 재빌드해, 마지막 재빌드가
+# 다른 호출의 단어를 지운 사전으로 pyopenjtalk 를 덮어쓴다 (단어 조용히 유실).
+_apply_lock = threading.Lock()
 
 # 현재 pyopenjtalk 에 로드되어 있는 컴파일된 사전이 위치한 임시 디렉터리.
 # 재빌드 성공 시에만 새 디렉터리로 교체되고, 이전 디렉터리는 지워진다.
@@ -152,6 +158,7 @@ def apply_word(
 
     등록된 단어는 디스크에 영구 저장되지 않으며, 프로세스가 종료되면 함께 사라진다.
     재빌드가 실패하면 메모리 사전은 이전 상태 그대로 유지된다.
+    thread-safe: 동시 호출은 내부 락으로 직렬화된다.
 
     Returns:
         추가된 단어에 발행된 UUID.
@@ -164,9 +171,10 @@ def apply_word(
         priority=priority,
     )
     word_uuid = str(uuid4())
-    candidate = {**_user_dict, word_uuid: word}
-    _rebuild_compiled_dict(candidate)
-    _user_dict[word_uuid] = word
+    with _apply_lock:
+        candidate = {**_user_dict, word_uuid: word}
+        _rebuild_compiled_dict(candidate)
+        _user_dict[word_uuid] = word
     return word_uuid
 
 
