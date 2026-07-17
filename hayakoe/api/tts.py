@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Union
@@ -98,6 +99,9 @@ class TTS:
         self._prepared: bool = False
         self._backend: Optional[str] = None
         self._bert_session = None
+        # load()/prepare() 의 셋업 상태를 보호하는 락. 준비 단계 전용이며
+        # generate() 등 서빙 경로는 이 락을 사용하지 않는다 (per-speaker 락 별개).
+        self._lock = threading.Lock()
 
     # ──────────────────────────── 등록 ────────────────────────────
 
@@ -119,7 +123,8 @@ class TTS:
         """
         uri = source or DEFAULT_SPEAKER_SOURCE
         parsed = parse_source(uri, self._cache_dir, token=self._hf_token)
-        self._specs[speaker_name] = _SpeakerSpec(name=speaker_name, source=parsed)
+        with self._lock:
+            self._specs[speaker_name] = _SpeakerSpec(name=speaker_name, source=parsed)
         return self
 
     # ──────────────────────────── 실행 ────────────────────────────
@@ -137,30 +142,42 @@ class TTS:
                 지연을 크게 줄여주므로 FastAPI 등 서빙 시나리오에 권장.
                 CPU 백엔드에서는 무시된다. 기본 ``False``.
 
-        캐시에 이미 있는 파일은 재사용한다. 반복 호출은 no-op.
+        캐시에 이미 있는 파일은 재사용한다. 아직 materialize 되지 않은 화자만
+        새로 올리므로, ``load()`` 로 화자를 추가한 뒤 다시 호출하면 그 화자가
+        추가로 준비된다 (이미 준비된 화자는 건너뛴다). ``load()`` 와 같은 락을
+        공유하여 멀티스레드에서 동시에 호출해도 안전하다.
         Returns: ``self`` (체이닝용).
         """
-        if self._prepared:
-            return self
+        with self._lock:
+            # 백엔드 결정 + BERT 초기화는 최초 1회만 (bert_models 는 멱등하지만
+            # 불필요한 재확인을 피한다).
+            if self._backend is None:
+                if "cuda" in self._device:
+                    self._validate_cuda()
+                    self._backend = "pytorch"
+                else:
+                    self._backend = "onnx"
+                self._init_bert()
 
-        if "cuda" in self._device:
-            self._validate_cuda()
-            self._backend = "pytorch"
-        else:
-            self._backend = "onnx"
+            # 아직 materialize 되지 않은 화자만 추린다. 락 안에서 스냅샷을
+            # 만들므로 순회 중 load() 가 _specs 를 변경해도 안전하다.
+            pending = [
+                (name, spec)
+                for name, spec in self._specs.items()
+                if name not in self._speakers
+            ]
+            for name, spec in pending:
+                self._materialize_speaker(name, spec)
 
-        self._init_bert()
+            new_speakers = [self._speakers[name] for name, _ in pending]
+            if self._device.startswith("cuda") and new_speakers:
+                self._compile(new_speakers)
+                if warmup:
+                    self._warmup(new_speakers)
 
-        for name, spec in self._specs.items():
-            self._materialize_speaker(name, spec)
+            self._prepared = True
+            names = list(self._speakers.keys())
 
-        if self._device.startswith("cuda") and self._speakers:
-            self._compile_all()
-            if warmup:
-                self._warmup()
-
-        self._prepared = True
-        names = list(self._speakers.keys())
         logger.info(
             f"TTS ready — {self._backend} on {self._device}, speakers={names}"
         )
@@ -299,16 +316,20 @@ class TTS:
         )
         self._speakers[name] = speaker
 
-    def _compile_all(self) -> None:
-        """모든 Speaker + 공용 BERT 에 torch.compile 을 적용한다."""
+    def _compile(self, speakers: list["Speaker"]) -> None:  # noqa: F821
+        """주어진 Speaker 들 + 공용 BERT 에 torch.compile 을 적용한다.
+
+        새로 materialize 된 화자에만 적용된다. ``bert_models.compile_model()``
+        은 멱등하므로 반복 호출해도 중첩 래핑이 쌓이지 않는다.
+        """
         from hayakoe.nlp import bert_models
 
-        for speaker in self._speakers.values():
+        for speaker in speakers:
             speaker._apply_compile()
         bert_models.compile_model()
 
-    def _warmup(self) -> None:
-        """각 화자에 대해 더미 추론을 돌려 Triton 커널 JIT / CUDA graph
+    def _warmup(self, speakers: list["Speaker"]) -> None:  # noqa: F821
+        """주어진 화자에 대해 더미 추론을 돌려 Triton 커널 JIT / CUDA graph
         캡처를 prepare 시점에 선행한다.
 
         단일 문장 + 다중 문장 2종으로 돌려서 ``net_g.infer`` 와
@@ -316,7 +337,7 @@ class TTS:
         길이가 다른 입력 2개는 Dynamo ``automatic_dynamic`` 을 트리거해
         이후 다른 길이 요청의 full re-trace 도 피한다.
 
-        ``_compile_all`` 다음 단계로 실행되며, 실패해도 prepare 는 계속 진행.
+        ``_compile`` 다음 단계로 실행되며, 실패해도 prepare 는 계속 진행.
         """
         import time
 
@@ -324,7 +345,7 @@ class TTS:
             "こんにちは、テストです。",  # 단일 문장 → net_g.infer
             "こんにちは。テストを始めます。",  # 다중 문장 → predict_durations + batch bert + infer
         ]
-        for speaker in self._speakers.values():
+        for speaker in speakers:
             style = next(iter(speaker._style2id.keys()))
             t0 = time.perf_counter()
             try:
