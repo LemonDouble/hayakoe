@@ -3,6 +3,7 @@
 import asyncio
 
 from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
 import config
@@ -29,9 +30,15 @@ def list_videos():
 
 @router.post("/upload")
 async def upload_video(file: UploadFile):
-    """영상 업로드 (저장만, 파이프라인은 수동 실행)."""
-    data = await file.read()
-    result = video_manager.create(config.get().data_dir, file.filename, data)
+    """영상 업로드 (저장만, 파이프라인은 수동 실행).
+
+    Starlette 가 이미 디스크 임시파일로 스풀해 둔 것을 청크 복사한다.
+    전체 read() 는 파일 크기만큼 메모리를 쓰고, 동기 쓰기는 이벤트 루프를
+    블록하므로 threadpool 에서 fileobj 복사로 처리한다.
+    """
+    result = await run_in_threadpool(
+        video_manager.create, config.get().data_dir, file.filename, file.file
+    )
     return result
 
 

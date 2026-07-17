@@ -4,6 +4,7 @@ import json
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import BinaryIO
 
 from services.safe_path import safe_join
 
@@ -24,15 +25,21 @@ def _next_id(data_dir: Path) -> str:
     return f"{max(int(n) for n in existing) + 1:03d}"
 
 
-def create(data_dir: Path, original_filename: str, source_data: bytes) -> dict:
-    """영상 업로드 → 디렉토리 생성 + source 파일 저장."""
+def create(data_dir: Path, original_filename: str, source: BinaryIO) -> dict:
+    """영상 업로드 → 디렉토리 생성 + source 파일 저장.
+
+    source 는 파일 객체를 청크 단위로 복사한다 — 수 GB 영상을 통째로
+    메모리에 올리지 않기 위함. (호출 측은 이벤트 루프 블로킹을 피하도록
+    threadpool 에서 불러야 한다)
+    """
     video_id = _next_id(data_dir)
     video_dir = _videos_dir(data_dir) / video_id
     video_dir.mkdir(parents=True)
 
     suffix = Path(original_filename).suffix
     source_path = video_dir / f"source{suffix}"
-    source_path.write_bytes(source_data)
+    with open(source_path, "wb") as f:
+        shutil.copyfileobj(source, f)
 
     meta = {
         "original_filename": original_filename,
