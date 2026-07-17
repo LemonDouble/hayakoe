@@ -10,24 +10,24 @@ HayaKoe 採用 **單例 TTS 實例 + 建置時內嵌權重** 模式,為伺服器
 
 TTS 模型載入一次需要相當長的時間。
 
-在 GPU 環境下包括編譯階段可能需要數十秒。
+在 GPU 環境下開啟 `compile=True` 時,包括 BERT 編譯在內可能需要數十秒。
 
 如果每個請求都建立新實例,實際服務就不可行了,因此需要在 **行程生命週期內只維護一個**,讓所有請求共享。
 
-實際程式碼在 FastAPI 的 lifespan 鉤子中用 `TTS(...).load(...).prepare(warmup=True)` 建構單例並儲存到 `app.state.tts`,處理器複用這一個實例。
+實際程式碼在 FastAPI 的 lifespan 鉤子中用 `TTS(...).load(...).prepare(warmup=True, compile=True)` 建構單例並儲存到 `app.state.tts`,處理器複用這一個實例。
 
 並發無需擔心。
 
 `Speaker` 內部持有 `threading.Lock`,同一說話人的並發請求會自動串列化,不同說話人之間則並行執行 — 無需額外的池·佇列實作。
 
-::: details GPU 後端會同時準備 torch.compile
-`TTS.prepare()` 在 CUDA 後端不僅載入模型,還會對所有說話人和 BERT 統一套用 `torch.compile`。
+::: details GPU 後端可以同時準備 BERT torch.compile
+`TTS.prepare(compile=True)` 在 CUDA 後端除了載入模型外,還會對共用 BERT 套用 `torch.compile` (約 80 秒預熱 ↔ 每句提升約 20% — 建議長期執行的伺服器使用)。
 
-`warmup=True` 時會預先執行 1 次虛擬推論,將編譯成本提前到 prepare 階段。
+同時指定 `warmup=True` 時會預先執行虛擬推論,將編譯成本提前到 prepare 階段。
 
 此過程本身可能需要數十秒,因此必須在應用啟動時只做一次。
 
-**每個請求都新建 TTS 會導致每次重新編譯**,服務實際上會癱瘓。
+**每個請求都新建 TTS 會導致每次重新編譯**,伺服器實際上會癱瘓。
 
 CPU 後端使用 ONNX Runtime 因此沒有單獨的編譯步驟,prepare 快得多。
 :::

@@ -126,29 +126,30 @@ tts.speakers["jvnv-F1-jp"].generate("ウォームアップ完了。").save("gpu_
 ```
 
 ::: warning The first request may be slow
-In GPU mode, the first `generate()` call may take a few extra seconds compared to normal.
+In GPU mode, the first `generate()` call may take a few extra seconds compared to normal (cuDNN initialization, etc.).
 
 From the second call onward, performance returns to normal speed.
 
-If you are running this as a server, it is recommended to fire a dummy `generate()` right after startup to "warm up".
+If you are running this as a server, it is recommended to pay this cost upfront at startup with `prepare(warmup=True)`.
 :::
 
-::: details Why is the first call slow? (torch.compile background)
-HayaKoe automatically applies PyTorch's `torch.compile` during `prepare()` when in GPU mode.
+::: details Going faster: BERT torch.compile (optional)
+Passing `prepare(compile=True)` applies PyTorch's `torch.compile` to the shared BERT.
 
 `torch.compile` is a JIT compiler introduced in PyTorch 2.0 that traces the model execution graph, compiles it once, and reuses the result for subsequent calls.
 
-This improves inference speed, but at the cost of **extra time spent tracing and compiling the graph on the first call**.
+In our measurements, it costs **about 80 seconds of compile warm-up** in exchange for **roughly 20% faster** steady-state synthesis per sentence.
 
-Once compiled, the graph is cached for the lifetime of the process, so the second call onward runs without that overhead. In production, it is common practice to run a short dummy call right after the container or process starts to finish the warm-up.
+Once compiled, the graph is cached for the lifetime of the process, so it is worth enabling for long-running servers.
+
+For scripts or interactive use where the process starts and stops frequently, the default (off) is the better choice.
 
 ```python
 # In FastAPI lifespan, Celery worker init, etc.
-tts = TTS(device="cuda").load("jvnv-F1-jp").prepare()
-tts.speakers["jvnv-F1-jp"].generate("ウォームアップ")  # result can be discarded
+tts = TTS(device="cuda").load("jvnv-F1-jp").prepare(warmup=True, compile=True)
 ```
 
-In CPU (ONNX) mode, `torch.compile` is not used, so this warm-up step is not needed.
+In CPU (ONNX) mode, the `compile` flag is ignored and this warm-up step is not needed.
 :::
 
 Once you are done here, proceed to the next step: [First Voice -->](./first-voice)

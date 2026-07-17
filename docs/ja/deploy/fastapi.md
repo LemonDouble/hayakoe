@@ -52,7 +52,7 @@ from app.tts import build_tts_engine, router as tts_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     tts = build_tts_engine()
-    tts.prepare(warmup=True)
+    tts.prepare(warmup=True, compile=True)
     app.state.tts = tts
     yield
 
@@ -76,9 +76,11 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 ### 1. lifespan でシングルトンを作る
 
-`build_tts_engine()` は話者登録順を一箇所にまとめたファクトリです。lifespan 内で呼び出した後 `prepare(warmup=True)` まで実行して `app.state.tts` に付けます。
+`build_tts_engine()` は話者登録順を一箇所にまとめたファクトリです。lifespan 内で呼び出した後 `prepare(warmup=True, compile=True)` まで実行して `app.state.tts` に付けます。
 
-`warmup=True` は CUDA バックエンドでダミー推論を1回先行して `torch.compile` ・ Triton JIT ・ CUDA graph キャプチャのコストを prepare 段階に前倒しします — **最初の実リクエストのレイテンシが目に見えて減ります**。
+`compile=True` は共有 BERT に `torch.compile` を適用し、steady-state の合成を1文あたり約20%速くします（約80秒のウォームアップ — 長時間稼働するサーバーなら元が取れます）。
+
+`warmup=True` は CUDA バックエンドでダミー推論を先行して、BERT コンパイル・cuDNN 初期化のコストを prepare 段階に前倒しします — **最初の実リクエストのレイテンシが目に見えて減ります**。
 
 リクエストごとに `TTS()` を新規作成すると毎回コンパイルが走り本番サービスが事実上不可能になります。必ず **アプリの存続期間中ひとつだけ** 維持してください。
 
@@ -173,12 +175,12 @@ BERT はすべての話者が共有するため、話者あたり増えるのは
 
 **2. モデルは既にあるのに prepare 自体が遅い場合**
 
-CUDA バックエンドは `prepare()` 内で `torch.compile` を実行します。初回コンパイルが数十秒かかるのは正常で、以降のリクエストからはコンパイル済みグラフで高速に動作します。
+CUDA バックエンドで `compile=True` を有効にした場合、`prepare()` 内で BERT の `torch.compile` が実行されます。初回コンパイルが約80秒かかるのは正常で、以降のリクエストからはコンパイル済みグラフで高速に動作します。
 
 選択肢は2つです。
 
-- **`prepare(warmup=True)`** — ダミー推論1回まで prepare に含む。prepare はより長くかかりますが **最初の実リクエストが速くなります**。サービング時に推奨。
-- **`prepare(warmup=False)`**（デフォルト） — prepare を早く終わらせる。代わりに **最初の実リクエストが warmup コストを負担します**。
+- **`prepare(warmup=True, compile=True)`** — BERT コンパイル + ダミー推論まで prepare に含む。prepare はより長くかかりますが **最初の実リクエストが速くなります**。サービング時に推奨。
+- **`prepare()`**（デフォルト） — prepare を早く終わらせる。compile を有効にした場合 **最初の実リクエストがコンパイルコストを負担します**。
 :::
 
 ::: details ワーカー数を増やすとパフォーマンスが上がりますか？

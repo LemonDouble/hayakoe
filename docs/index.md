@@ -21,7 +21,7 @@ hero:
 
 features:
   - title: CPU 실시간 추론
-    details: "ONNX 최적화로 Style-Bert-VITS2 대비 짧은 텍스트는 1.5배, 긴 텍스트는 3.3배 빠른 CPU 단독 추론.<br>GPU에서는 torch.compile로 한층 더 빨라집니다."
+    details: "ONNX 최적화로 Style-Bert-VITS2 대비 짧은 텍스트는 1.5배, 긴 텍스트는 3.3배 빠른 CPU 단독 추론.<br>GPU에서는 PyTorch로 한층 더 빨라집니다."
     link: /deep-dive/onnx-optimization
     linkText: 어떻게 했나
   - title: AMD64 · ARM64 어디서나

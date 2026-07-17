@@ -1,6 +1,6 @@
 # Backend Selection (CPU vs GPU)
 
-HayaKoe supports two backends: CPU (ONNX Runtime) and GPU (PyTorch + `torch.compile`). At the code level, it is a single `device` parameter difference.
+HayaKoe supports two backends: CPU (ONNX Runtime) and GPU (PyTorch). At the code level, it is a single `device` parameter difference.
 
 ```python
 tts_cpu = TTS(device="cpu").load("tsukuyomi").prepare()
@@ -16,7 +16,7 @@ The underlying architecture is also entirely different. Here is a summary of cri
 - **Server environments without a GPU** — Works immediately on general web hosting, VPS, and managed container platforms without CUDA support.
 - **When image size must be minimized** — The PyTorch + CUDA stack runs several GB, while an ONNX Runtime-only image shrinks to hundreds of MB.
 - **Low-concurrency workloads** — For personal projects or internal tools with modest concurrent load, CPU alone provides sufficient throughput.
-- **When cold start must be short** — The ONNX path has no `torch.compile` compilation step, so `prepare()` finishes instantly and synthesis is ready as soon as the process starts. The GPU path requires absorbing tens of seconds of graph compilation on the first `prepare()`, which makes a noticeable difference in autoscale or serverless environments.
+- **When cold start must be short** — On the ONNX path, `prepare()` finishes as soon as the process starts and synthesis is available immediately. The GPU path is also fast by default, but with `compile=True` enabled the first `prepare()` must absorb about 80 seconds of BERT compilation, which makes a noticeable difference in autoscale or serverless environments.
 
 ::: details CPU path composition
 - **BERT** — `bert_q8.onnx` (Q8 quantized DeBERTa), ONNX Runtime `CPUExecutionProvider`
@@ -29,28 +29,28 @@ The underlying architecture is also entirely different. Here is a summary of cri
 - **Real-time services requiring low latency** — User-facing responses, conversational UIs, and scenarios where single-request response time directly impacts perceived quality.
 - **Environments needing high concurrent throughput** — Multiple speakers can be synthesized in parallel on a single GPU, providing much greater concurrent request capacity than CPU.
 - **Environments with existing GPU infrastructure** — Leverage existing resources without additional investment for better latency and throughput at the same cost.
-- **Workloads with repeated long-sentence synthesis** — The graph optimization benefits of `torch.compile` scale proportionally with synthesis length.
+- **Long-running server workloads** — Applying `torch.compile` to BERT via `prepare(compile=True)` trades about 80 seconds of warmup for roughly 20% faster steady-state synthesis per sentence.
 
 ::: details GPU path composition
-- **BERT** — FP32 DeBERTa loaded in GPU VRAM for embedding computation. Slightly higher precision than the CPU ONNX path due to no quantization.
-- **Synthesizer** — PyTorch VITS decoder. `torch.compile` is applied.
-- **Duration Predictor** — Same PyTorch path as the Synthesizer, included in the `torch.compile` target.
+- **BERT** — FP32 DeBERTa loaded in GPU VRAM for embedding computation. Slightly higher precision than the CPU ONNX path due to no quantization. The only component `torch.compile` is applied to when `prepare(compile=True)` is passed.
+- **Synthesizer** — PyTorch VITS decoder (eager execution).
+- **Duration Predictor** — Same PyTorch path as the Synthesizer (eager execution).
 :::
 
 ::: tip Reducing GPU backend cold start
-The first `prepare()` on the GPU backend can take tens of seconds due to model download + `torch.compile` initialization. For production services, the following two practices are recommended to pay this cost upfront.
+The first `prepare()` on the GPU backend can take a long time when model downloads overlap, and with `compile=True` enabled it adds about 80 seconds of BERT compilation. For production services, the following two practices are recommended to pay this cost upfront.
 
 - **`pre_download()` at Docker build time** — Baking weights into the image at build time means runtime `prepare()` loads from cache with no HF/S3 access. Initialization proceeds with no network latency as soon as the image starts. (-> [Docker Image](/en/deploy/docker))
-- **`prepare(warmup=True)`** — Running a dummy inference at prepare time shifts `torch.compile` compilation and CUDA graph capture into the prepare phase. Prepare itself takes a bit longer, but **the first real request does not absorb the warmup cost**. (-> [FastAPI Integration](/en/deploy/fastapi))
+- **`prepare(warmup=True, compile=True)`** — Running a dummy inference at prepare time pulls BERT compilation and cuDNN initialization forward into prepare. Prepare itself takes a bit longer, but **the first real request does not absorb the warmup cost**. (-> [FastAPI Integration](/en/deploy/fastapi))
 :::
 
 ## Side-by-side Comparison
 
-| Item | CPU (ONNX) | GPU (PyTorch + compile) |
+| Item | CPU (ONNX) | GPU (PyTorch) |
 |---|---|---|
 | Installation | `pip install hayakoe` | `pip install hayakoe[gpu]` |
 | Image size | Hundreds of MB | Several GB |
-| Cold start | Fast (seconds) | Slow (tens of seconds, first compile) |
+| Cold start | Fast (seconds) | Fast (seconds) — ~80s with `compile=True` |
 | Single request latency | Moderate | Lowest |
 | Concurrent throughput | Limited by core count | Parallel on 1 GPU |
 | Memory (1 speaker loaded) | ~1.7 GB RAM | ~1.3 GB RAM + 1.8 GB VRAM |

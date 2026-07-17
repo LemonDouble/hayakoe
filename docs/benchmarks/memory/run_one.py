@@ -64,7 +64,8 @@ def load_tts(device: str, speaker_names: list[str]):
     tts = TTS(device=device)
     for name in speaker_names:
         tts.load(name)
-    tts.prepare()
+    # 공개된 GPU 메모리 수치는 BERT 컴파일 상태 기준 — 측정 조건 유지 (CPU 에선 무시됨)
+    tts.prepare(compile=True)
     return tts
 
 

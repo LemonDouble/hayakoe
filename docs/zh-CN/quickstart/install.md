@@ -126,29 +126,30 @@ tts.speakers["jvnv-F1-jp"].generate("ウォームアップ完了。").save("gpu_
 ```
 
 ::: warning 首次请求可能较慢
-在 GPU 模式下,第一次 `generate()` 调用可能会比平时多花几秒。
+在 GPU 模式下,第一次 `generate()` 调用可能会比平时多花几秒(cuDNN 初始化等)。
 
 从第二次调用开始就会恢复正常速度。
 
-如果要作为服务器运行,建议在启动后立即调用一次虚拟 `generate()` 进行"预热"。
+如果要作为服务器运行,建议通过 `prepare(warmup=True)` 在启动阶段提前支付这笔开销。
 :::
 
-::: details 为什么首次调用会慢?(torch.compile 背景)
-HayaKoe 在 GPU 模式下会在 `prepare()` 时自动应用 PyTorch 的 `torch.compile`。
+::: details 更进一步:BERT torch.compile(可选)
+传入 `prepare(compile=True)` 会对共享 BERT 应用 PyTorch 的 `torch.compile`。
 
 `torch.compile` 是 PyTorch 2.0 中新增的 JIT 编译器,它追踪模型执行图,编译一次后复用其结果。
 
-因此推理速度会提升,但代价是 **首次调用时需要额外的图追踪和编译时间**。
+实测数据表明,以 **约 80 秒的编译预热** 为代价,steady-state 合成 **每句提速约 20%**。
 
-一旦编译完成的图在进程存活期间会被缓存,因此从第二次调用开始没有此开销,可以直接执行。所以在实际服务中,通常在容器/进程启动后用短文本进行一次虚拟调用来完成预热。
+编译完成的图在进程存活期间会被缓存,因此对长期运行的服务器来说值得开启。
+
+如果是脚本或交互式使用等频繁启停的环境,保持默认值(关闭)更合适。
 
 ```python
 # 在 FastAPI lifespan, Celery worker 初始化等场景
-tts = TTS(device="cuda").load("jvnv-F1-jp").prepare()
-tts.speakers["jvnv-F1-jp"].generate("ウォームアップ")  # 结果可以丢弃
+tts = TTS(device="cuda").load("jvnv-F1-jp").prepare(warmup=True, compile=True)
 ```
 
-CPU (ONNX) 模式不使用 `torch.compile`,因此不需要此预热步骤。
+CPU (ONNX) 模式下会忽略 `compile` 标志,也不需要此预热步骤。
 :::
 
 到这里就完成了,接下来:[生成第一条语音 →](./first-voice)

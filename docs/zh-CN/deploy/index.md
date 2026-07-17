@@ -6,16 +6,16 @@ HayaKoe 采用 **单例 TTS 实例 + 构建时内嵌权重** 模式,为服务器
 
 ### 1. 模型只加载一次(单例)
 
-TTS 模型加载一次需要相当长的时间。在 GPU 环境下包括编译阶段可能需要数十秒。如果每个请求都创建新实例,实际服务就不可行了,因此需要在 **进程生命周期内只维护一个**,让所有请求共享。
+TTS 模型加载一次需要相当长的时间。在 GPU 环境下开启 `compile=True` 时,包括 BERT 编译在内可能需要数十秒。如果每个请求都创建新实例,实际服务就不可行了,因此需要在 **进程生命周期内只维护一个**,让所有请求共享。
 
-实际代码在 FastAPI 的 lifespan 钩子中用 `TTS(...).load(...).prepare(warmup=True)` 构建单例并保存到 `app.state.tts`,处理器复用这一个实例。
+实际代码在 FastAPI 的 lifespan 钩子中用 `TTS(...).load(...).prepare(warmup=True, compile=True)` 构建单例并保存到 `app.state.tts`,处理器复用这一个实例。
 
 并发无需担心。`Speaker` 内部持有 `threading.Lock`,同一说话人的并发请求会自动串行化,不同说话人之间则并行运行 — 无需额外的池·队列实现。
 
-::: details GPU 后端会同时准备 torch.compile
-`TTS.prepare()` 在 CUDA 后端不仅加载模型,还会对所有说话人和 BERT 统一应用 `torch.compile`。
+::: details GPU 后端还可以一并准备 BERT torch.compile
+`TTS.prepare(compile=True)` 在 CUDA 后端不仅加载模型,还会对共享 BERT 应用 `torch.compile`(约 80 秒预热 ↔ 每句提速约 20% — 推荐用于长期运行的服务器)。
 
-`warmup=True` 时会预先执行 1 次虚拟推理,将编译成本提前到 prepare 阶段。此过程本身可能需要数十秒,因此必须在应用启动时只做一次。**每个请求都新建 TTS 会导致每次重新编译**,服务实际上会瘫痪。
+同时传入 `warmup=True` 会预先执行虚拟推理,将编译成本提前到 prepare 阶段。此过程本身可能需要数十秒,因此必须在应用启动时只做一次。**每个请求都新建 TTS 会导致每次重新编译**,服务实际上会瘫痪。
 
 CPU 后端使用 ONNX Runtime 因此没有单独的编译步骤,prepare 快得多。
 :::

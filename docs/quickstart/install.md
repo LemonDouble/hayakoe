@@ -126,29 +126,30 @@ tts.speakers["jvnv-F1-jp"].generate("ウォームアップ完了。").save("gpu_
 ```
 
 ::: warning 첫 요청은 느릴 수 있어요
-GPU 모드에서는 첫 `generate()` 호출이 평소보다 몇 초 정도 더 걸릴 수 있습니다.
+GPU 모드에서는 첫 `generate()` 호출이 평소보다 몇 초 정도 더 걸릴 수 있습니다 (cuDNN 초기화 등).
 
 두 번째 호출부터는 정상 속도가 나옵니다.
 
-서버로 띄울 거라면 시작 직후 더미 `generate()` 를 한 번 불러 "워밍업" 해두는 걸 권장합니다.
+서버로 띄울 거라면 `prepare(warmup=True)` 로 이 비용을 시작 단계에 미리 치러두는 걸 권장합니다.
 :::
 
-::: details 왜 첫 호출이 느린가요? (torch.compile 배경)
-HayaKoe 는 GPU 모드일 때 `prepare()` 시점에 PyTorch 의 `torch.compile` 을 자동으로 붙입니다.
+::: details 더 빠르게: BERT torch.compile (선택)
+`prepare(compile=True)` 를 주면 공용 BERT 에 PyTorch 의 `torch.compile` 을 적용합니다.
 
 `torch.compile` 은 PyTorch 2.0 에서 추가된 JIT 컴파일러로, 모델 실행 그래프를 추적해 한 번 컴파일한 뒤 그 결과를 재사용하는 방식입니다.
 
-덕분에 추론 속도가 향상되지만, 대가로 **첫 호출 때 그래프를 트레이싱·컴파일하는 시간** 이 추가로 듭니다.
+실측 기준 **약 80초의 컴파일 워밍업**을 대가로 steady-state 합성이 **문장당 약 20%** 빨라집니다.
 
-한 번 컴파일된 그래프는 프로세스가 살아있는 동안 캐시되므로, 두 번째 호출부터는 그 오버헤드 없이 바로 실행됩니다. 따라서 실서비스에서는 컨테이너·프로세스가 뜬 직후에 짧은 문장으로 더미 호출을 돌려 워밍업을 끝내 두는 것이 일반적입니다.
+한 번 컴파일된 그래프는 프로세스가 살아있는 동안 캐시되므로, 장기 실행 서버라면 켤 가치가 있습니다.
+
+스크립트나 대화형 사용처럼 금방 껐다 켜는 환경이라면 기본값(꺼짐)이 낫습니다.
 
 ```python
 # FastAPI lifespan, Celery worker 초기화 등에서
-tts = TTS(device="cuda").load("jvnv-F1-jp").prepare()
-tts.speakers["jvnv-F1-jp"].generate("ウォームアップ")  # 결과는 버려도 됨
+tts = TTS(device="cuda").load("jvnv-F1-jp").prepare(warmup=True, compile=True)
 ```
 
-CPU (ONNX) 모드에서는 `torch.compile` 을 쓰지 않으므로 이 워밍업 단계가 필요 없습니다.
+CPU (ONNX) 모드에서는 `compile` 플래그가 무시되며 이 워밍업 단계가 필요 없습니다.
 :::
 
 여기까지 되면 다음 단계로: [첫 음성 만들기 →](./first-voice)

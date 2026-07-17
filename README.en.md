@@ -93,7 +93,7 @@ tts = TTS().load("jvnv-F1-jp").prepare()
 tts.speakers["jvnv-F1-jp"].generate("こんにちは").save("output.wav")
 ```
 
-GPU inference (on CUDA, `prepare()` automatically applies `torch.compile`):
+GPU inference (`prepare(compile=True)` optionally applies `torch.compile` to BERT — ~20% faster per sentence at the cost of ~80s warmup; recommended for long-running servers):
 
 ```python
 tts = TTS(device="cuda").load("jvnv-F1-jp").prepare()
@@ -174,7 +174,7 @@ def _load_tts() -> None:
     tts = TTS(device="cuda")
     for name in SPEAKERS:
         tts.load(name)
-    tts.prepare(warmup=True)  # Materialize speakers + torch.compile + Triton warmup
+    tts.prepare(warmup=True, compile=True)  # Materialize speakers + BERT compile + warmup
     app.state.tts = tts
 
 def get_speaker(name: SpeakerName, request: Request) -> Speaker:
@@ -213,7 +213,7 @@ S3 / local) are stored under the same root.
 |--------|------|--------------|----------|
 | `TTS(device=...).load(...)` | Register speaker spec (no download) | No | Declaration |
 | `tts.pre_download(device=...)` | Download to cache only | No | Docker build, CI |
-| `tts.prepare()` | Load models + (CUDA) torch.compile | Optional | Runtime init |
+| `tts.prepare()` | Load models (+ BERT compile with `compile=True`) | Optional | Runtime init |
 
 ### Private / Internal Sources
 
@@ -263,7 +263,7 @@ TTS (Engine)
 ```
 
 - **CPU**: ONNX Runtime (BERT Q8 + Synthesizer FP32)
-- **GPU**: PyTorch FP32 + `torch.compile` — automatically applied by `prepare()`
+- **GPU**: PyTorch FP32 — optional BERT `torch.compile` via `prepare(compile=True)`
 
 ## Dev Tools
 

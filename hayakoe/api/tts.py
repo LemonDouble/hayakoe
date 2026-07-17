@@ -129,17 +129,21 @@ class TTS:
 
     # ──────────────────────────── 실행 ────────────────────────────
 
-    def prepare(self, *, warmup: bool = False) -> "TTS":
+    def prepare(self, *, warmup: bool = False, compile: bool = False) -> "TTS":
         """등록된 모든 화자 + BERT 를 다운로드하고 메모리에 올린다.
 
         - CPU: ONNX BERT Q8 세션 + 각 화자의 ONNX 세션을 만든다.
-        - CUDA: PyTorch BERT FP32 + 화자 Synthesizer 로드 + ``torch.compile``
-          자동 적용.
+        - CUDA: PyTorch BERT FP32 + 화자 Synthesizer 로드 (eager).
 
         Args:
-            warmup: CUDA 백엔드에서 더미 추론 1회를 선행해 Triton 커널 JIT +
-                CUDA graph 캡처 비용을 prepare 단계로 옮긴다. 첫 실제 요청의
-                지연을 크게 줄여주므로 FastAPI 등 서빙 시나리오에 권장.
+            warmup: CUDA 백엔드에서 더미 추론을 선행해 cuDNN 초기화 등 첫
+                요청 지연을 prepare 단계로 옮긴다. ``compile=True`` 일 때는
+                BERT 컴파일 비용도 여기서 지불된다. 서빙 시나리오에 권장.
+                CPU 백엔드에서는 무시된다. 기본 ``False``.
+            compile: CUDA 백엔드에서 공용 BERT 에 ``torch.compile`` 을
+                적용한다. 실측 기준 워밍업 약 80초를 대가로 steady-state
+                문장당 ~40ms (~20%) 빨라진다. 장기 실행 서버라면 켤 가치가
+                있고, 스크립트/대화형 사용이라면 끄는 편이 낫다.
                 CPU 백엔드에서는 무시된다. 기본 ``False``.
 
         캐시에 이미 있는 파일은 재사용한다. 아직 materialize 되지 않은 화자만
@@ -155,6 +159,12 @@ class TTS:
                 if "cuda" in self._device:
                     self._validate_cuda()
                     self._backend = "pytorch"
+
+                    import torch
+
+                    # TF32 matmul 허용 (Ampere+). eager 경로도 혜택을 받으며
+                    # 음질 영향은 무시 가능한 수준.
+                    torch.set_float32_matmul_precision("high")
                 else:
                     self._backend = "onnx"
                 self._init_bert()
@@ -170,9 +180,10 @@ class TTS:
                 self._materialize_speaker(name, spec)
 
             new_speakers = [self._speakers[name] for name, _ in pending]
-            if self._device.startswith("cuda") and new_speakers:
-                self._compile(new_speakers)
-                if warmup:
+            if self._device.startswith("cuda"):
+                if compile:
+                    self._compile()
+                if warmup and new_speakers:
                     self._warmup(new_speakers)
 
             self._prepared = True
@@ -321,28 +332,32 @@ class TTS:
         )
         self._speakers[name] = speaker
 
-    def _compile(self, speakers: list["Speaker"]) -> None:  # noqa: F821
-        """주어진 Speaker 들 + 공용 BERT 에 torch.compile 을 적용한다.
+    def _compile(self) -> None:
+        """공용 BERT 에 torch.compile 을 적용한다.
 
-        새로 materialize 된 화자에만 적용된다. ``bert_models.compile_model()``
-        은 멱등하므로 반복 호출해도 중첩 래핑이 쌓이지 않는다.
+        Synthesizer(net_g) 는 컴파일하지 않는다: 추론은 ``forward`` 가 아닌
+        ``infer`` 커스텀 메서드 경유라 ``torch.compile(net_g)`` 는 dynamo 를
+        우회하는 no-op 이고, 메서드를 직접 컴파일해도 실측상 워밍업 +3.5분
+        (문장 길이별 재컴파일) 대비 이득이 ~20% 에 그쳐 수지가 맞지 않는다.
+        BERT 는 ``__call__`` 경유라 컴파일이 실제로 적용되며 문장당 ~40ms
+        (~20%) 를 번다. ``bert_models.compile_model()`` 은 멱등하므로 반복
+        호출해도 중첩 래핑이 쌓이지 않는다.
         """
         from hayakoe.nlp import bert_models
 
-        for speaker in speakers:
-            speaker._apply_compile()
         bert_models.compile_model()
 
     def _warmup(self, speakers: list["Speaker"]) -> None:  # noqa: F821
-        """주어진 화자에 대해 더미 추론을 돌려 Triton 커널 JIT / CUDA graph
-        캡처를 prepare 시점에 선행한다.
+        """주어진 화자에 대해 더미 추론을 돌려 첫 요청 지연을 prepare
+        시점으로 옮긴다 (cuDNN/lazy 초기화, ``compile=True`` 라면 BERT
+        컴파일 비용 포함).
 
         단일 문장 + 다중 문장 2종으로 돌려서 ``net_g.infer`` 와
-        ``net_g.predict_durations`` 두 compile path 를 모두 데운다.
-        길이가 다른 입력 2개는 Dynamo ``automatic_dynamic`` 을 트리거해
+        ``net_g.predict_durations`` 경로를 모두 데운다. 길이가 다른 입력
+        2개는 BERT 컴파일 시 Dynamo ``automatic_dynamic`` 을 트리거해
         이후 다른 길이 요청의 full re-trace 도 피한다.
 
-        ``_compile`` 다음 단계로 실행되며, 실패해도 prepare 는 계속 진행.
+        실패해도 prepare 는 계속 진행.
         """
         import time
 

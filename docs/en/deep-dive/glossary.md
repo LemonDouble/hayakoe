@@ -200,9 +200,11 @@ A **JIT compiler** available since PyTorch 2.0.
 
 On the first call, it traces the model as a graph, fuses and recompiles kernels, and runs faster on subsequent calls.
 
-HayaKoe uses `torch.compile` on the GPU path.
+On the GPU path, HayaKoe applies `torch.compile` only to the shared BERT when you pass `prepare(compile=True)` (off by default).
 
-The first call incurs compilation time, so `prepare(warmup=True)` can shift this cost to the serving startup phase.
+It trades about 80 seconds of compile time for roughly 20% faster synthesis per sentence, making it a good fit for long-running servers.
+
+The compile cost can be shifted to the serving startup phase by also passing `prepare(warmup=True)`.
 
 ## Other
 

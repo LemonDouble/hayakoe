@@ -76,13 +76,13 @@ docker run --gpus all --env-file .env -p 80:80 hayakoe-server
 `.env` 示例参考 [④ 部署](/zh-CN/training/publish#_4-选择目标位置) 页面。
 
 ::: tip `pre_download(device="cuda")` 无需 GPU 即可运行
-`pre_download` **仅下载对应后端的文件到缓存**。实际 CUDA 初始化和 `torch.compile` 发生在运行时的 `prepare()` 中。
+`pre_download` **仅下载对应后端的文件到缓存**。实际 CUDA 初始化和(`compile=True` 时的)BERT `torch.compile` 发生在运行时的 `prepare()` 中。
 
 因此在 GitHub Actions 等 CI runner(无 GPU)上也可以构建镜像。
 :::
 
-::: warning GPU 运行时需要 `gcc`
-`torch.compile` 的 Inductor/Triton 在运行时 JIT 编译 C++ 包装器,因此需要编译器。
+::: warning GPU 运行时需要 `gcc`(使用 `compile=True` 时)
+`torch.compile` 的 Inductor/Triton 在运行时 JIT 编译 C++ 包装器,因此使用 `prepare(compile=True)` 时需要编译器。
 
 `python:*-slim` 和 `nvidia/cuda:*-runtime` 基础镜像都不包含编译器,请务必添加 `gcc`(或 `build-essential`)。
 

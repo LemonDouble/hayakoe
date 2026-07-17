@@ -200,9 +200,11 @@ PyTorch 2.0 부터 제공되는 **JIT 컴파일러** 입니다.
 
 모델을 첫 호출 시 그래프로 추적하고, 커널을 융합 · 재컴파일해서 이후 호출부터 더 빠르게 실행합니다.
 
-HayaKoe 는 GPU 경로에서 `torch.compile` 을 사용합니다.
+HayaKoe 는 GPU 경로에서 `prepare(compile=True)` 를 주면 공용 BERT 에 한해 `torch.compile` 을 적용합니다 (기본은 꺼짐).
 
-첫 호출에는 컴파일 시간이 소요되므로, `prepare(warmup=True)` 로 이 비용을 서빙 시작 단계로 옮길 수 있습니다.
+약 80초의 컴파일 시간을 대가로 문장당 약 20% 빨라지므로, 장기 실행 서버에 적합합니다.
+
+컴파일 비용은 `prepare(warmup=True)` 를 함께 주면 서빙 시작 단계로 옮길 수 있습니다.
 
 ## 기타
 

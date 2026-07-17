@@ -6,16 +6,16 @@ HayaKoe is designed for server environments with a **singleton TTS instance + bu
 
 ### 1. Load the Model Only Once (Singleton)
 
-Loading a TTS model takes considerable time. In GPU environments, it can take tens of seconds including the compilation step. Creating a new instance per request makes production service virtually impossible, so you must maintain **a single instance for the process lifetime** and share it across all requests.
+Loading a TTS model takes considerable time. In GPU environments with `compile=True` enabled, it can take tens of seconds including BERT compilation. Creating a new instance per request makes production service virtually impossible, so you must maintain **a single instance for the process lifetime** and share it across all requests.
 
-In practice, the code builds a singleton with `TTS(...).load(...).prepare(warmup=True)` in FastAPI's lifespan hook, stores it in `app.state.tts`, and all handlers reuse this one instance.
+In practice, the code builds a singleton with `TTS(...).load(...).prepare(warmup=True, compile=True)` in FastAPI's lifespan hook, stores it in `app.state.tts`, and all handlers reuse this one instance.
 
 Concurrency is handled automatically. `Speaker` has an internal `threading.Lock`, so concurrent requests for the same speaker are automatically serialized while different speakers run in parallel — no separate pool or queue implementation needed.
 
-::: details GPU backend prepares torch.compile as well
-`TTS.prepare()` not only loads models for the CUDA backend but also applies `torch.compile` to all speakers and BERT at once.
+::: details GPU backend can prepare BERT torch.compile as well
+On the CUDA backend, `TTS.prepare(compile=True)` not only loads models but also applies `torch.compile` to the shared BERT (about 80 seconds of warmup for roughly 20% faster synthesis per sentence — recommended for long-running servers).
 
-Setting `warmup=True` runs a dummy inference pass to shift compilation costs into the prepare phase. This itself can take tens of seconds, so it must be done exactly once at app boot time. **Creating a new TTS per request triggers recompilation every time**, effectively paralyzing the server.
+Also setting `warmup=True` runs a dummy inference pass to pull the compilation cost forward into the prepare phase. This itself can take tens of seconds, so it must be done exactly once at app boot time. **Creating a new TTS per request triggers recompilation every time**, effectively paralyzing the server.
 
 The CPU backend uses ONNX Runtime, so there is no separate compilation step and prepare is much faster.
 :::

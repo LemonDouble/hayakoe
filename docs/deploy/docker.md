@@ -76,13 +76,13 @@ docker run --gpus all --env-file .env -p 80:80 hayakoe-server
 `.env` 예시는 [④ 배포](/training/publish#_4-목적지-선택) 페이지 참고.
 
 ::: tip `pre_download(device="cuda")` 는 GPU 없이 돌아갑니다
-`pre_download` 는 **해당 백엔드용 파일을 캐시에 받는 것만** 합니다. 실제 CUDA 초기화나 `torch.compile` 은 런타임의 `prepare()` 에서 일어납니다.
+`pre_download` 는 **해당 백엔드용 파일을 캐시에 받는 것만** 합니다. 실제 CUDA 초기화나 (`compile=True` 시) BERT `torch.compile` 은 런타임의 `prepare()` 에서 일어납니다.
 
 그래서 GitHub Actions 같은 CI 러너(GPU 없음) 에서도 이미지 빌드가 가능합니다.
 :::
 
-::: warning GPU 런타임에 `gcc` 가 필요합니다
-`torch.compile` 은 Inductor/Triton 이 런타임에 C++ 래퍼를 JIT 컴파일하므로 컴파일러가 있어야 합니다.
+::: warning GPU 런타임에 `gcc` 가 필요합니다 (`compile=True` 사용 시)
+`torch.compile` 은 Inductor/Triton 이 런타임에 C++ 래퍼를 JIT 컴파일하므로, `prepare(compile=True)` 를 쓸 경우 컴파일러가 있어야 합니다.
 
 `python:*-slim` 이나 `nvidia/cuda:*-runtime` 베이스 모두 컴파일러를 포함하지 않으니 `gcc` (또는 `build-essential`) 을 반드시 추가하세요.
 

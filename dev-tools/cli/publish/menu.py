@@ -490,7 +490,7 @@ This repository hosts one or more speakers for the
             └── duration_predictor.onnx
 ```
 
-- `pytorch/` — GPU 추론용 (CUDA + `torch.compile`)
+- `pytorch/` — GPU 추론용 (CUDA)
 - `onnx/` — CPU 추론용 (ONNX Runtime, BERT Q8)
 - Each speaker is self-contained under its own `<speaker-name>/` directory.
 

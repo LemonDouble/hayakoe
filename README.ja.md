@@ -93,7 +93,7 @@ tts = TTS().load("jvnv-F1-jp").prepare()
 tts.speakers["jvnv-F1-jp"].generate("こんにちは").save("output.wav")
 ```
 
-GPU推論（CUDAでは `prepare()` が自動的に `torch.compile` を適用）：
+GPU推論（`prepare(compile=True)` でBERTに `torch.compile` を適用可能 — 約80秒のウォームアップと引き換えに文あたり約20%高速化。長時間稼働サーバーに推奨）：
 
 ```python
 tts = TTS(device="cuda").load("jvnv-F1-jp").prepare()
@@ -174,7 +174,7 @@ def _load_tts() -> None:
     tts = TTS(device="cuda")
     for name in SPEAKERS:
         tts.load(name)
-    tts.prepare(warmup=True)  # 話者materialize + torch.compile + Tritonウォームアップ
+    tts.prepare(warmup=True, compile=True)  # 話者materialize + BERT compile + ウォームアップ
     app.state.tts = tts
 
 def get_speaker(name: SpeakerName, request: Request) -> Speaker:
@@ -213,7 +213,7 @@ CMD ["python", "server.py"]
 |----------|------|---------|------|
 | `TTS(device=...).load(...)` | 話者スペック登録（ダウンロードなし） | X | 宣言 |
 | `tts.pre_download(device=...)` | キャッシュにダウンロードのみ | X | Dockerビルド、CI |
-| `tts.prepare()` | モデルロード +（CUDAなら）torch.compile | 選択 | ランタイム初期化 |
+| `tts.prepare()` | モデルロード（+ `compile=True` ならBERT compile） | 選択 | ランタイム初期化 |
 
 ### Private / 社内ソース
 
@@ -263,7 +263,7 @@ TTS (エンジン)
 ```
 
 - **CPU**: ONNX Runtime (BERT Q8 + Synthesizer FP32)
-- **GPU**: PyTorch FP32 + `torch.compile` — `prepare()` が自動適用
+- **GPU**: PyTorch FP32 — `prepare(compile=True)` でBERTに `torch.compile` を選択適用
 
 ## 開発ツール (Dev Tools)
 

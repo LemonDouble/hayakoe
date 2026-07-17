@@ -54,8 +54,8 @@ class Speaker:
 
     - **onnx** (CPU): ONNX Runtime 으로 추론. ``TTS(device="cpu")`` 에서 자동 선택.
     - **pytorch** (CUDA): PyTorch eager. ``TTS(device="cuda")`` 에서 자동 선택.
-    - **compiled** (CUDA): ``prepare()`` 가 자동으로 ``torch.compile``
-      를 적용한 상태. 10-25% 추가 향상.
+      ``prepare(compile=True)`` 로 공용 BERT 에 ``torch.compile`` 을 적용해
+      문장당 ~20% 를 추가로 얻을 수 있다 (워밍업 ~80초 필요).
 
     **Thread safety** — 각 Speaker 인스턴스는 내부 ``threading.Lock`` 으로
     ``generate`` / ``stream`` 호출을 직렬화한다. FastAPI 같은 싱글톤 서빙
@@ -212,7 +212,7 @@ class Speaker:
         """텍스트에서 음성을 생성한다 (thread-safe).
 
         여러 문장이 포함된 텍스트는 문장 경계(。！？!?\\n)에서
-        자동 분할하여 개별 추론 후 연결한다. PyTorch/compiled 백엔드에서는
+        자동 분할하여 개별 추론 후 연결한다. PyTorch 백엔드에서는
         전체 텍스트를 Duration Predictor로 한 번 돌려 문장 경계의 자연스러운
         무음 길이를 예측하고, 이를 문장 사이 gap에 반영한다. ONNX 백엔드는
         최소 80ms 폴백을 사용한다.
@@ -374,7 +374,7 @@ class Speaker:
         완료된 순서대로 yield한다. 첫 문장이 완성되는 즉시
         재생을 시작할 수 있어 체감 지연이 줄어든다.
 
-        PyTorch/compiled 백엔드에서는 시작 전 Duration Predictor로 전체
+        PyTorch 백엔드에서는 시작 전 Duration Predictor로 전체
         텍스트의 문장 경계 무음 길이를 예측하여 각 문장 사이 gap에 반영한다.
         ONNX 백엔드는 최소 80ms 폴백을 사용한다.
 
@@ -558,7 +558,6 @@ class Speaker:
                 speed, sdp_ratio, noise, noise_w,
             )
         else:
-            # pytorch / compiled 모두 같은 경로
             audio = self._generate_pytorch(
                 text, lang_str, style_vec, speaker_id,
                 speed, sdp_ratio, noise, noise_w,
@@ -776,7 +775,7 @@ class Speaker:
     ) -> Optional[list[float]]:
         """Duration predictor로 문장 경계 pause를 예측한다.
 
-        PyTorch/compiled 백엔드는 항상 동작하고, ONNX 백엔드는
+        PyTorch 백엔드는 항상 동작하고, ONNX 백엔드는
         ``duration_predictor.onnx`` 가 모델 디렉터리에 있으면 동작한다.
         예측 불가 시 ``None`` 을 반환한다 (호출 측에서 80ms 폴백 사용).
         """
@@ -785,7 +784,7 @@ class Speaker:
 
         sv = self._get_style_vector(style, style_weight)
 
-        if self._backend in ("pytorch", "compiled"):
+        if self._backend == "pytorch":
             from hayakoe.models.infer import predict_boundary_pauses
 
             return predict_boundary_pauses(
@@ -844,27 +843,6 @@ class Speaker:
         return durations_to_boundary_pauses(
             durations, phone_list, punct_positions, num_sentences, self._hps,
         )
-
-    def _apply_compile(self) -> None:
-        """``torch.compile(mode="default")`` 를 Synthesizer 에 적용한다.
-
-        :meth:`TTS.prepare` 가 CUDA 디바이스에서 자동 호출한다.
-        BERT 는 공용 리소스이므로 여기서 건드리지 않고 TTS 레벨에서 한 번만
-        compile 된다.
-        """
-        if "cuda" not in self._device:
-            raise ValueError(
-                "torch.compile은 CUDA 디바이스에서만 사용 가능합니다. "
-                f"현재 디바이스: {self._device}"
-            )
-
-        import torch
-
-        net_g = self._ensure_pytorch_model()
-        torch.set_float32_matmul_precision("high")
-        self._net_g = torch.compile(net_g, mode="default")
-        self._backend = "compiled"
-        logger.info(f"Speaker '{self.name}' → torch.compile backend")
 
     def __repr__(self) -> str:
         return f"Speaker('{self.name}', backend='{self._backend}', styles={list(self._style2id.keys())})"

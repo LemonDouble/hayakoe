@@ -21,7 +21,7 @@ hero:
 
 features:
   - title: Real-time CPU Inference
-    details: "With ONNX optimization, 1.5x faster for short texts and 3.3x faster for long texts compared to Style-Bert-VITS2 on CPU alone.<br>On GPU, torch.compile makes it even faster."
+    details: "With ONNX optimization, 1.5x faster for short texts and 3.3x faster for long texts compared to Style-Bert-VITS2 on CPU alone.<br>On GPU, PyTorch makes it even faster."
     link: /en/deep-dive/onnx-optimization
     linkText: How we did it
   - title: AMD64 · ARM64 Everywhere

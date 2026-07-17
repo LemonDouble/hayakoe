@@ -52,7 +52,7 @@ from app.tts import build_tts_engine, router as tts_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     tts = build_tts_engine()
-    tts.prepare(warmup=True)
+    tts.prepare(warmup=True, compile=True)
     app.state.tts = tts
     yield
 
@@ -76,9 +76,11 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 ### 1. Build the Singleton in Lifespan
 
-`build_tts_engine()` is a factory that centralizes speaker registration order. Call it inside the lifespan, run `prepare(warmup=True)`, and attach to `app.state.tts`.
+`build_tts_engine()` is a factory that centralizes speaker registration order. Call it inside the lifespan, run `prepare(warmup=True, compile=True)`, and attach to `app.state.tts`.
 
-`warmup=True` runs a dummy inference pass in the CUDA backend to shift `torch.compile`, Triton JIT, and CUDA graph capture costs into the prepare phase — **noticeably reducing latency on the first real request**.
+`compile=True` applies `torch.compile` to the shared BERT, making steady-state synthesis roughly 20% faster per sentence (about 80 seconds of warmup — worth it for a long-running server).
+
+`warmup=True` runs a dummy inference pass in the CUDA backend to pull BERT compilation and cuDNN initialization costs forward into the prepare phase — **noticeably reducing latency on the first real request**.
 
 Creating a new `TTS()` per request triggers recompilation every time, making production service virtually impossible. Always maintain **exactly one instance for the app lifetime**.
 
@@ -173,12 +175,12 @@ If files are not in cache, `prepare()` downloads weights from HF or S3. At sever
 
 **2. If models are already cached but prepare itself is slow**
 
-The CUDA backend runs `torch.compile` inside `prepare()`. The first compilation taking tens of seconds is normal behavior, and subsequent requests use the compiled graph for fast execution.
+If `compile=True` is enabled on the CUDA backend, BERT `torch.compile` runs inside `prepare()`. The first compilation taking about 80 seconds is normal behavior, and subsequent requests use the compiled graph for fast execution.
 
 Two options:
 
-- **`prepare(warmup=True)`** — Includes a dummy inference pass in prepare. Prepare takes longer but **the first real request is fast**. Recommended for serving.
-- **`prepare(warmup=False)`** (default) — Finishes prepare quickly. But **the first real request absorbs the warmup cost**.
+- **`prepare(warmup=True, compile=True)`** — Includes BERT compilation plus a dummy inference pass in prepare. Prepare takes longer but **the first real request is fast**. Recommended for serving.
+- **`prepare()`** (default) — Finishes prepare quickly. With compile enabled, **the first real request absorbs the compilation cost**.
 :::
 
 ::: details Does increasing the number of workers improve performance?

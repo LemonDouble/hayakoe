@@ -76,13 +76,13 @@ docker run --gpus all --env-file .env -p 80:80 hayakoe-server
 See the [Step 4: Publish](/en/training/publish#_4-destination-selection) page for `.env` examples.
 
 ::: tip `pre_download(device="cuda")` works without a GPU
-`pre_download` **only downloads the files for that backend to the cache**. Actual CUDA initialization and `torch.compile` happen during `prepare()` at runtime.
+`pre_download` **only downloads the files for that backend to the cache**. Actual CUDA initialization and (with `compile=True`) BERT `torch.compile` happen during `prepare()` at runtime.
 
 This means images can be built on CI runners like GitHub Actions (which have no GPU).
 :::
 
-::: warning GPU runtime requires `gcc`
-`torch.compile` uses Inductor/Triton to JIT-compile C++ wrappers at runtime, so a compiler must be present.
+::: warning GPU runtime requires `gcc` (when using `compile=True`)
+`torch.compile` uses Inductor/Triton to JIT-compile C++ wrappers at runtime, so a compiler must be present if you use `prepare(compile=True)`.
 
 Both `python:*-slim` and `nvidia/cuda:*-runtime` base images do not include a compiler, so be sure to add `gcc` (or `build-essential`).
 

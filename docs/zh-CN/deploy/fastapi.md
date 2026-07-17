@@ -52,7 +52,7 @@ from app.tts import build_tts_engine, router as tts_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     tts = build_tts_engine()
-    tts.prepare(warmup=True)
+    tts.prepare(warmup=True, compile=True)
     app.state.tts = tts
     yield
 
@@ -76,9 +76,11 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 ### 1. 在 lifespan 中创建单例
 
-`build_tts_engine()` 是将说话人注册顺序集中在一处的工厂方法。在 lifespan 中调用后,跑完 `prepare(warmup=True)` 并挂到 `app.state.tts`。
+`build_tts_engine()` 是将说话人注册顺序集中在一处的工厂方法。在 lifespan 中调用后,跑完 `prepare(warmup=True, compile=True)` 并挂到 `app.state.tts`。
 
-`warmup=True` 在 CUDA 后端会预先执行 1 次虚拟推理,将 `torch.compile` · Triton JIT · CUDA graph 捕获成本提前到 prepare 阶段 — **第一个实际请求的延迟会显著降低**。
+`compile=True` 会对共享 BERT 应用 `torch.compile`,使 steady-state 合成每句提速约 20%(约 80 秒预热 — 对长期运行的服务器来说很划算)。
+
+`warmup=True` 在 CUDA 后端会预先执行虚拟推理,将 BERT 编译 · cuDNN 初始化成本提前到 prepare 阶段 — **第一个实际请求的延迟会显著降低**。
 
 每个请求都新建 `TTS()` 会导致每次编译,实际服务不可行。请务必 **在应用生命周期内只维护一个**。
 
@@ -173,12 +175,12 @@ BERT 由所有说话人共享,每个说话人增加的仅是 synthesizer 部分�
 
 **2. 模型已有但 prepare 本身很慢**
 
-CUDA 后端在 `prepare()` 中运行 `torch.compile`。首次编译耗时数十秒属于正常,此后请求使用编译好的图会很快。
+CUDA 后端开启了 `compile=True` 时,`prepare()` 中会运行 BERT `torch.compile`。首次编译耗时约 80 秒属于正常,此后请求使用编译好的图会很快。
 
 有两个选择。
 
-- **`prepare(warmup=True)`** — 将虚拟推理 1 次也包含在 prepare 中。prepare 更久但 **第一个实际请求很快**。服务时推荐。
-- **`prepare(warmup=False)`** (默认) — prepare 快速完成。但 **第一个实际请求承担 warmup 成本**。
+- **`prepare(warmup=True, compile=True)`** — 将 BERT 编译 + 虚拟推理也包含在 prepare 中。prepare 更久但 **第一个实际请求很快**。服务时推荐。
+- **`prepare()`** (默认) — prepare 快速完成。开启 compile 的情况下 **第一个实际请求承担编译成本**。
 :::
 
 ::: details 增加 worker 数能提升性能吗?

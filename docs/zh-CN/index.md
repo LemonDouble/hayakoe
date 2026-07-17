@@ -21,7 +21,7 @@ hero:
 
 features:
   - title: CPU 实时推理
-    details: "通过 ONNX 优化,相比 Style-Bert-VITS2,短文本快 1.5 倍,长文本快 3.3 倍,仅用 CPU 即可推理。<br>在 GPU 上还可通过 torch.compile 进一步加速。"
+    details: "通过 ONNX 优化,相比 Style-Bert-VITS2,短文本快 1.5 倍,长文本快 3.3 倍,仅用 CPU 即可推理。<br>在 GPU 上还可通过 PyTorch 进一步加速。"
     link: /zh-CN/deep-dive/onnx-optimization
     linkText: 是怎么做到的
   - title: AMD64 · ARM64 全平台

@@ -21,7 +21,7 @@ hero:
 
 features:
   - title: CPU リアルタイム推論
-    details: "ONNX 最適化により Style-Bert-VITS2 比で短いテキストは1.5倍、長いテキストは3.3倍速い CPU 単独推論。<br>GPU では torch.compile でさらに高速化されます。"
+    details: "ONNX 最適化により Style-Bert-VITS2 比で短いテキストは1.5倍、長いテキストは3.3倍速い CPU 単独推論。<br>GPU では PyTorch でさらに高速化されます。"
     link: /ja/deep-dive/onnx-optimization
     linkText: どうやったのか
   - title: AMD64・ARM64 どこでも

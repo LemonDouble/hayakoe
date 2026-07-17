@@ -92,7 +92,9 @@ def _benchmark_device(device: str, progress, task) -> list[BenchmarkResult]:
     """단일 디바이스에서 벤치마크를 실행한다.
 
     ``device="cpu"`` 는 ONNX Runtime, ``device="cuda"`` 는 PyTorch +
-    torch.compile 을 자동으로 사용한다 (prepare() 에서 적용).
+    BERT torch.compile (``prepare(compile=True)``) 을 사용한다.
+    공개된 GPU 벤치마크 수치는 BERT 컴파일 상태에서 측정된 것이므로
+    측정 조건을 유지하기 위해 명시적으로 켠다.
     """
     from hayakoe import TTS
 
@@ -100,7 +102,7 @@ def _benchmark_device(device: str, progress, task) -> list[BenchmarkResult]:
     progress.update(task, description=t("benchmark.runner.model_loading", backend=backend, device=device.upper()))
 
     with _quiet_loading():
-        tts = TTS(device=device).load(SPEAKER_NAME).prepare()
+        tts = TTS(device=device).load(SPEAKER_NAME).prepare(compile=device != "cpu")
         speaker = tts.speakers[SPEAKER_NAME]
     sr = speaker.sampling_rate
 

@@ -194,9 +194,11 @@ PyTorch 2.0 起提供的 **JIT 編譯器**。
 
 首次呼叫時將模型追蹤為圖,融合·重編譯 kernel,後續呼叫更快執行。
 
-HayaKoe 在 GPU 路徑中使用 `torch.compile`。
+HayaKoe 在 GPU 路徑中,指定 `prepare(compile=True)` 時僅對共用 BERT 套用 `torch.compile` (預設關閉)。
 
-首次呼叫需要編譯時間,可透過 `prepare(warmup=True)` 將此成本轉移到服務啟動階段。
+以約 80 秒的編譯時間為代價,每句合成提升約 20%,因此適合長期執行的伺服器。
+
+同時指定 `prepare(warmup=True)` 可將編譯成本轉移到服務啟動階段。
 
 ## 其他
 

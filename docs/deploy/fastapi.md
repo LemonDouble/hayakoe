@@ -52,7 +52,7 @@ from app.tts import build_tts_engine, router as tts_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     tts = build_tts_engine()
-    tts.prepare(warmup=True)
+    tts.prepare(warmup=True, compile=True)
     app.state.tts = tts
     yield
 
@@ -76,9 +76,11 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 ### 1. lifespan 에서 싱글톤 만들기
 
-`build_tts_engine()` 은 화자 등록 순서를 한곳에 모아둔 팩토리입니다. lifespan 안에서 호출한 뒤 `prepare(warmup=True)` 까지 돌려 `app.state.tts` 에 붙입니다.
+`build_tts_engine()` 은 화자 등록 순서를 한곳에 모아둔 팩토리입니다. lifespan 안에서 호출한 뒤 `prepare(warmup=True, compile=True)` 까지 돌려 `app.state.tts` 에 붙입니다.
 
-`warmup=True` 는 CUDA 백엔드에서 더미 추론을 1회 선행해 `torch.compile` · Triton JIT · CUDA graph 캡처 비용을 prepare 단계로 앞당깁니다 — **첫 실제 요청의 지연이 눈에 띄게 줄어듭니다**.
+`compile=True` 는 공용 BERT 에 `torch.compile` 을 적용해 steady-state 합성을 문장당 약 20% 빠르게 합니다 (약 80초 워밍업 — 장기 실행 서버라 수지가 맞습니다).
+
+`warmup=True` 는 CUDA 백엔드에서 더미 추론을 선행해 BERT 컴파일 · cuDNN 초기화 비용을 prepare 단계로 앞당깁니다 — **첫 실제 요청의 지연이 눈에 띄게 줄어듭니다**.
 
 요청마다 `TTS()` 를 새로 만들면 매번 컴파일이 돌아 실서비스가 사실상 불가능합니다. 반드시 **앱 수명 동안 하나만** 유지하세요.
 
@@ -173,12 +175,12 @@ BERT 는 모든 화자가 공유하므로, 화자당 늘어나는 건 synthesize
 
 **2. 모델은 이미 있는데 prepare 자체가 느리다면**
 
-CUDA 백엔드는 `prepare()` 안에서 `torch.compile` 을 돌립니다. 첫 컴파일이 수십 초 걸리는 건 정상이고, 이후 요청부터는 컴파일된 그래프로 빠르게 돕니다.
+CUDA 백엔드에서 `compile=True` 를 켰다면 `prepare()` 안에서 BERT `torch.compile` 이 돌아갑니다. 첫 컴파일이 약 80초 걸리는 건 정상이고, 이후 요청부터는 컴파일된 그래프로 빠르게 돕니다.
 
 선택지는 두 가지입니다.
 
-- **`prepare(warmup=True)`** — 더미 추론 1회까지 prepare 에 포함. prepare 는 더 걸리지만 **첫 실제 요청이 빠릅니다**. 서빙 시 권장.
-- **`prepare(warmup=False)`** (기본값) — prepare 를 빠르게 끝냄. 대신 **첫 실제 요청이 warmup 비용을 떠안습니다**.
+- **`prepare(warmup=True, compile=True)`** — BERT 컴파일 + 더미 추론까지 prepare 에 포함. prepare 는 더 걸리지만 **첫 실제 요청이 빠릅니다**. 서빙 시 권장.
+- **`prepare()`** (기본값) — prepare 를 빠르게 끝냄. compile 을 켠 경우 **첫 실제 요청이 컴파일 비용을 떠안습니다**.
 :::
 
 ::: details 워커 수를 늘리면 성능이 올라가나요?
