@@ -117,7 +117,9 @@ def _create_word(
     if word_type not in part_of_speech_data.keys():
         raise ValueError("알 수 없는 품사입니다")
     if priority is None:
-        priority = 5
+        # 사용자가 명시적으로 등록한 단어는 기본 읽기를 이겨야 하므로 높게 잡는다.
+        # (priority 5 는 강한 기본 읽기를 못 이겨 등록이 무력화된다)
+        priority = 8
     if not MIN_PRIORITY <= priority <= MAX_PRIORITY:
         raise ValueError("우선도 값이 유효하지 않습니다")
     pos_detail = part_of_speech_data[word_type]
@@ -166,6 +168,14 @@ def apply_word(
     _rebuild_compiled_dict(candidate)
     _user_dict[word_uuid] = word
     return word_uuid
+
+
+def registered_surfaces() -> set[str]:
+    """현재 사용자 사전에 등록된 표기(surface) 집합을 반환한다.
+
+    정규화 단계에서 외래어 사전 치환이 사용자 등록어를 덮지 않도록 하는 데 쓴다.
+    """
+    return {word.surface for word in list(_user_dict.values())}
 
 
 def _search_cost_candidates(context_id: int) -> list[int]:

@@ -215,18 +215,23 @@ class TTS:
 
     # ──────────────────────────── 기타 API ────────────────────────────
 
-    def add_word(self, *, surface: str, reading: str, accent: int = 0) -> None:
+    def add_word(
+        self, *, surface: str, reading: str, accent: int = 0, priority: int = 8
+    ) -> None:
         """TTS 용 커스텀 단어 발음을 등록한다.
 
         Args:
             surface: 텍스트에 나타나는 단어 (예: ``"担々麺"``).
             reading: 가타카나 읽기 (예: ``"タンタンメン"``).
             accent: 피치가 내려가는 모라 위치 (0 = 평판/악센트 없음).
+            priority: 등록 우선도 (0~10, 기본 8). 값이 클수록 기본 읽기보다
+                우선한다. 강한 기본 읽기를 가진 단어는 낮으면 무시될 수 있다.
         """
         apply_word(
             surface=surface,
             pronunciation=reading,
             accent_type=accent,
+            priority=priority,
         )
 
     @property

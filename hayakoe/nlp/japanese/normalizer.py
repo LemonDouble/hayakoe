@@ -22,11 +22,26 @@ def _get_en_to_kata_dict() -> dict[str, str]:
 
 
 def _replace_english_with_katakana(text: str) -> str:
-    """영단어를 외래어 사전으로 카타카나로 치환한다. 사전에 없는 단어는 그대로 남긴다."""
+    """영단어를 외래어 사전으로 카타카나로 치환한다. 사전에 없는 단어는 그대로 남긴다.
+
+    단, 사용자 사전(user_dict)에 등록된 표기는 치환하지 않고 그대로 둔다. 그래야
+    이후 pyopenjtalk 단계에서 사용자가 지정한 읽기가 적용된다 (사용자 설정 우선).
+    치환하면 pyopenjtalk 가 원 영단어를 보지 못해 user_dict 등록이 무력화된다.
+    """
+    # user_dict 는 pyopenjtalk 에 의존하므로 지연 import 로 로드 순서/결합을 피한다.
+    from hayakoe.nlp.japanese.user_dict import registered_surfaces
+
     d = _get_en_to_kata_dict()
+    # user_dict 는 surface 를 전각으로 저장하는데, 이 텍스트는 이미 NFKC(반각)로
+    # 정규화돼 있으므로 비교 전에 surface 도 같은 형태로 맞춘다.
+    user_surfaces = {
+        unicodedata.normalize("NFKC", s) for s in registered_surfaces()
+    }
 
     def _replace(m: re.Match) -> str:
         word = m.group()
+        if word in user_surfaces:  # 사용자 등록어는 pyopenjtalk/user_dict 에 맡긴다
+            return word
         return d.get(word.lower(), word)
 
     return _EN_WORD_PATTERN.sub(_replace, text)
