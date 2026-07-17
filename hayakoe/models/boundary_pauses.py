@@ -23,8 +23,21 @@ _BOUNDARY_PUNCT_IDS = frozenset(
 
 
 def find_boundary_punct_positions(phone_list: list[int]) -> list[int]:
-    """phoneme 시퀀스에서 문장 경계 구두점(. ! ?)의 위치를 반환한다."""
-    return [i for i, p in enumerate(phone_list) if p in _BOUNDARY_PUNCT_IDS]
+    """phoneme 시퀀스에서 문장 경계 구두점(. ! ?)의 위치를 반환한다.
+
+    연속 종결부호(예: "!?")는 한 문장의 끝에 함께 놓이므로, 사이에 blank(0)만
+    있는 연속 구두점 런은 마지막 위치 하나로 합친다. 그래야 위치 개수가 실제
+    문장 경계 수와 맞아, 경계별 pause 가 올바른(런의 마지막) 부호에 매핑된다.
+    """
+    positions: list[int] = []
+    for i, p in enumerate(phone_list):
+        if p not in _BOUNDARY_PUNCT_IDS:
+            continue
+        if positions and all(phone_list[j] == 0 for j in range(positions[-1] + 1, i)):
+            positions[-1] = i  # 사이가 blank뿐인 같은 런 → 마지막 위치로 갱신
+        else:
+            positions.append(i)
+    return positions
 
 
 def durations_to_boundary_pauses(

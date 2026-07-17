@@ -37,10 +37,14 @@ def adjust_voice(
     # 품질이 좋아 보이니 일단 harvest를 사용
     f0, t = pyworld.harvest(wave, fs)
 
+    non_zero_f0 = [f for f in f0 if f != 0]
+    if not non_zero_f0:
+        # 유성음 프레임이 없어(무음/무성음) 조정할 피치가 없다 → 원본 그대로 반환
+        return fs, wave
+
     sp = pyworld.cheaptrick(wave, f0, t, fs)
     ap = pyworld.d4c(wave, f0, t, fs)
 
-    non_zero_f0 = [f for f in f0 if f != 0]
     f0_mean = sum(non_zero_f0) / len(non_zero_f0)
 
     for i, f in enumerate(f0):

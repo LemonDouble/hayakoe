@@ -22,6 +22,8 @@ from hayakoe.models.hyper_parameters import HyperParameters
 from hayakoe.voice import adjust_voice
 
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[。！？!?\n])")
+# 실제 발화되는(모라를 만드는) 문자: 히라가나/가타카나/한자/영숫자
+_HAS_SPEECH_RE = re.compile(r"[ぁ-ゖァ-ヶ一-鿿々〆〇a-zA-Z0-9０-９Ａ-Ｚａ-ｚｦ-ﾟ]")
 
 
 def _intersperse_zero(lst: list) -> list:
@@ -854,9 +856,31 @@ class Speaker:
 
 
 def _split_sentences(text: str) -> list[str]:
-    """텍스트를 문장 경계(。！？!?\\n)에서 분할한다."""
-    parts = _SENTENCE_SPLIT_RE.split(text)
-    return [s.strip() for s in parts if s.strip()]
+    """텍스트를 문장 경계(。！？!?\\n)에서 분할한다.
+
+    발화 문자가 없는 조각(구두점만 있는 것)은 독립된 문장이 아니다. 그대로 두면
+    합성 시 무음/무성음이 되어 낭비되거나 f0 처리에서 오류를 낸다. 그래서 그런
+    조각은 직전 문장에 합치고(맨 앞이면 다음 문장 앞에 붙인다), 결과적으로 모든
+    문장이 발화 내용을 갖도록 한다.
+    """
+    fragments = [s.strip() for s in _SENTENCE_SPLIT_RE.split(text) if s.strip()]
+    sentences: list[str] = []
+    pending = ""  # 아직 문장이 없을 때 앞에 모아둔 구두점
+    for frag in fragments:
+        if not _HAS_SPEECH_RE.search(frag):
+            if sentences:
+                sentences[-1] += frag
+            else:
+                pending += frag
+        else:
+            sentences.append(pending + frag)
+            pending = ""
+    if pending:  # 전부 구두점뿐인 텍스트
+        if sentences:
+            sentences[-1] += pending
+        else:
+            sentences.append(pending)
+    return sentences
 
 
 def _measure_trailing_silence(audio: NDArray, sr: int) -> float:
