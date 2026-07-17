@@ -14,15 +14,17 @@ dependencies = [
     # Core
     "transformers>=5.0",
     "numpy>=2.0",
-    "pydantic==2.12.5",
-    "loguru==0.7.3",
+    "pydantic>=2.7,<3",
+    "loguru>=0.7,<0.8",
     "huggingface-hub>=0.20",
     "onnxruntime>=1.17",
     # NLP - Japanese
+    # prebuilt 휠은 ABI 민감 + 다운스트림 충돌 위험이 낮아 정확히 고정한다.
     "lemon-pyopenjtalk-prebuilt==0.0.9",
     "pyworld-prebuilt==0.3.5.post2",
-    "num2words==0.5.14",
-    "numba==0.65.0",
+    "num2words>=0.5.12,<0.6",
+    # numba 하한은 numpy>=2.0 제약에 묶인다 (numpy 2.x 지원은 numba 0.61+).
+    "numba>=0.61,<0.66",
 ]
 
 [project.optional-dependencies]
