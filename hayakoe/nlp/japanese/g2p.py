@@ -580,8 +580,11 @@ def __handle_long(sep_phonemes: list[list[str]]) -> list[list[str]]:
         if sep_phonemes[i][0] == "ー":
             if i != 0:
                 prev_phoneme = sep_phonemes[i - 1][-1]
-                if prev_phoneme in VOWELS:
-                    # 모음과 「ん」 뒤의 장음이므로, 해당 모음으로 변환
+                if prev_phoneme in VOWELS or prev_phoneme == "q":
+                    # 모음・「ん」・「っ」 뒤의 장음이므로, 해당 음소를 반복
+                    # (「っー」는 악센트 경로(pyopenjtalk prosody)가 q q 로
+                    #  해석하므로 똑같이 맞추지 않으면 __align_tones 에서
+                    #  ValueError: Unexpected phone 이 발생한다)
                     sep_phonemes[i][0] = sep_phonemes[i - 1][-1]
                 else:
                     # 「。ーー」 등 아마도 예상치 못한 장음 기호
