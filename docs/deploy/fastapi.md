@@ -116,7 +116,7 @@ FastAPI 의 `StreamingResponse` 는 클라이언트 연결이 끊기면 제너�
 
 ## 스트리밍 응답
 
-문장 단위로 바로바로 클라이언트에 내려주려면 `astream` 과 `StreamingResponse` 를 조합합니다.
+문장 단위로 바로바로 클라이언트에 내려주려면 `astream_wav` 와 `StreamingResponse` 를 조합합니다. `astream_wav` 는 스트리밍 WAV 헤더를 한 번 내보낸 뒤 문장별 raw PCM 을 yield 하므로, 이어붙이면 하나의 유효한 WAV 스트림이 됩니다.
 
 ```python
 from fastapi.responses import StreamingResponse
@@ -131,11 +131,7 @@ async def synthesize_stream(
     tts: TTS = request.app.state.tts
     speaker = tts.speakers[speaker_name]
 
-    async def body():
-        async for chunk in speaker.astream(text):
-            yield chunk.to_bytes()
-
-    return StreamingResponse(body(), media_type="audio/wav")
+    return StreamingResponse(speaker.astream_wav(text), media_type="audio/wav")
 ```
 
 ## 테스트

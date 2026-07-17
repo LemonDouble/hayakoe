@@ -116,7 +116,7 @@ FastAPI 的 `StreamingResponse` 在客户端连接断开时会自动关闭生成
 
 ## 流式响应
 
-想按句子立即发送给客户端的话,组合使用 `astream` 和 `StreamingResponse`。
+想按句子立即发送给客户端的话,组合使用 `astream_wav` 和 `StreamingResponse`。`astream_wav` 先输出一次流式 WAV 头,然后按句子 yield raw PCM,因此拼接后是一个有效的 WAV 流。
 
 ```python
 from fastapi.responses import StreamingResponse
@@ -131,11 +131,7 @@ async def synthesize_stream(
     tts: TTS = request.app.state.tts
     speaker = tts.speakers[speaker_name]
 
-    async def body():
-        async for chunk in speaker.astream(text):
-            yield chunk.to_bytes()
-
-    return StreamingResponse(body(), media_type="audio/wav")
+    return StreamingResponse(speaker.astream_wav(text), media_type="audio/wav")
 ```
 
 ## 测试

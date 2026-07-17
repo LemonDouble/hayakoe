@@ -116,7 +116,7 @@ FastAPI's `StreamingResponse` automatically closes the generator when the client
 
 ## Streaming Response
 
-To deliver audio to the client sentence by sentence in real time, combine `astream` with `StreamingResponse`.
+To deliver audio to the client sentence by sentence in real time, combine `astream_wav` with `StreamingResponse`. `astream_wav` emits a streaming WAV header once, then yields raw PCM per sentence, so the concatenated stream is a single valid WAV.
 
 ```python
 from fastapi.responses import StreamingResponse
@@ -131,11 +131,7 @@ async def synthesize_stream(
     tts: TTS = request.app.state.tts
     speaker = tts.speakers[speaker_name]
 
-    async def body():
-        async for chunk in speaker.astream(text):
-            yield chunk.to_bytes()
-
-    return StreamingResponse(body(), media_type="audio/wav")
+    return StreamingResponse(speaker.astream_wav(text), media_type="audio/wav")
 ```
 
 ## Testing

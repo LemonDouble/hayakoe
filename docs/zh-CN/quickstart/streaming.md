@@ -65,14 +65,21 @@ HayaKoe 使用按说话人训练的小型模型来预测此 pause 时长。
 
 ## 异步版本 — Web 服务器用
 
-在 FastAPI 等 async 运行时中使用 `astream()`。
+在 FastAPI 等 async 运行时中使用 `astream_wav()`。它先 yield 一次流式 WAV 头,然后按句子 yield raw PCM,拼接后就是一个有效的 WAV 流。
 
 ```python
-async for chunk in speaker.astream(text):
-    await send(chunk.to_bytes())
+from fastapi.responses import StreamingResponse
+
+@app.post("/tts")
+async def tts(text: str):
+    return StreamingResponse(speaker.astream_wav(text), media_type="audio/wav")
 ```
 
-内部在独立线程中取出 `stream()` 的各 chunk 并 yield,因此不会阻塞事件循环。
+内部在独立线程中取出 `stream()` 的各 chunk 并 yield,因此不会阻塞事件循环。如果需要按句子的 `AudioResult` 对象,可以直接使用 `astream()`。
+
+::: danger 不要拼接 chunk.to_bytes()
+`to_bytes()` 返回单个 chunk 的**完整 WAV 文件**。拼接多个 `to_bytes()` 会产生带有多个头的损坏流——播放器只会播放第一句,或者完全无法播放。流式传输请使用 `stream_wav()` / `astream_wav()`。
+:::
 
 ::: warning 生成器请消耗到底
 `stream()` / `astream()` 内部持有 per-speaker lock。

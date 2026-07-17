@@ -193,10 +193,7 @@ async def tts_async(text: str, speaker: Speaker = Depends(get_speaker)):
 
 @app.post("/tts/{name}/stream")
 async def tts_stream(text: str, speaker: Speaker = Depends(get_speaker)):
-    async def body():
-        async for chunk in speaker.astream(text):
-            yield chunk.to_bytes()
-    return StreamingResponse(body(), media_type="audio/wav")
+    return StreamingResponse(speaker.astream_wav(text), media_type="audio/wav")
 ```
 
 ### Docker / 서버 환경

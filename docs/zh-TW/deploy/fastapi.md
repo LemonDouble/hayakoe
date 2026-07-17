@@ -130,7 +130,7 @@ FastAPI 的 `StreamingResponse` 在客戶端連線斷開時會自動關閉產生
 
 ## 串流回應
 
-想按句子立即發送給客戶端的話,組合使用 `astream` 和 `StreamingResponse`。
+想按句子立即發送給客戶端的話,組合使用 `astream_wav` 和 `StreamingResponse`。`astream_wav` 先輸出一次串流 WAV 頭,然後按句子 yield raw PCM,因此拼接後是一個有效的 WAV 串流。
 
 ```python
 from fastapi.responses import StreamingResponse
@@ -145,11 +145,7 @@ async def synthesize_stream(
     tts: TTS = request.app.state.tts
     speaker = tts.speakers[speaker_name]
 
-    async def body():
-        async for chunk in speaker.astream(text):
-            yield chunk.to_bytes()
-
-    return StreamingResponse(body(), media_type="audio/wav")
+    return StreamingResponse(speaker.astream_wav(text), media_type="audio/wav")
 ```
 
 ## 測試

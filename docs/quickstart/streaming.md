@@ -65,14 +65,21 @@ HayaKoe 는 이 pause 길이를 화자별로 학습된 작은 모델로 예측�
 
 ## 비동기 버전 — 웹 서버용
 
-FastAPI 처럼 async 런타임에서 쓰려면 `astream()` 을 쓰세요.
+FastAPI 처럼 async 런타임에서 쓰려면 `astream_wav()` 를 쓰세요. 스트리밍 WAV 헤더 1회 + 문장별 raw PCM 을 yield 하므로, 그대로 이어붙이면 하나의 유효한 WAV 스트림이 됩니다.
 
 ```python
-async for chunk in speaker.astream(text):
-    await send(chunk.to_bytes())
+from fastapi.responses import StreamingResponse
+
+@app.post("/tts")
+async def tts(text: str):
+    return StreamingResponse(speaker.astream_wav(text), media_type="audio/wav")
 ```
 
-내부적으로 별도 스레드에서 `stream()` 의 각 chunk 를 꺼내와 yield 하므로, 이벤트 루프를 블로킹하지 않습니다.
+내부적으로 별도 스레드에서 `stream()` 의 각 chunk 를 꺼내와 yield 하므로, 이벤트 루프를 블로킹하지 않습니다. 문장별 `AudioResult` 객체가 필요하면 `astream()` 을 그대로 쓸 수 있습니다.
+
+::: danger chunk.to_bytes() 를 이어붙이지 마세요
+`to_bytes()` 는 청크 하나짜리 **완결 WAV 파일**을 반환합니다. 여러 청크의 `to_bytes()` 를 이어붙이면 헤더가 여러 개인 깨진 스트림이 되어, 플레이어가 첫 문장만 재생하거나 아예 재생하지 못합니다. 스트리밍 전송에는 `stream_wav()` / `astream_wav()` 를 쓰세요.
+:::
 
 ::: warning 제너레이터는 끝까지 소진해 주세요
 `stream()` / `astream()` 은 내부적으로 per-speaker lock 을 잡습니다.

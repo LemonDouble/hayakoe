@@ -65,14 +65,21 @@ HayaKoe predicts this pause length using a small model trained per speaker.
 
 ## Async Version — For Web Servers
 
-For use in async runtimes like FastAPI, use `astream()`.
+For use in async runtimes like FastAPI, use `astream_wav()`. It yields a streaming WAV header once, then raw PCM per sentence — concatenated, they form a single valid WAV stream.
 
 ```python
-async for chunk in speaker.astream(text):
-    await send(chunk.to_bytes())
+from fastapi.responses import StreamingResponse
+
+@app.post("/tts")
+async def tts(text: str):
+    return StreamingResponse(speaker.astream_wav(text), media_type="audio/wav")
 ```
 
-Internally, it pulls each chunk from `stream()` in a separate thread and yields them, so it does not block the event loop.
+Internally, it pulls each chunk from `stream()` in a separate thread and yields them, so it does not block the event loop. If you need per-sentence `AudioResult` objects, use `astream()` directly.
+
+::: danger Do not concatenate chunk.to_bytes()
+`to_bytes()` returns a **complete WAV file** for a single chunk. Concatenating multiple `to_bytes()` outputs produces a broken stream with multiple headers — players will play only the first sentence, or refuse to play at all. Use `stream_wav()` / `astream_wav()` for streaming delivery.
+:::
 
 ::: warning Fully consume the generator
 `stream()` / `astream()` hold a per-speaker lock internally.

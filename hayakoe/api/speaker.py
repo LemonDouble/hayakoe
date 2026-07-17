@@ -10,7 +10,11 @@ from typing import TYPE_CHECKING, Optional, Union
 import numpy as np
 from numpy.typing import NDArray
 
-from hayakoe.api.audio_result import AudioResult, StyleAccessor
+from hayakoe.api.audio_result import (
+    AudioResult,
+    StyleAccessor,
+    streaming_wav_header,
+)
 from hayakoe.constants import Languages
 from hayakoe.logging import logger
 from hayakoe.models.hyper_parameters import HyperParameters
@@ -417,6 +421,47 @@ class Speaker:
                 yield chunk
         finally:
             gen.close()
+
+    def stream_wav(
+        self,
+        text: str,
+        **kwargs,
+    ) -> Generator[bytes, None, None]:
+        """하나의 유효한 WAV 스트림을 bytes 청크로 yield 한다.
+
+        첫 청크는 길이 미정 스트리밍 WAV 헤더
+        (:func:`~hayakoe.api.audio_result.streaming_wav_header`), 이후 청크는
+        문장별 raw PCM 이다. 전부 이어붙이면 표준 플레이어가 끝까지 재생하는
+        올바른 WAV 스트림이 된다 (:meth:`stream` + ``to_bytes()`` 이어붙이기는
+        첫 문장만 재생되므로 스트리밍 응답에는 이 메서드를 쓸 것).
+
+        Args:
+            text: 합성할 텍스트.
+            **kwargs: :meth:`generate` 와 동일한 파라미터.
+
+        **Thread safety** — :meth:`stream` 과 동일하게 제너레이터가 살아있는
+        동안 per-speaker lock 을 보유한다.
+        """
+        yield streaming_wav_header(self.sampling_rate)
+        for chunk in self.stream(text, **kwargs):
+            yield chunk.pcm_bytes()
+
+    async def astream_wav(
+        self,
+        text: str,
+        **kwargs,
+    ) -> AsyncGenerator[bytes, None]:
+        """:meth:`stream_wav` 의 비동기 버전.
+
+        FastAPI ``StreamingResponse`` 에 그대로 넘길 수 있다::
+
+            return StreamingResponse(
+                speaker.astream_wav(text), media_type="audio/wav"
+            )
+        """
+        yield streaming_wav_header(self.sampling_rate)
+        async for chunk in self.astream(text, **kwargs):
+            yield chunk.pcm_bytes()
 
     def _stream_locked(
         self,
