@@ -1,6 +1,7 @@
 import json
 import re
 import unicodedata
+from functools import lru_cache
 from pathlib import Path
 
 from num2words import num2words
@@ -22,12 +23,42 @@ def _get_en_to_kata_dict() -> dict[str, str]:
     return _EN_TO_KATA_DICT
 
 
-def _replace_english_with_katakana(text: str) -> str:
-    """영단어를 외래어 사전으로 카타카나로 치환한다. 사전에 없는 단어는 그대로 남긴다.
+@lru_cache(maxsize=8192)
+def _native_reading(word: str) -> str | None:
+    """pyopenjtalk 네이티브 사전이 아는 영단어의 카타카나 읽기를 반환한다.
 
-    단, 사용자 사전(user_dict)에 등록된 표기는 치환하지 않고 그대로 둔다. 그래야
-    이후 pyopenjtalk 단계에서 사용자가 지정한 읽기가 적용된다 (사용자 설정 우선).
-    치환하면 pyopenjtalk 가 원 영단어를 보지 못해 user_dict 등록이 무력화된다.
+    미인지 단어는 품사 フィラー 로 떨어져 한 글자씩 철자 읽기가 되므로
+    None 을 반환한다. 인지 단어의 읽기는 외래어 사전보다 정확하다 —
+    예: the→ザ, AI→エーアイ, it→アイティー, Netflix→ネットフリックス.
+
+    읽기를 문자열로 받아 정규화 단계에서 직접 치환하는 이유: 원형(라틴)을
+    남겨 두면 정규화가 공백을 삭제해 연속 영단어가 한 덩어리(Thisisapen)로
+    붙어 철자 읽기 폭탄이 되고, 문장 내 형태소 해석이 단어 단독 해석과
+    달라지는 경우도 있어 결과를 예측할 수 없게 된다.
+    """
+    import pyopenjtalk
+
+    feats = pyopenjtalk.run_frontend(word)
+    if any(f["pos"] == "フィラー" for f in feats):
+        return None
+    # ’ 는 악센트 핵 표시 (예: ネットフリック’ス) — 읽기 문자열에선 제거.
+    # 남기면 이후 구두점 정규화에서 인용부호로 오인돼 어중에 포즈가 생긴다.
+    pron = "".join(f["pron"] for f in feats if f["pron"]).replace("’", "")
+    return pron or None
+
+
+def _replace_english_with_katakana(text: str) -> str:
+    """영단어를 카타카나 읽기로 치환한다 — 네이티브 사전 우선, 외래어 사전은 폴백.
+
+    pyopenjtalk 네이티브 사전이 아는 단어(관사·약어·유명 브랜드 등)는 그
+    읽기를 쓰고, 미인지 단어의 철자 읽기(예: breakfast → ビーアールイー...)
+    만 외래어 사전으로 구제한다. 둘 다 모르는 단어는 그대로 남아 이후
+    철자 읽기가 된다.
+
+    사용자 사전(user_dict)에 등록된 표기는 치환하지 않고 그대로 둔다.
+    그래야 이후 pyopenjtalk 단계에서 사용자가 지정한 읽기·악센트가 적용된다
+    (사용자 설정 우선). 치환하면 pyopenjtalk 가 원 영단어를 보지 못해
+    user_dict 등록이 무력화된다.
     """
     # user_dict 는 pyopenjtalk 에 의존하므로 지연 import 로 로드 순서/결합을 피한다.
     from hayakoe.nlp.japanese.user_dict import registered_surfaces
@@ -43,6 +74,9 @@ def _replace_english_with_katakana(text: str) -> str:
         word = m.group()
         if word in user_surfaces:  # 사용자 등록어는 pyopenjtalk/user_dict 에 맡긴다
             return word
+        native = _native_reading(word)
+        if native is not None:
+            return native
         return d.get(word.lower(), word)
 
     return _EN_WORD_PATTERN.sub(_replace, text)

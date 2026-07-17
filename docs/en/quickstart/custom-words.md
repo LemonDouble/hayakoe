@@ -7,9 +7,11 @@ This dictionary covers most common vocabulary, but may be missing rare proper no
 Such words may be awkwardly split or read character by character in sentences, but you can register them to fix the pronunciation.
 
 ::: info Approximately 220,000 English words are already built in
-HayaKoe has an internal normalization dictionary that converts English words to katakana **before** passing text to pyopenjtalk.
+HayaKoe converts English words to katakana **before** passing text to pyopenjtalk.
 
-This dictionary contains 221,587 English words with corresponding katakana, so common English proper nouns like `OpenAI` or `GitHub` are read naturally without calling `add_word()`.
+Words that pyopenjtalk's native dictionary knows (articles, acronyms, well-known brands, etc.) keep that reading; only unknown words are converted via the internal normalization dictionary.
+
+This fallback dictionary contains 221,591 English words with corresponding katakana, so common English proper nouns like `OpenAI` or `GitHub` are read naturally without calling `add_word()`.
 
 `add_word()` affects a separate layer — the **pyopenjtalk Japanese morphological analysis stage** that comes after this normalization step.
 
