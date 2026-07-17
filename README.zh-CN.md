@@ -250,6 +250,16 @@ tts.add_word(surface="担々麺", reading="タンタンメン")
 tts.add_word(surface="担々麺", reading="タンタンメン", accent=3)
 ```
 
+## 日志
+
+HayaKoe 遵循 loguru 的库惯例，默认不输出内部日志，也不会改动宿主应用的日志配置。
+
+```python
+from loguru import logger
+
+logger.enable("hayakoe")  # 开启内部日志（模型加载进度等）
+```
+
 ## 架构
 
 ```

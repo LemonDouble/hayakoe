@@ -16,6 +16,10 @@ sys.path.insert(0, str(_PROJECT_ROOT))
 sys.path.insert(0, str(_DEV_TOOLS_DIR))
 sys.path.insert(0, str(_CLI_DIR / "training" / "core"))
 
+from hayakoe.logging import setup_logging  # noqa: E402
+
+setup_logging()
+
 from cli import i18n  # noqa: E402
 
 i18n.init()

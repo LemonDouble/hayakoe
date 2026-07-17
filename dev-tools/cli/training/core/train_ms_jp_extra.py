@@ -761,4 +761,7 @@ def evaluate(hps, generator, eval_loader, writer_eval):
 
 
 if __name__ == "__main__":
+    from hayakoe.logging import setup_logging
+
+    setup_logging()
     run()

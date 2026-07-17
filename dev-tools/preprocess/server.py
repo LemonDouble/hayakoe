@@ -108,6 +108,10 @@ def create_app(data_dir: str | Path = "./data") -> FastAPI:
 
 
 def main():
+    from hayakoe.logging import setup_logging
+
+    setup_logging()
+
     parser = argparse.ArgumentParser(description="HayaKoe 전처리 서버")
     parser.add_argument("--data-dir", default="./data", help="작업 디렉토리 (default: ./data)")
     parser.add_argument("--port", type=int, default=8000)

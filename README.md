@@ -257,6 +257,16 @@ tts.add_word(surface="担々麺", reading="タンタンメン")
 tts.add_word(surface="担々麺", reading="タンタンメン", accent=3)
 ```
 
+## 로깅
+
+HayaKoe 는 loguru 의 라이브러리 관례를 따라 기본적으로 내부 로그를 내보내지 않으며, 호스트 앱의 로깅 설정을 건드리지 않습니다.
+
+```python
+from loguru import logger
+
+logger.enable("hayakoe")  # 내부 로그 켜기 (모델 로드 진행 상황 등)
+```
+
 ## 아키텍처
 
 ```
