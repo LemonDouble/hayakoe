@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 
 import config
+from services.safe_path import UnsafePathError, safe_join
 
 router = APIRouter(prefix="/media", tags=["media"])
 
@@ -23,12 +24,10 @@ _MEDIA_TYPES = {
 @router.get("/{path:path}")
 def serve_media(path: str, request: Request):
     """data_dir 내 미디어 파일 서빙."""
-    file_path = config.get().data_dir / path
-
     # 경로 탈출 방지
     try:
-        file_path.resolve().relative_to(config.get().data_dir.resolve())
-    except ValueError:
+        file_path = safe_join(config.get().data_dir, path)
+    except UnsafePathError:
         raise HTTPException(status_code=403, detail="접근 불가")
 
     if not file_path.exists() or not file_path.is_file():

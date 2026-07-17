@@ -19,13 +19,14 @@ if str(_DEV_TOOLS_DIR) not in sys.path:
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 import config
 from api import classification, dataset, media, review, speakers, videos
+from services.safe_path import UnsafePathError
 
 
 @asynccontextmanager
@@ -45,6 +46,10 @@ def create_app(data_dir: str | Path = "./data") -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.exception_handler(UnsafePathError)
+    async def _unsafe_path_handler(request: Request, exc: UnsafePathError):
+        return JSONResponse(status_code=403, content={"detail": "허용 범위 밖 경로입니다."})
 
     app.include_router(speakers.router, prefix="/api")
     app.include_router(videos.router, prefix="/api")
@@ -106,7 +111,11 @@ def main():
     parser = argparse.ArgumentParser(description="HayaKoe 전처리 서버")
     parser.add_argument("--data-dir", default="./data", help="작업 디렉토리 (default: ./data)")
     parser.add_argument("--port", type=int, default=8000)
-    parser.add_argument("--host", default="0.0.0.0")
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="바인딩 호스트 (default: 127.0.0.1). 다른 기기에서 접속하려면 0.0.0.0 지정",
+    )
     args = parser.parse_args()
 
     import uvicorn

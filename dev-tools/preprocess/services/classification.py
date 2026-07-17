@@ -6,6 +6,8 @@ from pathlib import Path
 
 import soundfile as sf
 
+from services.safe_path import safe_join
+
 
 def _cls_path(video_dir: Path) -> Path:
     return video_dir / "classification.json"
@@ -33,14 +35,14 @@ def classify(video_dir: Path, segment_file: str, speaker: str):
     """세그먼트를 화자 폴더(또는 discarded)로 이동."""
     segments_dir = video_dir / "segments"
     unclassified = segments_dir / "unclassified"
-    src = unclassified / segment_file
+    src = safe_join(unclassified, segment_file)
 
     if not src.exists():
         raise FileNotFoundError(f"세그먼트를 찾을 수 없습니다: {segment_file}")
 
-    dst_dir = segments_dir / speaker
+    dst_dir = safe_join(segments_dir, speaker)
     dst_dir.mkdir(parents=True, exist_ok=True)
-    shutil.move(str(src), str(dst_dir / segment_file))
+    shutil.move(str(src), str(safe_join(dst_dir, segment_file)))
 
     state = _load(video_dir)
     state["history"].append({"segment": segment_file, "speaker": speaker})
@@ -55,8 +57,8 @@ def undo(video_dir: Path) -> dict | None:
 
     entry = state["history"].pop()
     segments_dir = video_dir / "segments"
-    src = segments_dir / entry["speaker"] / entry["segment"]
-    dst = segments_dir / "unclassified" / entry["segment"]
+    src = safe_join(segments_dir, entry["speaker"], entry["segment"])
+    dst = safe_join(segments_dir / "unclassified", entry["segment"])
 
     if src.exists():
         shutil.move(str(src), str(dst))

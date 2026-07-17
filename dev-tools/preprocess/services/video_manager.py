@@ -5,6 +5,8 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
+from services.safe_path import safe_join
+
 
 # 파이프라인 단계 순서
 STAGES = ["extract", "separate", "vad", "classify", "transcribe", "review"]
@@ -152,7 +154,7 @@ def find_source(video_dir: Path) -> Path | None:
 
 
 def get_dir(data_dir: Path, video_id: str) -> Path:
-    vdir = _videos_dir(data_dir) / video_id
+    vdir = safe_join(_videos_dir(data_dir), video_id)
     if not vdir.exists():
         raise FileNotFoundError(f"영상 '{video_id}'를 찾을 수 없습니다.")
     return vdir
