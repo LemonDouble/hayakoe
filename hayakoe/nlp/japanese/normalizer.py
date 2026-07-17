@@ -90,7 +90,10 @@ __REPLACE_PATTERN = re.compile("|".join(re.escape(p) for p in __REPLACE_MAP))
 # 구두점 등의 정규화 패턴
 __PUNCTUATION_CLEANUP_PATTERN = re.compile(
     # ↓ 히라가나, 카타카나, 한자
-    r"[^\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u3400-\u4DBF\u3005"
+    # (한자 숫자 〇 U+3007 은 유니코드상 한자 블록이 아닌 CJK Symbols and
+    #  Punctuation 블록에 있으므로 개별 허용 — 빠지면 二〇二四年 등에서
+    #  〇 만 조용히 삭제되어 二二四年 으로 오독된다)
+    r"[^\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u3400-\u4DBF\u3005\u3007"
     # ↓ 반각 알파벳 (대문자와 소문자)
     + r"\u0041-\u005A\u0061-\u007A"
     # ↓ 전각 알파벳 (대문자와 소문자)
