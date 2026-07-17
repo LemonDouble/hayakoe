@@ -18,8 +18,6 @@ from hayakoe.logging import logger
 if TYPE_CHECKING:
     from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
-    import torch
-
 
 _loaded_model: Optional[PreTrainedModel] = None
 _loaded_tokenizer: Optional[PreTrainedTokenizer | PreTrainedTokenizerFast] = None

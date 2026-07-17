@@ -5,8 +5,8 @@ import torch
 from torch import nn
 from torch.nn import Conv1d
 from torch.nn import functional as F
-from torch.nn.utils.parametrize import remove_parametrizations
 from torch.nn.utils.parametrizations import weight_norm
+from torch.nn.utils.parametrize import remove_parametrizations
 
 from hayakoe.models import commons
 from hayakoe.models.attentions import Encoder
@@ -225,10 +225,10 @@ class WN(torch.nn.Module):
     def remove_weight_norm(self) -> None:
         if self.gin_channels != 0:
             remove_parametrizations(self.cond_layer, "weight")
-        for l in self.in_layers:
-            remove_parametrizations(l, "weight")
-        for l in self.res_skip_layers:
-            remove_parametrizations(l, "weight")
+        for layer in self.in_layers:
+            remove_parametrizations(layer, "weight")
+        for layer in self.res_skip_layers:
+            remove_parametrizations(layer, "weight")
 
 
 class ResBlock1(torch.nn.Module):
@@ -329,10 +329,10 @@ class ResBlock1(torch.nn.Module):
         return x
 
     def remove_weight_norm(self) -> None:
-        for l in self.convs1:
-            remove_parametrizations(l, "weight")
-        for l in self.convs2:
-            remove_parametrizations(l, "weight")
+        for layer in self.convs1:
+            remove_parametrizations(layer, "weight")
+        for layer in self.convs2:
+            remove_parametrizations(layer, "weight")
 
 
 class ResBlock2(torch.nn.Module):
@@ -380,8 +380,8 @@ class ResBlock2(torch.nn.Module):
         return x
 
     def remove_weight_norm(self) -> None:
-        for l in self.convs:
-            remove_parametrizations(l, "weight")
+        for layer in self.convs:
+            remove_parametrizations(layer, "weight")
 
 
 class Log(nn.Module):

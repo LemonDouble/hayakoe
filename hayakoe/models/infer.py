@@ -6,6 +6,7 @@ from numpy.typing import NDArray
 from hayakoe.constants import Languages
 from hayakoe.logging import logger
 from hayakoe.models import commons, utils
+
 # 문장 경계 pause 헬퍼는 torch-free 모듈로 분리되어 있다 (CPU/ONNX 경로가
 # torch 없이 import 할 수 있도록). 하위 호환을 위해 여기서 re-export 한다.
 from hayakoe.models.boundary_pauses import (
@@ -16,14 +17,15 @@ from hayakoe.models.hyper_parameters import HyperParameters
 from hayakoe.models.models_jp_extra import (
     SynthesizerTrn as SynthesizerTrnJPExtra,
 )
-
-SynthesizerTrn = SynthesizerTrnJPExtra
 from hayakoe.nlp import (
     clean_text_with_given_phone_tone,
     cleaned_text_to_sequence,
     extract_bert_feature,
 )
 from hayakoe.nlp.symbols import SYMBOLS
+
+
+SynthesizerTrn = SynthesizerTrnJPExtra
 
 
 def get_net_g(

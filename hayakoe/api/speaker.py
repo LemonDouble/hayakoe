@@ -21,6 +21,7 @@ from hayakoe.logging import logger
 from hayakoe.models.hyper_parameters import HyperParameters
 from hayakoe.voice import adjust_voice
 
+
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[。！？!?\n])")
 # 실제 발화되는(모라를 만드는) 문자: 히라가나/가타카나/한자/영숫자
 _HAS_SPEECH_RE = re.compile(r"[ぁ-ゖァ-ヶ一-鿿々〆〇a-zA-Z0-9０-９Ａ-Ｚａ-ｚｦ-ﾟ]")
@@ -594,7 +595,10 @@ class Speaker:
 
     def _preprocess_nlp(self, text: str) -> tuple:
         """NLP 전처리 (BERT 제외): (norm_text, phone_seq, tone_seq, lang_seq, word2ph)."""
-        from hayakoe.nlp import clean_text_with_given_phone_tone, cleaned_text_to_sequence
+        from hayakoe.nlp import (
+            clean_text_with_given_phone_tone,
+            cleaned_text_to_sequence,
+        )
 
         hps = self._hps
         norm_text, phone, tone, word2ph = clean_text_with_given_phone_tone(
@@ -693,13 +697,13 @@ class Speaker:
             x = phones.to(device).unsqueeze(0)
             x_len = torch.LongTensor([phones.size(0)]).to(device)
             t = torch.LongTensor(tone_seq).to(device).unsqueeze(0)
-            l = torch.LongTensor(lang_seq).to(device).unsqueeze(0)
+            lang = torch.LongTensor(lang_seq).to(device).unsqueeze(0)
             b = ja_bert.to(device).unsqueeze(0)
             sv = torch.from_numpy(style_vec).to(device).unsqueeze(0)
             sid_t = torch.LongTensor([sid]).to(device)
 
             output = net_g.infer(
-                x, x_len, sid_t, t, l, b,
+                x, x_len, sid_t, t, lang, b,
                 style_vec=sv, length_scale=speed,
                 sdp_ratio=sdp_ratio, noise_scale=noise, noise_scale_w=noise_w,
             )
@@ -713,14 +717,14 @@ class Speaker:
         x = np.array(phone_seq, dtype=np.int64)[np.newaxis, :]
         x_len = np.array([len(phone_seq)], dtype=np.int64)
         t = np.array(tone_seq, dtype=np.int64)[np.newaxis, :]
-        l = np.array(lang_seq, dtype=np.int64)[np.newaxis, :]
+        lang = np.array(lang_seq, dtype=np.int64)[np.newaxis, :]
         b = ja_bert[np.newaxis, :, :].astype(np.float32)
         s = style_vec[np.newaxis, :].astype(np.float32)
         sid_arr = np.array([sid], dtype=np.int64)
 
         output = self._synth_session.run(None, {
             "x": x, "x_lengths": x_len, "sid": sid_arr,
-            "tone": t, "language": l, "bert": b, "style_vec": s,
+            "tone": t, "language": lang, "bert": b, "style_vec": s,
             "noise_scale": np.array([noise], dtype=np.float32),
             "length_scale": np.array([speed], dtype=np.float32),
             "noise_scale_w": np.array([noise_w], dtype=np.float32),
@@ -804,7 +808,6 @@ class Speaker:
         sid: int, num_sentences: int, sdp_ratio: float, noise_scale_w: float,
     ) -> Optional[list[float]]:
         """ONNX duration predictor로 문장 경계 pause를 예측한다."""
-        from hayakoe.models.infer_onnx import get_text_onnx
         # torch-free 모듈에서 가져온다. infer.py 는 top-level 에서 torch 를
         # import 하므로, torch 없는 CPU 환경에서 이 경로가 크래시하지 않도록
         # 순수 헬퍼는 boundary_pauses 에서 직접 import 한다.
@@ -812,6 +815,7 @@ class Speaker:
             durations_to_boundary_pauses,
             find_boundary_punct_positions,
         )
+        from hayakoe.models.infer_onnx import get_text_onnx
 
         bert, phones, tones, lang_ids = get_text_onnx(
             text, self._hps, self._bert_session,
@@ -824,14 +828,14 @@ class Speaker:
         x = phones[np.newaxis, :]
         x_len = np.array([len(phones)], dtype=np.int64)
         t = tones[np.newaxis, :]
-        l = lang_ids[np.newaxis, :]
+        lang = lang_ids[np.newaxis, :]
         b = bert[np.newaxis, :, :].astype(np.float32)
         s = style_vec[np.newaxis, :].astype(np.float32)
         sid_arr = np.array([sid], dtype=np.int64)
 
         durations = self._dp_session.run(None, {
             "x": x, "x_lengths": x_len, "sid": sid_arr,
-            "tone": t, "language": l, "bert": b, "style_vec": s,
+            "tone": t, "language": lang, "bert": b, "style_vec": s,
             "length_scale": np.array([length_scale], dtype=np.float32),
             "noise_scale_w": np.array([noise_scale_w], dtype=np.float32),
             "sdp_ratio": np.array([sdp_ratio], dtype=np.float32),

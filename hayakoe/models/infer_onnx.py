@@ -6,20 +6,18 @@ CPU 속도 최적화를 위해 PyTorch 추론을 ONNX Runtime으로 대체한다
 
 from __future__ import annotations
 
-from typing import Any, Optional, Sequence, Union
+from typing import Any, Optional
 
 import numpy as np
 from numpy.typing import NDArray
 
 from hayakoe.constants import Languages
-from hayakoe.logging import logger
 from hayakoe.models.hyper_parameters import HyperParameters
 from hayakoe.nlp import (
     clean_text_with_given_phone_tone,
     cleaned_text_to_sequence,
 )
 from hayakoe.nlp.japanese.g2p import text_to_sep_kata
-from hayakoe.nlp.symbols import SYMBOLS
 
 
 def _intersperse(lst: list, item) -> list:
@@ -179,7 +177,7 @@ def infer_onnx(
     x = phones[np.newaxis, :]                       # [1, phone_len]
     x_lengths = np.array([phones.shape[0]], dtype=np.int64)  # [1]
     t = tones[np.newaxis, :]                         # [1, phone_len]
-    l = lang_ids[np.newaxis, :]                      # [1, phone_len]
+    lang = lang_ids[np.newaxis, :]                   # [1, phone_len]
     b = ja_bert[np.newaxis, :, :]                    # [1, 1024, phone_len]
     s = style_vec[np.newaxis, :].astype(np.float32)  # [1, 256]
     sid_arr = np.array([sid], dtype=np.int64)        # [1]
@@ -189,7 +187,7 @@ def infer_onnx(
         "x_lengths": x_lengths,
         "sid": sid_arr,
         "tone": t,
-        "language": l,
+        "language": lang,
         "bert": b.astype(np.float32),
         "style_vec": s,
         "noise_scale": np.array([noise_scale], dtype=np.float32),

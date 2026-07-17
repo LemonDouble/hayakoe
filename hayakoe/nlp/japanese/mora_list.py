@@ -1,9 +1,7 @@
 """
 아래 코드는 VOICEVOX의 소스 코드를 차용하여 최소한의 수정을 가한 것입니다.
 https://github.com/VOICEVOX/voicevox_engine/blob/master/voicevox_engine/tts_pipeline/mora_list.py
-"""
 
-"""
 아래 모라 대응표는 OpenJTalk의 소스 코드에서 가져와서,
 카타카나 표기와 모라가 일대일 대응하도록 수정한 것입니다.
 라이선스 표기:

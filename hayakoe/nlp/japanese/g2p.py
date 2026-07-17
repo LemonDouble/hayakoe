@@ -1,7 +1,6 @@
 import re
 from typing import TypedDict
 
-
 import pyopenjtalk
 
 from hayakoe.logging import logger
@@ -644,7 +643,9 @@ def __kata_to_phoneme_list(text: str) -> list[str]:
     spaced_phonemes = __MORA_PATTERN.sub(lambda m: mora2phonemes(m.group()), text)
 
     # 장음 기호 「ー」 처리
-    long_replacement = lambda m: m.group(1) + (" " + m.group(1)) * len(m.group(2))  # type: ignore
+    def long_replacement(m: re.Match) -> str:
+        return m.group(1) + (" " + m.group(1)) * len(m.group(2))
+
     spaced_phonemes = __LONG_PATTERN.sub(long_replacement, spaced_phonemes)
 
     return spaced_phonemes.strip().split(" ")

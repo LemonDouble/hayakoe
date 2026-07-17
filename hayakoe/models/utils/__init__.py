@@ -9,9 +9,10 @@ import numpy as np
 import torch
 from numpy.typing import NDArray
 
-from hayakoe.logging import logger
-from hayakoe.models.utils import checkpoints  # type: ignore # noqa: F401
-from hayakoe.models.utils import safetensors  # type: ignore # noqa: F401
+from hayakoe.models.utils import (
+    checkpoints,  # type: ignore # noqa: F401
+    safetensors,  # type: ignore # noqa: F401
+)
 
 
 if TYPE_CHECKING:

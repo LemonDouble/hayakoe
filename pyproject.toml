@@ -57,7 +57,7 @@ only-include = [
     "README.md",
 ]
 
-[tool.ruff]
+[tool.ruff.lint]
 extend-select = ["I"]
 
 [tool.ruff.lint.isort]

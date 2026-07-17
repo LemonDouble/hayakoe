@@ -7,6 +7,7 @@ from num2words import num2words
 
 from hayakoe.nlp.symbols import PUNCTUATIONS
 
+
 # 영어→카타카나 외래어 사전 (지연 로드)
 _EN_TO_KATA_DICT: dict[str, str] | None = None
 _EN_WORD_PATTERN = re.compile(r"[A-Za-z]+")

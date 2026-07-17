@@ -28,6 +28,8 @@ from hayakoe.voice import adjust_voice
 
 
 if TYPE_CHECKING:
+    import onnxruntime
+
     from hayakoe.models.models import SynthesizerTrn
     from hayakoe.models.models_jp_extra import (
         SynthesizerTrn as SynthesizerTrnJPExtra,
@@ -198,6 +200,9 @@ class TTSModel:
 
         # ONNX 추론 시
         else:
+            # onnxruntime 은 ONNX 추론 시에만 필요하므로 지연 import
+            import onnxruntime
+
             # 추론 시 가장 우선되는 ExecutionProvider 이름 취득
             assert len(self.onnx_providers) > 0
             first_provider_name = (

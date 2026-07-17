@@ -35,8 +35,7 @@ class StdoutWrapper(TextIO):
 
 
 try:
-    import google.colab  # type: ignore
-
+    import google.colab  # type: ignore # noqa: F401  # Colab 환경 감지 목적의 import
     SAFE_STDOUT = StdoutWrapper()
 except ImportError:
     SAFE_STDOUT = sys.stdout

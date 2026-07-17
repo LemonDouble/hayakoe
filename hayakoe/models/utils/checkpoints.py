@@ -67,7 +67,7 @@ def load_checkpoint(
                 saved_state_dict[k].shape,
                 v.shape,
             )
-        except:
+        except (KeyError, AssertionError):
             # 구 버전에서의 업그레이드 대응
             if "ja_bert_proj" in k:
                 v = torch.zeros_like(v)
