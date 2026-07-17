@@ -44,14 +44,22 @@ class HFSource:
 
     def fetch(self, prefix: str) -> Path:
         from huggingface_hub import snapshot_download
+        from huggingface_hub.errors import LocalEntryNotFoundError
 
-        local = snapshot_download(
-            self.repo,
+        kwargs = dict(
             allow_patterns=[f"{prefix}/*"],
             cache_dir=str(self.cache_dir / "hf"),
             revision=self.revision,
             token=self.token,
         )
+        try:
+            # 캐시 우선: 한 번 받은 스냅샷은 네트워크 없이 그대로 쓴다.
+            # (pre_download 후 런타임은 오프라인이어도 동작해야 한다는 계약.
+            #  네트워크가 drop 되는 환경에서 revision 재해석 시도가 타임아웃
+            #  재시도에 걸리면 prepare 가 분 단위로 블록되는 문제도 함께 방지)
+            local = snapshot_download(self.repo, local_files_only=True, **kwargs)
+        except LocalEntryNotFoundError:
+            local = snapshot_download(self.repo, **kwargs)
         return Path(local) / prefix
 
     def upload(self, prefix: str, local_dir: Path) -> None:
@@ -94,9 +102,16 @@ class S3Source:
         return self.cache_dir / "s3" / self.bucket / (self.prefix or "_") / rel
 
     def fetch(self, prefix: str) -> Path:
+        local_base = self._local_base(prefix)
+        # 캐시 우선: 전체 동기화가 끝난 prefix 는 마커를 남겨 두고, 이후에는
+        # 네트워크(list_objects_v2) 없이 그대로 쓴다. (pre_download 후 런타임은
+        # 오프라인이어도 동작해야 한다는 계약)
+        marker = local_base / ".hayakoe_synced"
+        if marker.exists():
+            return local_base
+
         client = self._client()
         key_prefix = self._key_prefix(prefix)
-        local_base = self._local_base(prefix)
         local_base.mkdir(parents=True, exist_ok=True)
 
         paginator = client.get_paginator("list_objects_v2")
@@ -111,6 +126,10 @@ class S3Source:
                 if dest.exists():
                     continue  # 단순 캐시: 한 번 받으면 재사용
                 client.download_file(self.bucket, key, str(dest))
+
+        # 마커는 전체 루프가 무사히 끝난 뒤에만 기록한다 — 중간에 끊기면
+        # 다음 fetch 가 다시 나열하며 빠진 파일만 이어받는다.
+        marker.touch()
         return local_base
 
     def upload(self, prefix: str, local_dir: Path) -> None:

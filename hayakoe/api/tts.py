@@ -202,6 +202,9 @@ class TTS:
         - ``"cpu"`` → ONNX BERT Q8 + ``onnx/speakers/<name>/*``
         - ``"cuda"`` → PyTorch BERT FP32 + ``pytorch/speakers/<name>/*``
 
+        pyopenjtalk 사전도 함께 받아 둔다 (wheel 미포함 — 안 받아 두면
+        런타임 첫 합성이 GitHub 에서 사전을 다운로드하게 된다).
+
         이후 런타임에서 동일한 ``cache_dir`` 로 ``TTS().load(...).prepare()``
         를 호출하면 캐시에서 즉시 로드된다. GPU 가 빌드 환경에 없어도 되며,
         BERT 가중치는 모델 자체에 올라가지 않는다.
@@ -217,6 +220,12 @@ class TTS:
 
         for name, spec in self._specs.items():
             spec.source.fetch(f"{backend}/speakers/{name}")
+
+        # pyopenjtalk 사전(~22MB)은 첫 g2p 호출 시 site-packages 로 다운로드
+        # 된다. 여기서 한 번 호출해 빌드 레이어에 미리 박아 둔다.
+        import pyopenjtalk
+
+        pyopenjtalk.g2p("あ")
 
         logger.info(
             f"Pre-downloaded ({backend}) → {self._cache_dir} "
