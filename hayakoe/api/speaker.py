@@ -500,6 +500,11 @@ class Speaker:
 
         sr = self._hps.data.sampling_rate
         prev_trailing = 0.0
+        # running-max 게인: 문장마다 자기 피크로 정규화하면 조용한 문장이
+        # 만피크로 부풀려져 문장 간 상대 음량이 무너지고 generate() 와도
+        # 달라진다. 지금까지 본 최대 피크로 나눠 (게인은 내려가기만 함)
+        # 이미 내보낸 청크를 소급 조정하지 않으면서 다이내믹스를 보존한다.
+        max_peak = 0.0
 
         bp = self._predict_pauses(
             text, sentences, style, style_weight,
@@ -514,7 +519,8 @@ class Speaker:
                 style_weight=style_weight,
             )
             trailing = _measure_trailing_silence(audio, sr)
-            pcm = self._to_pcm(audio)
+            max_peak = max(max_peak, float(np.abs(audio).max()))
+            pcm = self._to_pcm(audio, peak=max_peak)
 
             if i > 0:
                 gap = _make_pause_gap(
@@ -568,9 +574,14 @@ class Speaker:
         return audio
 
     @staticmethod
-    def _to_pcm(audio: NDArray) -> NDArray[np.int16]:
-        """float32 오디오를 16-bit PCM으로 변환한다."""
-        peak = np.abs(audio).max()
+    def _to_pcm(audio: NDArray, peak: Optional[float] = None) -> NDArray[np.int16]:
+        """float32 오디오를 16-bit PCM으로 변환한다.
+
+        peak 를 주면 자기 피크 대신 그 값으로 정규화한다. 스트리밍에서
+        running-max 게인으로 문장 간 상대 음량을 보존하는 데 쓴다.
+        """
+        if peak is None:
+            peak = float(np.abs(audio).max())
         if peak > 0:
             audio = audio / peak
         return (audio * 32767).astype(np.int16)
