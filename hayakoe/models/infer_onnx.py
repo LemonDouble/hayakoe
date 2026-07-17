@@ -40,8 +40,6 @@ def extract_bert_feature_onnx(
     text: str,
     word2ph: list[int],
     onnx_session,
-    assist_text: Optional[str] = None,
-    assist_text_weight: float = 0.7,
 ) -> NDArray:
     """ONNX Runtime 세션을 사용하여 BERT 특징을 추출한다.
 
@@ -49,8 +47,6 @@ def extract_bert_feature_onnx(
     """
     # PyTorch 버전과 동일한 전처리
     text = "".join(text_to_sep_kata(text, raise_yomi_error=False)[0])
-    if assist_text:
-        assist_text = "".join(text_to_sep_kata(assist_text, raise_yomi_error=False)[0])
 
     tokenizer = _get_tokenizer()
     inputs = tokenizer(text, return_tensors="np")
@@ -62,25 +58,10 @@ def extract_bert_feature_onnx(
         "attention_mask": attention_mask,
     })[0][0]  # [seq_len, hidden_dim]
 
-    style_res_mean = None
-    if assist_text:
-        style_inputs = tokenizer(assist_text, return_tensors="np")
-        style_res = onnx_session.run(None, {
-            "input_ids": style_inputs["input_ids"],
-            "attention_mask": style_inputs["attention_mask"],
-        })[0][0]
-        style_res_mean = style_res.mean(axis=0)
-
     assert len(word2ph) == len(text) + 2, text
     phone_level_feature = []
     for i in range(len(word2ph)):
-        if assist_text and style_res_mean is not None:
-            repeat_feature = (
-                np.tile(res[i], (word2ph[i], 1)) * (1 - assist_text_weight)
-                + np.tile(style_res_mean, (word2ph[i], 1)) * assist_text_weight
-            )
-        else:
-            repeat_feature = np.tile(res[i], (word2ph[i], 1))
+        repeat_feature = np.tile(res[i], (word2ph[i], 1))
         phone_level_feature.append(repeat_feature)
 
     phone_level_feature = np.concatenate(phone_level_feature, axis=0)
@@ -91,8 +72,6 @@ def get_text_onnx(
     text: str,
     hps: HyperParameters,
     bert_session,
-    assist_text: Optional[str] = None,
-    assist_text_weight: float = 0.7,
     given_phone: Optional[list[str]] = None,
     given_tone: Optional[list[int]] = None,
 ) -> tuple[NDArray, NDArray, NDArray, NDArray]:
@@ -120,8 +99,6 @@ def get_text_onnx(
         norm_text,
         word2ph,
         bert_session,
-        assist_text,
-        assist_text_weight,
     )
     del word2ph
     assert ja_bert.shape[-1] == len(phone), phone
@@ -144,10 +121,6 @@ def infer_onnx(
     hps: HyperParameters,
     bert_session,
     synth_session,
-    skip_start: bool = False,
-    skip_end: bool = False,
-    assist_text: Optional[str] = None,
-    assist_text_weight: float = 0.7,
     given_phone: Optional[list[str]] = None,
     given_tone: Optional[list[int]] = None,
 ) -> NDArray[Any]:
@@ -156,22 +129,9 @@ def infer_onnx(
         text,
         hps,
         bert_session,
-        assist_text=assist_text,
-        assist_text_weight=assist_text_weight,
         given_phone=given_phone,
         given_tone=given_tone,
     )
-
-    if skip_start:
-        phones = phones[3:]
-        tones = tones[3:]
-        lang_ids = lang_ids[3:]
-        ja_bert = ja_bert[:, 3:]
-    if skip_end:
-        phones = phones[:-2]
-        tones = tones[:-2]
-        lang_ids = lang_ids[:-2]
-        ja_bert = ja_bert[:, :-2]
 
     # 배치 차원 추가
     x = phones[np.newaxis, :]                       # [1, phone_len]

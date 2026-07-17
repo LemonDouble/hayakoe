@@ -76,7 +76,7 @@ Slack·Notion 에 그대로 올려도 외부 파일 의존 없이 재생됩니�
 **생성 순서**
 
 1. `<dataset>/training/` 과 `<dataset>/training/eval/` 에서 TensorBoard 이벤트 파일의 스칼라 지표를 수집합니다.
-2. 체크포인트 하나씩 `hayakoe.tts_model.TTSModel` 로 로드하고, 평가 텍스트 전부를 합성한 뒤 unload 합니다. VRAM 을 아끼기 위해 한 번에 하나씩만 메모리에 올립니다.
+2. 체크포인트 하나씩 `hayakoe.models.infer` 로 로드하고, 평가 텍스트 전부를 합성한 뒤 해제합니다. VRAM 을 아끼기 위해 한 번에 하나씩만 메모리에 올립니다.
 3. 지표 차트와 오디오 표를 self-contained HTML 로 조립합니다.
 :::
 

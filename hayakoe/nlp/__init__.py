@@ -22,15 +22,13 @@ def extract_bert_feature(
     word2ph: list[int],
     language: Languages,
     device: str,
-    assist_text: Optional[str] = None,
-    assist_text_weight: float = 0.7,
 ) -> torch.Tensor:
     if language != Languages.JP:
         raise ValueError(f"Only JP is supported, got: {language}")
 
     from hayakoe.nlp.japanese.bert_feature import extract_bert_feature
 
-    return extract_bert_feature(text, word2ph, device, assist_text, assist_text_weight)
+    return extract_bert_feature(text, word2ph, device)
 
 
 def clean_text(

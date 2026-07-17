@@ -1,5 +1,4 @@
 import glob
-import logging
 import os
 import re
 from pathlib import Path
@@ -7,7 +6,6 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
 import torch
-from numpy.typing import NDArray
 
 from hayakoe.models.utils import (
     checkpoints,  # type: ignore # noqa: F401
@@ -20,7 +18,6 @@ if TYPE_CHECKING:
     from torch.utils.tensorboard import SummaryWriter
 
 
-__is_matplotlib_imported = False
 
 
 def summarize(
@@ -71,85 +68,6 @@ def is_resuming(dir_path: Union[str, Path]) -> bool:
     return len(g_list) > 0
 
 
-def plot_spectrogram_to_numpy(spectrogram: NDArray[Any]) -> NDArray[Any]:
-    """
-    지정된 스펙트로그램을 이미지 데이터로 변환한다
-
-    Args:
-        spectrogram (NDArray[Any]): 스펙트로그램
-
-    Returns:
-        NDArray[Any]: 이미지 데이터
-    """
-
-    global __is_matplotlib_imported
-    if not __is_matplotlib_imported:
-        import matplotlib
-
-        matplotlib.use("Agg")
-        __is_matplotlib_imported = True
-        mpl_logger = logging.getLogger("matplotlib")
-        mpl_logger.setLevel(logging.WARNING)
-    import matplotlib.pylab as plt
-    import numpy as np
-
-    fig, ax = plt.subplots(figsize=(10, 2))
-    im = ax.imshow(spectrogram, aspect="auto", origin="lower", interpolation="none")
-    plt.colorbar(im, ax=ax)
-    plt.xlabel("Frames")
-    plt.ylabel("Channels")
-    plt.tight_layout()
-
-    fig.canvas.draw()
-    data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")  # type: ignore
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    plt.close()
-    return data
-
-
-def plot_alignment_to_numpy(
-    alignment: NDArray[Any], info: Optional[str] = None
-) -> NDArray[Any]:
-    """
-    지정된 얼라인먼트를 이미지 데이터로 변환한다
-
-    Args:
-        alignment (NDArray[Any]): 얼라인먼트
-        info (Optional[str]): 이미지에 추가할 정보
-
-    Returns:
-        NDArray[Any]: 이미지 데이터
-    """
-
-    global __is_matplotlib_imported
-    if not __is_matplotlib_imported:
-        import matplotlib
-
-        matplotlib.use("Agg")
-        __is_matplotlib_imported = True
-        mpl_logger = logging.getLogger("matplotlib")
-        mpl_logger.setLevel(logging.WARNING)
-    import matplotlib.pylab as plt
-
-    fig, ax = plt.subplots(figsize=(6, 4))
-    im = ax.imshow(
-        alignment.transpose(), aspect="auto", origin="lower", interpolation="none"
-    )
-    fig.colorbar(im, ax=ax)
-    xlabel = "Decoder timestep"
-    if info is not None:
-        xlabel += "\n\n" + info
-    plt.xlabel(xlabel)
-    plt.ylabel("Encoder timestep")
-    plt.tight_layout()
-
-    fig.canvas.draw()
-    data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")  # type: ignore
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    plt.close()
-    return data
-
-
 def load_wav_to_torch(full_path: Union[str, Path]) -> tuple[torch.FloatTensor, int]:
     """
     지정된 오디오 파일을 읽어 PyTorch 텐서로 변환하여 반환한다
@@ -191,34 +109,6 @@ def load_filepaths_and_text(
     with open(filename, encoding="utf-8") as f:
         filepaths_and_text = [line.strip().split(split) for line in f]
     return filepaths_and_text
-
-
-def get_logger(
-    model_dir_path: Union[str, Path], filename: str = "train.log"
-) -> logging.Logger:
-    """
-    로거를 가져온다
-
-    Args:
-        model_dir_path (Union[str, Path]): 로그를 저장할 디렉토리 경로
-        filename (str): 로그 파일 이름 (기본값: "train.log")
-
-    Returns:
-        logging.Logger: 로거
-    """
-
-    global logger
-    logger = logging.getLogger(os.path.basename(model_dir_path))
-    logger.setLevel(logging.DEBUG)
-
-    formatter = logging.Formatter("%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
-    if not os.path.exists(model_dir_path):
-        os.makedirs(model_dir_path)
-    h = logging.FileHandler(os.path.join(model_dir_path, filename))
-    h.setLevel(logging.DEBUG)
-    h.setFormatter(formatter)
-    logger.addHandler(h)
-    return logger
 
 
 def get_steps(model_path: Union[str, Path]) -> Optional[int]:

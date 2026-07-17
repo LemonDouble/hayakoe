@@ -293,6 +293,45 @@ def _build_html(
 # ── 리포트 생성 ───────────────────────────────────────────────
 
 
+def _synthesize(net_g, hps, style_vec, text, device) -> tuple[int, np.ndarray]:
+    """단일 체크포인트 모델로 텍스트 합성 → (sr, int16 오디오).
+
+    구 TTSModel.infer 의 기본 동작(줄바꿈 분할 + 0.5초 무음 연결 +
+    피크 정규화 16-bit 변환)을 그대로 이식한 것.
+    """
+    import torch
+
+    from hayakoe.constants import Languages
+    from hayakoe.models.infer import infer
+
+    parts = [s for s in text.split("\n") if s != ""]
+    audios = []
+    with torch.no_grad():
+        for i, part in enumerate(parts):
+            audios.append(
+                infer(
+                    text=part,
+                    style_vec=style_vec,
+                    sdp_ratio=0.2,
+                    noise_scale=0.6,
+                    noise_scale_w=0.8,
+                    length_scale=1.0,
+                    sid=0,
+                    language=Languages.JP,
+                    hps=hps,
+                    net_g=net_g,
+                    device=device,
+                )
+            )
+            if i != len(parts) - 1:
+                audios.append(np.zeros(int(44100 * 0.5)))
+    audio = np.concatenate(audios)
+    peak = np.abs(audio).max()
+    if peak > 0:
+        audio = audio / peak
+    return hps.data.sampling_rate, (audio * 32767).astype(np.int16)
+
+
 def generate_report(
     dataset_path: Path,
     checkpoint_paths: list[Path],
@@ -304,7 +343,9 @@ def generate_report(
         생성된 HTML 파일 경로.
     """
     import torch
-    from hayakoe.tts_model import TTSModel
+
+    from hayakoe.models.hyper_parameters import HyperParameters
+    from hayakoe.models.infer import get_net_g
 
     checkpoints = [_parse_checkpoint(p) for p in checkpoint_paths]
 
@@ -326,6 +367,14 @@ def generate_report(
         raise FileNotFoundError(t("report.generator.style_not_found", path=style_vec_path))
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    hps = HyperParameters.load_from_json(config_path)
+    style_vectors = np.load(style_vec_path)
+    # 구 TTSModel 기본 동작과 동일: Neutral 스타일, weight 1.0
+    style2id = getattr(hps.data, "style2id", {"Neutral": 0})
+    mean = style_vectors[0]
+    vec = style_vectors[style2id.get("Neutral", 0)]
+    style_vec = mean + (vec - mean) * 1.0
 
     # 학습 지표
     training_dir = dataset_path / "training"
@@ -349,27 +398,24 @@ def generate_report(
         for ckpt in checkpoints:
             progress.update(task, description=t("report.generator.model_loading", label=ckpt.label))
 
-            model = TTSModel(
-                model_path=ckpt.path,
-                config_path=config_path,
-                style_vec_path=style_vec_path,
-                device=device,
-            )
-            model.load()
+            net_g = get_net_g(str(ckpt.path), hps.version, device, hps)
 
             audio_matrix[ckpt.label] = {}
 
             for text in texts:
                 progress.update(task, description=t("report.generator.generating", label=ckpt.label))
                 try:
-                    sr, audio = model.infer(text)
+                    sr, audio = _synthesize(net_g, hps, style_vec, text, device)
                     audio_matrix[ckpt.label][text] = _audio_to_data_uri(sr, audio)
                 except Exception as e:
                     console.print(t("report.generator.error", label=ckpt.label, error=e))
                     audio_matrix[ckpt.label][text] = ""
                 progress.advance(task)
 
-            model.unload()
+            # 체크포인트별 로드/해제로 VRAM 사용을 일정하게 유지
+            del net_g
+            if device == "cuda":
+                torch.cuda.empty_cache()
 
     # HTML 생성
     console.print(t("report.generator.building_html"))

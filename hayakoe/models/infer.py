@@ -25,9 +25,6 @@ from hayakoe.nlp import (
 from hayakoe.nlp.symbols import SYMBOLS
 
 
-SynthesizerTrn = SynthesizerTrnJPExtra
-
-
 def get_net_g(
     model_path: str, version: str, device: str, hps: HyperParameters
 ) -> SynthesizerTrnJPExtra:
@@ -80,8 +77,6 @@ def get_text(
     text: str,
     hps: HyperParameters,
     device: str,
-    assist_text: Optional[str] = None,
-    assist_text_weight: float = 0.7,
     given_phone: Optional[list[str]] = None,
     given_tone: Optional[list[int]] = None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -109,8 +104,6 @@ def get_text(
         word2ph,
         Languages.JP,
         device,
-        assist_text,
-        assist_text_weight,
     )
     del word2ph
     assert ja_bert.shape[-1] == len(phone), phone
@@ -133,10 +126,6 @@ def infer(
     hps: HyperParameters,
     net_g: SynthesizerTrnJPExtra,
     device: str,
-    skip_start: bool = False,
-    skip_end: bool = False,
-    assist_text: Optional[str] = None,
-    assist_text_weight: float = 0.7,
     given_phone: Optional[list[str]] = None,
     given_tone: Optional[list[int]] = None,
 ) -> NDArray[Any]:
@@ -144,21 +133,9 @@ def infer(
         text,
         hps,
         device,
-        assist_text=assist_text,
-        assist_text_weight=assist_text_weight,
         given_phone=given_phone,
         given_tone=given_tone,
     )
-    if skip_start:
-        phones = phones[3:]
-        tones = tones[3:]
-        lang_ids = lang_ids[3:]
-        ja_bert = ja_bert[:, 3:]
-    if skip_end:
-        phones = phones[:-2]
-        tones = tones[:-2]
-        lang_ids = lang_ids[:-2]
-        ja_bert = ja_bert[:, :-2]
 
     with torch.no_grad():
         x_tst = phones.to(device).unsqueeze(0)

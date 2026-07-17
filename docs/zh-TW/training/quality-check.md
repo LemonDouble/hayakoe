@@ -76,7 +76,7 @@ WAV 以 base64 內嵌在 HTML 中,只需傳遞一個檔案所有音訊就一起�
 **生成順序**
 
 1. 從 `<dataset>/training/` 和 `<dataset>/training/eval/` 收集 TensorBoard 事件檔案的純量指標。
-2. 逐個檢查點用 `hayakoe.tts_model.TTSModel` 載入,合成全部評估文字後 unload。為節省 VRAM 每次只在記憶體中保留一個。
+2. 逐個檢查點用 `hayakoe.models.infer` 載入,合成全部評估文字後釋放。為節省 VRAM 每次只在記憶體中保留一個。
 3. 將指標圖表與音訊表組裝成 self-contained HTML。
 :::
 

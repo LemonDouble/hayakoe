@@ -76,7 +76,7 @@ When there are more than 8 checkpoints, they are automatically sampled evenly (f
 **Generation Order**
 
 1. Collects scalar metrics from TensorBoard event files in `<dataset>/training/` and `<dataset>/training/eval/`.
-2. Loads checkpoints one by one with `hayakoe.tts_model.TTSModel`, synthesizes all evaluation texts, then unloads. Only one is loaded into memory at a time to conserve VRAM.
+2. Loads checkpoints one by one with `hayakoe.models.infer`, synthesizes all evaluation texts, then releases them. Only one is loaded into memory at a time to conserve VRAM.
 3. Assembles the metric charts and audio table into a self-contained HTML.
 :::
 

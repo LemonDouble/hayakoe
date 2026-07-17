@@ -76,7 +76,7 @@ Slack・Notion にそのままアップロードしても外部ファイル依�
 **生成順序**
 
 1. `<dataset>/training/` と `<dataset>/training/eval/` から TensorBoard イベントファイルのスカラー指標を収集します。
-2. チェックポイントを1つずつ `hayakoe.tts_model.TTSModel` でロードし、評価テキスト全部を合成した後 unload します。VRAM を節約するため一度に1つだけメモリにロードします。
+2. チェックポイントを1つずつ `hayakoe.models.infer` でロードし、評価テキスト全部を合成した後解放します。VRAM を節約するため一度に1つだけメモリにロードします。
 3. 指標チャートとオーディオ表を self-contained HTML に組み立てます。
 :::
 
