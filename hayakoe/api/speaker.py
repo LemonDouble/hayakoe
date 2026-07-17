@@ -4,6 +4,7 @@ import asyncio
 import re
 import threading
 from collections.abc import AsyncGenerator, Generator
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Union
 
@@ -406,21 +407,34 @@ class Speaker:
         text: str,
         **kwargs,
     ) -> AsyncGenerator[AudioResult, None]:
-        """비동기 스트리밍 — 별도 스레드에서 :meth:`stream` 의 각 chunk 를 받아온다.
+        """비동기 스트리밍 — 전용 단일 워커 스레드에서 :meth:`stream` 의 각 chunk 를 받아온다.
 
         FastAPI ``StreamingResponse`` 와 조합해 바로 스트리밍할 수 있다.
         제너레이터 소진 또는 async iterator close 시 lock 이 해제된다.
+
+        스트림 하나가 워커 스레드 하나를 수명 내내 전용한다. asyncio 공유
+        기본 executor 를 청크마다 빌리는 방식은 대기 스트림들이 풀을 다
+        점유하는 순간 lock 보유자가 다음 청크를 꺼낼 스레드를 얻지 못해
+        앱 전체 ``to_thread`` 가 영구 정지하는 데드락이 있었다.
         """
         gen = self.stream(text, **kwargs)
+        loop = asyncio.get_running_loop()
+        executor = ThreadPoolExecutor(max_workers=1)
         _SENTINEL = object()
         try:
             while True:
-                chunk = await asyncio.to_thread(next, gen, _SENTINEL)
+                chunk = await loop.run_in_executor(executor, next, gen, _SENTINEL)
                 if chunk is _SENTINEL:
                     return
                 yield chunk
         finally:
-            gen.close()
+            # close 를 같은 워커 스레드에 제출한다. 단일 워커가 next() 와
+            # close() 를 자연 직렬화하므로, 합성 중 취소되어도 실행 중인
+            # 제너레이터를 닫으려다 나는 ValueError: generator already
+            # executing 이 발생할 수 없고, 진행 중이던 문장이 끝나는 즉시
+            # lock 이 결정적으로 해제된다 (기존에는 GC 시점까지 잔류).
+            executor.submit(gen.close)
+            executor.shutdown(wait=False)
 
     def stream_wav(
         self,
