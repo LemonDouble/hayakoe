@@ -39,12 +39,20 @@ def load_safetensors(
     else:
         result = model.load_state_dict(tensors, strict=False)
     expected = set(expected_missing_keys or [])
-    for key in result.missing_keys:
-        if key.startswith("enc_q") and for_infer:
-            continue
-        if key in expected:
-            continue
-        logger.warning(f"Missing key: {key}")
+    fatal_missing = [
+        key
+        for key in result.missing_keys
+        if not (key.startswith("enc_q") and for_infer) and key not in expected
+    ]
+    if fatal_missing:
+        # 여기서 죽지 않으면 해당 파라미터가 랜덤 초기값으로 남아, 로드는
+        # "성공" 한 채 잡음/무의미한 오디오를 합성하게 된다 (조용한 실패).
+        preview = ", ".join(fatal_missing[:5])
+        suffix = f" 외 {len(fatal_missing) - 5}개" if len(fatal_missing) > 5 else ""
+        raise RuntimeError(
+            f"체크포인트에 필요한 가중치 {len(fatal_missing)}개가 없습니다"
+            f" ({checkpoint_path}): {preview}{suffix}"
+        )
     for key in result.unexpected_keys:
         if key == "iteration":
             continue

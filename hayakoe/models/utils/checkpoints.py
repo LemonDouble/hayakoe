@@ -77,7 +77,12 @@ def load_checkpoint(
             elif "enc_q" in k and for_infer:
                 continue
             else:
-                logger.error(f"{k} is not in the checkpoint {checkpoint_path}")
+                # 여기서 죽지 않으면 해당 파라미터가 초기값 그대로 남아,
+                # 로드는 "성공" 한 채 잡음/무의미한 출력이 나온다 (조용한 실패).
+                raise RuntimeError(
+                    f"체크포인트에 '{k}' 가중치가 없거나 shape 이 일치하지"
+                    f" 않습니다: {checkpoint_path}"
+                )
 
             new_state_dict[k] = v
 
