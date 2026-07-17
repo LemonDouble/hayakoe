@@ -32,19 +32,25 @@ async def extract_audio(
         *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
     )
 
-    async for line in proc.stdout:
-        if progress_callback and total_duration > 0 and line.startswith(b"out_time_us="):
-            try:
-                us = int(line.split(b"=")[1])
-                progress = min(us / 1_000_000 / total_duration, 0.99)
-                await progress_callback(progress, "오디오 추출 중...")
-            except (ValueError, ZeroDivisionError):
-                pass
+    async def _read_progress() -> None:
+        async for line in proc.stdout:
+            if progress_callback and total_duration > 0 and line.startswith(b"out_time_us="):
+                try:
+                    us = int(line.split(b"=")[1])
+                    progress = min(us / 1_000_000 / total_duration, 0.99)
+                    await progress_callback(progress, "오디오 추출 중...")
+                except (ValueError, ZeroDivisionError):
+                    pass
+
+    # stderr 도 stdout 과 병행 소비해야 한다. stdout 만 읽으면 ffmpeg 이
+    # stderr 를 ~200KB 이상 쏟을 때 (손상/타임스탬프 경고가 많은 긴 녹화)
+    # 파이프 버퍼가 차서 ffmpeg 은 stderr 쓰기에, 여기는 stdout 읽기에
+    # 서로 블록되는 교착이 난다. 실패 시 에러 보고용으로 내용은 보관한다.
+    _, stderr = await asyncio.gather(_read_progress(), proc.stderr.read())
 
     await proc.wait()
 
     if proc.returncode != 0:
-        stderr = await proc.stderr.read()
         raise RuntimeError(f"ffmpeg 실패: {stderr.decode()[-500:]}")
 
     return output_path
