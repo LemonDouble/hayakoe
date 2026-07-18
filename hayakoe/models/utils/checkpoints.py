@@ -2,7 +2,7 @@ import glob
 import os
 import re
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
 import torch
 
@@ -44,13 +44,6 @@ def load_checkpoint(
         and checkpoint_dict["optimizer"] is not None
     ):
         optimizer.load_state_dict(checkpoint_dict["optimizer"])
-    elif optimizer is None and not skip_optimizer:
-        # else:      Disable this line if Infer and resume checkpoint,then enable the line upper
-        new_opt_dict = optimizer.state_dict()  # type: ignore
-        new_opt_dict_params = new_opt_dict["param_groups"][0]["params"]
-        new_opt_dict["param_groups"] = checkpoint_dict["optimizer"]["param_groups"]
-        new_opt_dict["param_groups"][0]["params"] = new_opt_dict_params
-        optimizer.load_state_dict(new_opt_dict)  # type: ignore
 
     saved_state_dict = checkpoint_dict["model"]
     if hasattr(model, "module"):
@@ -152,7 +145,7 @@ def clean_checkpoints(
     ]
 
     def name_key(_f: str) -> int:
-        return int(re.compile("._(\\d+)\\.pth").match(_f).group(1))  # type: ignore
+        return int(re.match("._(\\d+)\\.pth", _f).group(1))  # type: ignore
 
     def time_key(_f: str) -> float:
         return os.path.getmtime(os.path.join(model_dir_path, _f))
@@ -175,13 +168,9 @@ def clean_checkpoints(
         )
     ]
 
-    def del_info(fn: str) -> None:
-        return logger.info(f"Free up space by deleting ckpt {fn}")
-
-    def del_routine(x: str) -> list[Any]:
-        return [os.remove(x), del_info(x)]
-
-    [del_routine(fn) for fn in to_del]
+    for fn in to_del:
+        os.remove(fn)
+        logger.info(f"Free up space by deleting ckpt {fn}")
 
 
 def get_latest_checkpoint_path(

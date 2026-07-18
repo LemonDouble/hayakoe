@@ -1,7 +1,3 @@
-"""
-아래 함수의 주석은 리팩토링 시 GPT-4로 생성한 것으로, 코드와 완전히 일치하지 않을 수 있다.
-"""
-
 from typing import Any, Callable, Optional
 
 import torch
@@ -16,17 +12,6 @@ _maximum_path_jit: Optional[Callable[..., None]] = None
 
 
 def maximum_path(neg_cent: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-    """
-    주어진 음의 중심값과 마스크를 사용하여 최대 경로를 계산한다
-
-    Args:
-        neg_cent (torch.Tensor): 음의 중심값을 나타내는 텐서
-        mask (torch.Tensor): 마스크를 나타내는 텐서
-
-    Returns:
-        Tensor: 계산된 최대 경로를 나타내는 텐서
-    """
-
     device = neg_cent.device
     dtype = neg_cent.dtype
     neg_cent = neg_cent.data.cpu().numpy().astype(float32)
@@ -69,16 +54,6 @@ def _get_maximum_path_jit() -> Callable[..., None]:
         nogil=True,
     )  # type: ignore
     def _jit(paths: Any, values: Any, t_ys: Any, t_xs: Any) -> None:
-        """
-        주어진 경로, 값, 그리고 타겟 y/x 좌표를 사용하여 JIT으로 최대 경로를 계산한다
-
-        Args:
-            paths: 계산된 경로를 저장하기 위한 정수형 3차원 배열
-            values: 값을 저장하기 위한 부동소수점형 3차원 배열
-            t_ys: 타겟 y 좌표를 저장하기 위한 정수형 1차원 배열
-            t_xs: 타겟 x 좌표를 저장하기 위한 정수형 1차원 배열
-        """
-
         b = paths.shape[0]
         max_neg_val = -1e9
         for i in range(int(b)):

@@ -1,7 +1,3 @@
-"""
-아래 함수의 주석은 리팩토링 시 GPT-4로 생성한 것으로, 코드와 완전히 일치하지 않을 수 있다.
-"""
-
 from typing import Any, Optional, Union
 
 import torch
@@ -9,59 +5,22 @@ from torch.nn import functional as F
 
 
 def init_weights(m: torch.nn.Module, mean: float = 0.0, std: float = 0.01) -> None:
-    """
-    모듈의 가중치를 초기화한다
-
-    Args:
-        m (torch.nn.Module): 가중치를 초기화할 대상 모듈
-        mean (float): 정규분포의 평균
-        std (float): 정규분포의 표준편차
-    """
     classname = m.__class__.__name__
     if classname.find("Conv") != -1:
         m.weight.data.normal_(mean, std)
 
 
 def get_padding(kernel_size: int, dilation: int = 1) -> int:
-    """
-    커널 크기와 팽창률로부터 패딩 크기를 계산한다
-
-    Args:
-        kernel_size (int): 커널 크기
-        dilation (int): 팽창률
-
-    Returns:
-        int: 계산된 패딩 크기
-    """
     return int((kernel_size * dilation - dilation) / 2)
 
 
 def convert_pad_shape(pad_shape: list[list[Any]]) -> list[Any]:
-    """
-    패딩 형상을 변환한다
-
-    Args:
-        pad_shape (list[list[Any]]): 변환 전 패딩 형상
-
-    Returns:
-        list[Any]: 변환 후 패딩 형상
-    """
     layer = pad_shape[::-1]
     new_pad_shape = [item for sublist in layer for item in sublist]
     return new_pad_shape
 
 
 def intersperse(lst: list[Any], item: Any) -> list[Any]:
-    """
-    리스트 요소 사이에 특정 아이템을 삽입한다
-
-    Args:
-        lst (list[Any]): 원본 리스트
-        item (Any): 삽입할 아이템
-
-    Returns:
-        list[Any]: 새 리스트
-    """
     result = [item] * (len(lst) * 2 + 1)
     result[1::2] = lst
     return result
@@ -70,17 +29,6 @@ def intersperse(lst: list[Any], item: Any) -> list[Any]:
 def slice_segments(
     x: torch.Tensor, ids_str: torch.Tensor, segment_size: int = 4
 ) -> torch.Tensor:
-    """
-    텐서에서 세그먼트를 슬라이스한다
-
-    Args:
-        x (torch.Tensor): 입력 텐서
-        ids_str (torch.Tensor): 슬라이스 시작 인덱스
-        segment_size (int, optional): 슬라이스 크기 (기본값: 4)
-
-    Returns:
-        torch.Tensor: 슬라이스된 세그먼트
-    """
     gather_indices = ids_str.view(x.size(0), 1, 1).repeat(
         1, x.size(1), 1
     ) + torch.arange(segment_size, device=x.device)
@@ -90,17 +38,6 @@ def slice_segments(
 def rand_slice_segments(
     x: torch.Tensor, x_lengths: Optional[torch.Tensor] = None, segment_size: int = 4
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """
-    랜덤 세그먼트를 슬라이스한다
-
-    Args:
-        x (torch.Tensor): 입력 텐서
-        x_lengths (Optional[torch.Tensor], optional): 각 배치의 길이 (기본값: None)
-        segment_size (int, optional): 슬라이스 크기 (기본값: 4)
-
-    Returns:
-        tuple[torch.Tensor, torch.Tensor]: 슬라이스된 세그먼트와 시작 인덱스
-    """
     b, d, t = x.size()
     if x_lengths is None:
         x_lengths = t  # type: ignore
@@ -110,35 +47,11 @@ def rand_slice_segments(
     return ret, ids_str
 
 
-def subsequent_mask(length: int) -> torch.Tensor:
-    """
-    후속 마스크를 생성한다
-
-    Args:
-        length (int): 마스크 크기
-
-    Returns:
-        torch.Tensor: 생성된 마스크
-    """
-    mask = torch.tril(torch.ones(length, length)).unsqueeze(0).unsqueeze(0)
-    return mask
-
-
 @torch.jit.script  # type: ignore
 def fused_add_tanh_sigmoid_multiply(
     input_a: torch.Tensor, input_b: torch.Tensor, n_channels: torch.Tensor
 ) -> torch.Tensor:
-    """
-    덧셈, tanh, sigmoid 활성화 함수를 결합한 연산을 수행한다
-
-    Args:
-        input_a (torch.Tensor): 입력 텐서 A
-        input_b (torch.Tensor): 입력 텐서 B
-        n_channels (torch.Tensor): 채널 수
-
-    Returns:
-        torch.Tensor: 연산 결과
-    """
+    """덧셈 + tanh/sigmoid 게이트 활성화를 하나의 JIT 커널로 융합한 WaveNet 연산"""
     n_channels_int = n_channels[0]
     in_act = input_a + input_b
     t_act = torch.tanh(in_act[:, :n_channels_int, :])
@@ -150,16 +63,6 @@ def fused_add_tanh_sigmoid_multiply(
 def sequence_mask(
     length: torch.Tensor, max_length: Optional[int] = None
 ) -> torch.Tensor:
-    """
-    시퀀스 마스크를 생성한다
-
-    Args:
-        length (torch.Tensor): 각 시퀀스의 길이
-        max_length (Optional[int]): 최대 시퀀스 길이. 지정하지 않으면 length의 최댓값을 사용
-
-    Returns:
-        torch.Tensor: 생성된 시퀀스 마스크
-    """
     if max_length is None:
         max_length = length.max()  # type: ignore
     x = torch.arange(max_length, dtype=length.dtype, device=length.device)  # type: ignore
@@ -167,16 +70,7 @@ def sequence_mask(
 
 
 def generate_path(duration: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-    """
-    경로를 생성한다
-
-    Args:
-        duration (torch.Tensor): 각 타임 스텝의 지속 시간
-        mask (torch.Tensor): 마스크 텐서
-
-    Returns:
-        torch.Tensor: 생성된 경로
-    """
+    """duration의 누적합으로 텍스트-음성 정렬 경로를 생성한다"""
     b, _, t_y, t_x = mask.shape
     cum_duration = torch.cumsum(duration, -1)
 
@@ -193,17 +87,6 @@ def clip_grad_value_(
     clip_value: Optional[float],
     norm_type: float = 2.0,
 ) -> float:
-    """
-    그래디언트 값을 클리핑한다
-
-    Args:
-        parameters (Union[torch.Tensor, list[torch.Tensor]]): 클리핑할 파라미터
-        clip_value (Optional[float]): 클리핑할 값. None이면 클리핑하지 않음
-        norm_type (float): 노름 유형
-
-    Returns:
-        float: 총 노름
-    """
     if isinstance(parameters, torch.Tensor):
         parameters = [parameters]
     parameters = list(filter(lambda p: p.grad is not None, parameters))
