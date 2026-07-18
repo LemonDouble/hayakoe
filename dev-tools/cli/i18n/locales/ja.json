@@ -75,9 +75,6 @@
   "training.briefing.invalid_number": "  [error]正の整数を入力してください。[/error]",
   "training.briefing.interval_changed": "  → チェックポイント間隔: [success]{interval}[/success] steps · 予想 [success]{count}[/success]回 · ~{gb:.1f}GB",
 
-  "training.dataset.status_resume": "学習再開可能",
-  "training.dataset.status_ready": "学習準備完了",
-  "training.dataset.status_need_preprocess": "前処理が必要",
 
   "training.preprocess.no_lists": "  [error]train.list / val.list がありません。先にデータ分割を実行してください。[/error]",
   "training.preprocess.audio_missing": "  [warning]オーディオなし: {path}[/warning]",
@@ -164,9 +161,6 @@
   "report.menu.confirm_generate": "レポートを生成しますか？",
   "report.menu.complete": "\n[success]レポート生成完了！[/success]",
   "report.menu.open_browser": "ブラウザで開きますか？",
-  "report.menu.sample_label_short": "短い",
-  "report.menu.sample_label_medium": "中間",
-  "report.menu.sample_label_long": "長い",
 
   "report.generator.reading_metrics": "  [dim]学習指標を読み込み中...[/dim]",
   "report.generator.generating_audio": "音声生成中",
@@ -313,7 +307,6 @@
   "publish.verify.success": "  [success]✓ {label}[/success] [dim]— {duration:.2f}s @ {sr}Hz[/dim]",
   "publish.verify.failed": "  [error]✗ {label} 検証失敗[/error] [dim]{error_type}: {error}[/dim]",
   "publish.verify.cuda_skip": "  [dim]CUDA が使用できないため GPU (PyTorch) 検証はスキップします。[/dim]",
-  "publish.verify.no_backends": "  [dim]検証するバックエンドがありません。[/dim]",
 
   "publish.source.not_dir": "フォルダではありません: {path}",
   "publish.source.no_config": "config.json がありません: {path}",

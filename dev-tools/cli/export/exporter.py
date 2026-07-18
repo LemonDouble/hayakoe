@@ -98,24 +98,38 @@ class _DurationPredictorWrapper(nn.Module):
         return torch.ceil(w).squeeze(1)  # [batch, phone_len]
 
 
-def export_duration_predictor(
-    config_path: Path, checkpoint: Path, output_dir: Path, opset: int = 17,
-) -> Path:
-    """TextEncoder + DurationPredictor만 FP32 ONNX로 내보낸다.
+def _common_dummy_inputs(seq_len: int = 20) -> tuple:
+    """두 export 가 공유하는 텍스트/스타일 더미 입력 7개.
 
-    문장 경계 무음 길이 예측 (자연스러운 다문장 합성용) 에 사용된다.
-
-    Args:
-        config_path: 모델 ``config.json`` 경로.
-        checkpoint: 내보낼 ``.safetensors`` 체크포인트.
-        output_dir: 출력 디렉토리.
-        opset: ONNX opset 버전.
-
-    Returns:
-        생성된 ONNX 파일 경로.
+    scale 류 스칼라 입력(noise_scale, sdp_ratio 등)은 함수마다 개수·값이
+    달라 각 호출부에서 덧붙인다.
     """
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "duration_predictor.onnx"
+    return (
+        torch.randint(0, len(SYMBOLS), (1, seq_len)),       # x
+        torch.LongTensor([seq_len]),                         # x_lengths
+        torch.LongTensor([0]),                               # sid
+        torch.randint(0, 10, (1, seq_len)),                  # tone
+        torch.zeros(1, seq_len, dtype=torch.long),           # language
+        torch.randn(1, 1024, seq_len),                       # bert
+        torch.randn(1, 256),                                 # style_vec
+    )
+
+
+def _export_onnx(
+    config_path: Path,
+    checkpoint: Path,
+    output_path: Path,
+    make_wrapper,
+    dummy_inputs: tuple,
+    input_names: list[str],
+    output_names: list[str],
+    dynamic_axes: dict,
+    opset: int,
+    *,
+    remove_weight_norm: bool = False,
+) -> Path:
+    """모델 로드 → 래핑 → torch.onnx.export → 크기/시간 출력 공통 플로우."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     hps = HyperParameters.load_from_json(config_path)
 
@@ -124,136 +138,17 @@ def export_duration_predictor(
         TextColumn("[progress.description]{task.description}"),
         console=console,
     ) as progress:
-        task = progress.add_task(t("export.model_loading"), total=None)
-        net_g = get_net_g(str(checkpoint), hps.version, "cpu", hps)
-        net_g.eval()
-
-        wrapper = _DurationPredictorWrapper(net_g)
-        wrapper.eval()
-
-        seq_len = 20
-        dummy_inputs = (
-            torch.randint(0, len(SYMBOLS), (1, seq_len)),       # x
-            torch.LongTensor([seq_len]),                         # x_lengths
-            torch.LongTensor([0]),                               # sid
-            torch.randint(0, 10, (1, seq_len)),                  # tone
-            torch.zeros(1, seq_len, dtype=torch.long),           # language
-            torch.randn(1, 1024, seq_len),                       # bert
-            torch.randn(1, 256),                                 # style_vec
-            torch.FloatTensor([1.0]),                            # length_scale
-            torch.FloatTensor([0.8]),                            # noise_scale_w
-            torch.FloatTensor([0.0]),                            # sdp_ratio
-        )
-
-        input_names = [
-            "x", "x_lengths", "sid", "tone", "language", "bert", "style_vec",
-            "length_scale", "noise_scale_w", "sdp_ratio",
-        ]
-        output_names = ["durations"]
-        dynamic_axes = {
-            "x": {1: "phone_len"},
-            "tone": {1: "phone_len"},
-            "language": {1: "phone_len"},
-            "bert": {2: "phone_len"},
-            "durations": {1: "phone_len"},
-        }
-
-        progress.update(task, description=t("export.onnx_exporting"))
-        t0 = time.time()
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=torch.jit.TracerWarning)
-            warnings.filterwarnings("ignore", message="Constant folding")
-            torch.onnx.export(
-                wrapper,
-                dummy_inputs,
-                str(output_path),
-                input_names=input_names,
-                output_names=output_names,
-                dynamic_axes=dynamic_axes,
-                opset_version=opset,
-                do_constant_folding=True,
-                dynamo=False,
-            )
-        elapsed = time.time() - t0
-
-        total_size = output_path.stat().st_size
-        data_file = Path(str(output_path) + ".data")
-        if data_file.exists():
-            total_size += data_file.stat().st_size
-
-        progress.update(task, description=t("export.done"))
-
-    console.print(t("export.time", elapsed=elapsed))
-    console.print(t("export.size", size=total_size / 1024 / 1024))
-
-    return output_path
-
-
-def export_synthesizer(
-    config_path: Path, checkpoint: Path, output_dir: Path, opset: int = 17,
-) -> Path:
-    """Synthesizer를 FP32 ONNX로 내보낸다.
-
-    Args:
-        config_path: 모델 ``config.json`` 경로.
-        checkpoint: 내보낼 ``.safetensors`` 체크포인트.
-        output_dir: 출력 디렉토리.
-        opset: ONNX opset 버전.
-
-    Returns:
-        생성된 ONNX 파일 경로.
-    """
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "synthesizer.onnx"
-
-    hps = HyperParameters.load_from_json(config_path)
-
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console,
-    ) as progress:
-        # 모델 로드
         task = progress.add_task(t("export.model_loading"), total=None)
         net_g = get_net_g(str(checkpoint), hps.version, "cpu", hps)
         net_g.eval()
 
         # remove_weight_norm 내부의 print() 억제
-        if hasattr(net_g.dec, "remove_weight_norm"):
+        if remove_weight_norm and hasattr(net_g.dec, "remove_weight_norm"):
             with contextlib.redirect_stdout(io.StringIO()):
                 net_g.dec.remove_weight_norm()
 
-        wrapper = _SynthesizerWrapper(net_g)
+        wrapper = make_wrapper(net_g)
         wrapper.eval()
-
-        # 더미 입력 생성
-        seq_len = 20
-        dummy_inputs = (
-            torch.randint(0, len(SYMBOLS), (1, seq_len)),       # x
-            torch.LongTensor([seq_len]),                         # x_lengths
-            torch.LongTensor([0]),                               # sid
-            torch.randint(0, 10, (1, seq_len)),                  # tone
-            torch.zeros(1, seq_len, dtype=torch.long),           # language
-            torch.randn(1, 1024, seq_len),                       # bert
-            torch.randn(1, 256),                                 # style_vec
-            torch.FloatTensor([0.667]),                          # noise_scale
-            torch.FloatTensor([1.0]),                            # length_scale
-            torch.FloatTensor([0.8]),                            # noise_scale_w
-            torch.FloatTensor([0.2]),                            # sdp_ratio
-        )
-
-        input_names = [
-            "x", "x_lengths", "sid", "tone", "language", "bert", "style_vec",
-            "noise_scale", "length_scale", "noise_scale_w", "sdp_ratio",
-        ]
-        output_names = ["audio"]
-        dynamic_axes = {
-            "x": {1: "phone_len"},
-            "tone": {1: "phone_len"},
-            "language": {1: "phone_len"},
-            "bert": {2: "phone_len"},
-            "audio": {2: "audio_len"},
-        }
 
         # ONNX 내보내기 (TracerWarning / constant folding 경고 억제)
         progress.update(task, description=t("export.onnx_exporting"))
@@ -274,7 +169,7 @@ def export_synthesizer(
             )
         elapsed = time.time() - t0
 
-        # 크기 표시
+        # .data 파일이 있으면 크기에 합산
         total_size = output_path.stat().st_size
         data_file = Path(str(output_path) + ".data")
         if data_file.exists():
@@ -286,3 +181,91 @@ def export_synthesizer(
     console.print(t("export.size", size=total_size / 1024 / 1024))
 
     return output_path
+
+
+def export_duration_predictor(
+    config_path: Path, checkpoint: Path, output_dir: Path, opset: int = 17,
+) -> Path:
+    """TextEncoder + DurationPredictor만 FP32 ONNX로 내보낸다.
+
+    문장 경계 무음 길이 예측 (자연스러운 다문장 합성용) 에 사용된다.
+
+    Args:
+        config_path: 모델 ``config.json`` 경로.
+        checkpoint: 내보낼 ``.safetensors`` 체크포인트.
+        output_dir: 출력 디렉토리.
+        opset: ONNX opset 버전.
+
+    Returns:
+        생성된 ONNX 파일 경로.
+    """
+    dummy_inputs = (
+        *_common_dummy_inputs(),
+        torch.FloatTensor([1.0]),                            # length_scale
+        torch.FloatTensor([0.8]),                            # noise_scale_w
+        torch.FloatTensor([0.0]),                            # sdp_ratio
+    )
+    return _export_onnx(
+        config_path,
+        checkpoint,
+        output_dir / "duration_predictor.onnx",
+        _DurationPredictorWrapper,
+        dummy_inputs,
+        input_names=[
+            "x", "x_lengths", "sid", "tone", "language", "bert", "style_vec",
+            "length_scale", "noise_scale_w", "sdp_ratio",
+        ],
+        output_names=["durations"],
+        dynamic_axes={
+            "x": {1: "phone_len"},
+            "tone": {1: "phone_len"},
+            "language": {1: "phone_len"},
+            "bert": {2: "phone_len"},
+            "durations": {1: "phone_len"},
+        },
+        opset=opset,
+    )
+
+
+def export_synthesizer(
+    config_path: Path, checkpoint: Path, output_dir: Path, opset: int = 17,
+) -> Path:
+    """Synthesizer를 FP32 ONNX로 내보낸다.
+
+    Args:
+        config_path: 모델 ``config.json`` 경로.
+        checkpoint: 내보낼 ``.safetensors`` 체크포인트.
+        output_dir: 출력 디렉토리.
+        opset: ONNX opset 버전.
+
+    Returns:
+        생성된 ONNX 파일 경로.
+    """
+    dummy_inputs = (
+        *_common_dummy_inputs(),
+        torch.FloatTensor([0.667]),                          # noise_scale
+        torch.FloatTensor([1.0]),                            # length_scale
+        torch.FloatTensor([0.8]),                            # noise_scale_w
+        torch.FloatTensor([0.2]),                            # sdp_ratio
+    )
+    return _export_onnx(
+        config_path,
+        checkpoint,
+        output_dir / "synthesizer.onnx",
+        _SynthesizerWrapper,
+        dummy_inputs,
+        input_names=[
+            "x", "x_lengths", "sid", "tone", "language", "bert", "style_vec",
+            "noise_scale", "length_scale", "noise_scale_w", "sdp_ratio",
+        ],
+        output_names=["audio"],
+        dynamic_axes={
+            "x": {1: "phone_len"},
+            "tone": {1: "phone_len"},
+            "language": {1: "phone_len"},
+            "bert": {2: "phone_len"},
+            "audio": {2: "audio_len"},
+        },
+        opset=opset,
+        remove_weight_norm=True,
+    )

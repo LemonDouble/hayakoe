@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from InquirerPy import inquirer
+from InquirerPy.base.control import Choice
 from InquirerPy.separator import Separator
 from rich.panel import Panel
 from rich.table import Table
@@ -55,6 +56,14 @@ EDITABLE_PARAMS: list[ParamDef] = [
     ParamDef(key="train.freeze_style", type=bool, i18n_key="freeze_style", group=GROUP_ADVANCED, default=False),
     ParamDef(key="train.freeze_decoder", type=bool, i18n_key="freeze_decoder", group=GROUP_ADVANCED, default=False),
 ]
+
+
+def _group_labels() -> dict[str, str]:
+    """그룹 코드 → 표시 라벨. 로케일이 런타임에 바뀔 수 있어 호출 시점에 평가."""
+    return {
+        GROUP_BASIC: t("training.config.group_basic"),
+        GROUP_ADVANCED: t("training.config.group_advanced"),
+    }
 
 
 def _get_nested(data: dict, key: str) -> Any:
@@ -112,10 +121,7 @@ def _render_config_table(config: dict, train_count: int):
     table.add_column(t("training.config.col_description"), style="dim")
     table.add_column(t("training.config.col_value"), style="value", justify="right")
 
-    group_labels = {
-        GROUP_BASIC: t("training.config.group_basic"),
-        GROUP_ADVANCED: t("training.config.group_advanced"),
-    }
+    group_labels = _group_labels()
 
     current_group = None
     for param in EDITABLE_PARAMS:
@@ -176,11 +182,8 @@ def edit_config(dataset_path: Path) -> dict:
         _render_config_table(config, train_count)
         console.print()
 
-        # 그룹 구분이 있는 선택 목록 구성
-        group_labels = {
-            GROUP_BASIC: t("training.config.group_basic"),
-            GROUP_ADVANCED: t("training.config.group_advanced"),
-        }
+        # 그룹 구분이 있는 선택 목록 구성 — value 로 ParamDef 를 직접 담는다
+        group_labels = _group_labels()
         label_done = t("training.config.done_save")
 
         choices: list = []
@@ -190,22 +193,19 @@ def edit_config(dataset_path: Path) -> dict:
                 choices.append(Separator(f"── {group_labels.get(p.group, p.group)} ──"))
                 current_group = p.group
             name = p.key.split(".")[-1]
-            choices.append(f"{name} — {p.label}")
+            choices.append(Choice(value=p, name=f"{name} — {p.label}"))
         choices.append(Separator())
-        choices.append(label_done)
+        choices.append(Choice(value=None, name=label_done))
 
-        choice = inquirer.select(
+        param = inquirer.select(
             message=t("training.config.prompt_select"),
             choices=choices,
             pointer="❯",
         ).execute()
 
-        if choice == label_done:
+        if param is None:
             break
 
-        # 선택된 파라미터 찾기
-        param_name = choice.split(" — ")[0]
-        param = next(p for p in EDITABLE_PARAMS if p.key.split(".")[-1] == param_name)
         raw_value = _get_nested(config, param.key)
         current = param.default if raw_value is _MISSING else raw_value
 
@@ -216,7 +216,8 @@ def edit_config(dataset_path: Path) -> dict:
         if param.type == bool:
             new_val = not current
             label = _format_value(param, new_val)
-            console.print(f"  {param_name}: → {label}")
+            name = param.key.split(".")[-1]
+            console.print(f"  {name}: → {label}")
         else:
             raw = edit_value(f"{param.label}", current)
             try:

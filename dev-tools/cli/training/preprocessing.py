@@ -6,18 +6,37 @@
 4. default_style — 평균 스타일 벡터 생성
 """
 
+import os
 from pathlib import Path
 
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, MofNCompleteColumn
 
 from cli.i18n import t
-from cli.training.dataset import activate_dataset
+from cli.training.dataset import _feature_path, activate_dataset
 from cli.ui.console import console
 
 
 def _read_lines(path: Path) -> list[str]:
     with open(path, encoding="utf-8") as f:
         return [line for line in f.readlines() if line.strip()]
+
+
+def _filter_pending(lines: list[str], to_feature, force: bool) -> list[str]:
+    """``force`` 면 기존 feature 파일을 삭제하고 전체를, 아니면 feature 파일이
+    없는 라인만 돌려준다. ``to_feature`` 는 wav 경로 → feature 경로 매핑."""
+    if force:
+        for line in lines:
+            wav_path = line.strip().split("|")[0]
+            feature = Path(to_feature(wav_path))
+            if feature.exists():
+                feature.unlink()
+        return lines
+
+    # os.path.exists: Path("") 이 "." 으로 해석돼 빈 wav 필드를 완료로 오판하는 것을 방지
+    return [
+        line for line in lines
+        if not os.path.exists(to_feature(line.strip().split("|")[0]))
+    ]
 
 
 def run_preprocess_text(project_dir: Path, data_dir: Path):
@@ -87,7 +106,6 @@ def run_bert_gen(project_dir: Path, data_dir: Path, force: bool = False):
     """Step 2: BERT 임베딩 생성."""
     activate_dataset(project_dir)
 
-    import os
     from bert_gen import process_line
     from hayakoe.models.hyper_parameters import HyperParameters
 
@@ -97,23 +115,7 @@ def run_bert_gen(project_dir: Path, data_dir: Path, force: bool = False):
     device = get_config().bert_gen_config.device
 
     lines = _read_lines(Path(hps.data.training_files)) + _read_lines(Path(hps.data.validation_files))
-
-    if force:
-        # 기존 .bert.pt 파일 삭제
-        for line in lines:
-            wav_path = line.strip().split("|")[0]
-            bert_path = Path(wav_path.replace(".WAV", ".wav").replace(".wav", ".bert.pt"))
-            if bert_path.exists():
-                bert_path.unlink()
-        pending = lines
-    else:
-        # 미완료 라인만 필터
-        pending = []
-        for line in lines:
-            wav_path = line.strip().split("|")[0]
-            bert_path = wav_path.replace(".WAV", ".wav").replace(".wav", ".bert.pt")
-            if not os.path.exists(bert_path):
-                pending.append(line)
+    pending = _filter_pending(lines, lambda wav: _feature_path(wav, "bert.pt"), force)
 
     if not pending:
         console.print(t("training.preprocess.bert_already_done"))
@@ -134,30 +136,13 @@ def run_style_gen(project_dir: Path, data_dir: Path, force: bool = False):
     """Step 3: 스타일 벡터 생성."""
     activate_dataset(project_dir)
 
-    import os
     from hayakoe.models.hyper_parameters import HyperParameters
 
     config_path = data_dir / "config.json"
     hps = HyperParameters.load_from_json(str(config_path))
 
     lines = _read_lines(Path(hps.data.training_files)) + _read_lines(Path(hps.data.validation_files))
-
-    if force:
-        # 기존 .npy 파일 삭제
-        for line in lines:
-            wav_path = line.strip().split("|")[0]
-            npy_path = Path(f"{wav_path}.npy")
-            if npy_path.exists():
-                npy_path.unlink()
-        pending = lines
-    else:
-        # 미완료 라인만 필터
-        pending = []
-        for line in lines:
-            wav_path = line.strip().split("|")[0]
-            npy_path = f"{wav_path}.npy"
-            if not os.path.exists(npy_path):
-                pending.append(line)
+    pending = _filter_pending(lines, lambda wav: _feature_path(wav, "npy", append=True), force)
 
     if not pending:
         console.print(t("training.preprocess.style_already_done"))
@@ -219,7 +204,7 @@ def run_default_style(project_dir: Path, data_dir: Path):
 
 def run_all_preprocessing(project_dir: Path, data_dir: Path | None = None, force: bool = False):
     """전체 전처리 실행. 완료된 단계는 스킵."""
-    from cli.training.dataset import _is_text_preprocessed, _count_feature_files, _get_model_name
+    from cli.training.dataset import _is_text_preprocessed, get_model_name
 
     data_dir = data_dir or project_dir
     train_list = data_dir / "train.list"
@@ -250,7 +235,7 @@ def run_all_preprocessing(project_dir: Path, data_dir: Path | None = None, force
 
     # Step 4: 기본 스타일
     console.print(t("training.preprocess.step4"))
-    model_name = _get_model_name(data_dir / "config.json")
+    model_name = get_model_name(data_dir / "config.json")
     exports_dir = project_dir / "exports" / model_name if model_name else None
     if not force and exports_dir and (exports_dir / "style_vectors.npy").exists():
         console.print(t("training.preprocess.already_done"))

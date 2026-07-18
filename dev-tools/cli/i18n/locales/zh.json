@@ -75,9 +75,6 @@
   "training.briefing.invalid_number": "  [error]请输入正整数。[/error]",
   "training.briefing.interval_changed": "  → 检查点间隔: [success]{interval}[/success] steps · 预计 [success]{count}[/success] 次 · ~{gb:.1f}GB",
 
-  "training.dataset.status_resume": "可恢复训练",
-  "training.dataset.status_ready": "训练准备就绪",
-  "training.dataset.status_need_preprocess": "需要预处理",
 
   "training.preprocess.no_lists": "  [error]未找到 train.list / val.list。请先进行数据拆分。[/error]",
   "training.preprocess.audio_missing": "  [warning]音频缺失: {path}[/warning]",
@@ -164,9 +161,6 @@
   "report.menu.confirm_generate": "是否生成报告？",
   "report.menu.complete": "\n[success]报告生成完成！[/success]",
   "report.menu.open_browser": "是否在浏览器中打开？",
-  "report.menu.sample_label_short": "短",
-  "report.menu.sample_label_medium": "中",
-  "report.menu.sample_label_long": "长",
 
   "report.generator.reading_metrics": "  [dim]正在读取训练指标...[/dim]",
   "report.generator.generating_audio": "正在生成语音",
@@ -313,7 +307,6 @@
   "publish.verify.success": "  [success]✓ {label}[/success] [dim]— {duration:.2f}s @ {sr}Hz[/dim]",
   "publish.verify.failed": "  [error]✗ {label} 验证失败[/error] [dim]{error_type}: {error}[/dim]",
   "publish.verify.cuda_skip": "  [dim]无法使用 CUDA，跳过 GPU (PyTorch) 验证。[/dim]",
-  "publish.verify.no_backends": "  [dim]没有可验证的后端。[/dim]",
 
   "publish.source.not_dir": "不是文件夹: {path}",
   "publish.source.no_config": "缺少 config.json: {path}",

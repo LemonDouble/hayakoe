@@ -98,6 +98,13 @@ def _benchmark_device(device: str, progress, task) -> list[BenchmarkResult]:
     """
     from hayakoe import TTS
 
+    # 디바이스에 맞는 sync 콜러블을 한 번만 결정 (cpu 는 no-op)
+    sync = lambda: None  # noqa: E731
+    if device != "cpu":
+        import torch
+
+        sync = torch.cuda.synchronize
+
     backend = "ONNX" if device == "cpu" else "torch.compile"
     progress.update(task, description=t("benchmark.runner.model_loading", backend=backend, device=device.upper()))
 
@@ -119,17 +126,13 @@ def _benchmark_device(device: str, progress, task) -> list[BenchmarkResult]:
         times = []
 
         for i in range(WARMUP + RUNS):
-            if device != "cpu":
-                import torch
-                torch.cuda.synchronize()
+            sync()
 
             t0 = time.perf_counter()
             audio_result = speaker.generate(text)
             audio_len = len(audio_result.data)
 
-            if device != "cpu":
-                import torch
-                torch.cuda.synchronize()
+            sync()
 
             elapsed = time.perf_counter() - t0
             if i >= WARMUP:
@@ -150,7 +153,6 @@ def _benchmark_device(device: str, progress, task) -> list[BenchmarkResult]:
     del tts, speaker
     gc.collect()
     if device != "cpu":
-        import torch
         torch.cuda.empty_cache()
 
     return results

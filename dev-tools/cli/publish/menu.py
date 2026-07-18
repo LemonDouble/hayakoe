@@ -35,17 +35,12 @@ from cli.publish.credentials import (
     ensure_s3_credentials,
     load_env_file,
 )
+from cli.publish.destinations import Destination, make_destination
 from cli.training.dataset import DatasetInfo, discover_datasets
 from cli.ui.console import console
 from cli.ui.prompts import confirm, edit_value, select_from_list, text_input
 
-from hayakoe.api.sources import (
-    HFSource,
-    LocalSource,
-    S3Source,
-    normalize_hf_uri,
-    parse_source,
-)
+from hayakoe.api.sources import normalize_hf_uri, parse_source
 
 
 # ──────────────────────────── PublishSource ────────────────────────────
@@ -67,8 +62,9 @@ class PublishSource:
         existing_onnx_dir: 이미 ``synthesizer.onnx`` 가 있는 디렉토리
             (있으면 재사용). ``None`` 이면 export 필요.
         onnx_export_dir: export 가 필요한 경우 내보낼 디렉토리. dataset
-            소스는 ``<ds.path>/onnx`` 로 캐시하고, 폴더 소스는 tempdir 을
-            써서 사용자 폴더를 오염시키지 않는다.
+            소스는 ``<ds.path>/onnx`` 로 캐시하고, 폴더 소스는 ``None`` —
+            실제 export 시점에 tempdir 을 만들어 사용자 폴더를 오염시키지
+            않는다.
     """
 
     display_name: str
@@ -77,7 +73,7 @@ class PublishSource:
     style_vectors_path: Path
     checkpoints: list[Path]
     existing_onnx_dir: Optional[Path]
-    onnx_export_dir: Path
+    onnx_export_dir: Optional[Path]
 
 
 def _publish_source_from_dataset(ds: DatasetInfo) -> Optional[PublishSource]:
@@ -153,8 +149,8 @@ def _publish_source_from_folder(folder: Path) -> PublishSource:
         style_vectors_path=style_vectors,
         checkpoints=checkpoints,
         existing_onnx_dir=existing_onnx,
-        # 사용자 폴더를 오염시키지 않도록 tempdir 에 내보냄
-        onnx_export_dir=Path(tempfile.mkdtemp(prefix="hayakoe-onnx-")),
+        # 사용자 폴더를 오염시키지 않도록 export 시점에 tempdir 을 만든다
+        onnx_export_dir=None,
     )
 
 
@@ -320,74 +316,41 @@ def _select_checkpoint(src: PublishSource) -> Optional[Path]:
 # ──────────────────────────── ONNX export (내부) ────────────────────────────
 
 
-def _ensure_onnx_exports(src: PublishSource, ckpt: Path) -> Path:
+def _ensure_onnx_exports(src: PublishSource, ckpt: Path) -> tuple[Path, Optional[Path]]:
     """해당 체크포인트로 synthesizer.onnx + duration_predictor.onnx 를 보장.
 
     ``src.existing_onnx_dir`` 가 있으면 재사용, 없으면 ``src.onnx_export_dir``
-    에 내보낸 뒤 그 경로를 반환한다.
+    (폴더 소스는 ``None`` 이라 이 시점에 tempdir 생성) 에 내보낸다.
+
+    Returns:
+        ``(onnx_dir, temp_dir)``. ``temp_dir`` 는 이번 호출에서 새로 만든
+        tempdir 로, 업로드가 끝나면 호출부가 삭제해야 한다. 기존 캐시나
+        유저 폴더를 재사용한 경우 ``None`` — 그 경로들은 삭제하면 안 된다.
     """
     from cli.export.exporter import export_duration_predictor, export_synthesizer
 
     if src.existing_onnx_dir is not None:
         console.print(t("publish.onnx.reuse", path=src.existing_onnx_dir))
-        return src.existing_onnx_dir
+        return src.existing_onnx_dir, None
 
+    temp_dir: Optional[Path] = None
     target = src.onnx_export_dir
+    if target is None:
+        temp_dir = Path(tempfile.mkdtemp(prefix="hayakoe-onnx-"))
+        target = temp_dir
     console.print(t("publish.onnx.export_start", path=target))
-    export_synthesizer(src.config_path, ckpt, target)
-    export_duration_predictor(src.config_path, ckpt, target)
-    return target
+    try:
+        export_synthesizer(src.config_path, ckpt, target)
+        export_duration_predictor(src.config_path, ckpt, target)
+    except BaseException:
+        # export 실패 시 부분 아티팩트가 남은 tempdir 를 정리 (캐시 디렉토리는 보존)
+        if temp_dir is not None:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        raise
+    return target, temp_dir
 
 
 # ──────────────────────────── README 자동 생성 ────────────────────────────
-
-
-def _list_remote_speakers(source, token: Optional[str]) -> list[str]:
-    """목적지의 ``pytorch/speakers/`` 와 ``onnx/speakers/`` 아래 화자 이름 합집합.
-
-    실패 시 빈 리스트. README 동적 렌더링에서 "이 저장소가 현재 가지고 있는
-    화자" 를 표기하기 위해 사용한다.
-    """
-    names: set[str] = set()
-    try:
-        if isinstance(source, LocalSource):
-            for backend in ("pytorch", "onnx"):
-                base = source.root / backend / "speakers"
-                if base.is_dir():
-                    for p in base.iterdir():
-                        if p.is_dir():
-                            names.add(p.name)
-        elif isinstance(source, HFSource):
-            from huggingface_hub import HfApi
-
-            api = HfApi(token=token or source.token)
-            files = api.list_repo_files(source.repo, revision=source.revision)
-            for f in files:
-                for backend in ("pytorch", "onnx"):
-                    prefix = f"{backend}/speakers/"
-                    if f.startswith(prefix):
-                        tail = f[len(prefix):]
-                        name = tail.split("/", 1)[0]
-                        if name:
-                            names.add(name)
-        elif isinstance(source, S3Source):
-            client = source._client()
-            for backend in ("pytorch", "onnx"):
-                key_prefix = source._key_prefix(f"{backend}/speakers")
-                paginator = client.get_paginator("list_objects_v2")
-                for page in paginator.paginate(
-                    Bucket=source.bucket,
-                    Prefix=key_prefix,
-                    Delimiter="/",
-                ):
-                    for common in page.get("CommonPrefixes", []) or []:
-                        p = common.get("Prefix", "")
-                        rel = p[len(key_prefix):].rstrip("/")
-                        if rel:
-                            names.add(rel)
-    except Exception:
-        return []
-    return sorted(names)
 
 
 def _render_runtime_usage(destination_uri: str, speakers: list[str]) -> str:
@@ -547,42 +510,6 @@ and cache the required files from this location on demand.
 """
 
 
-def _fetch_remote_readme(source, token: Optional[str]) -> Optional[str]:
-    """목적지 루트의 README.md 내용을 문자열로 가져온다. 없거나 실패하면 None."""
-    try:
-        if isinstance(source, LocalSource):
-            p = source.root / "README.md"
-            return p.read_text(encoding="utf-8") if p.exists() else None
-
-        if isinstance(source, S3Source):
-            import boto3
-
-            client = boto3.client("s3")
-            key = f"{source.prefix}/README.md" if source.prefix else "README.md"
-            try:
-                obj = client.get_object(Bucket=source.bucket, Key=key)
-                return obj["Body"].read().decode("utf-8")
-            except Exception:
-                return None
-
-        if isinstance(source, HFSource):
-            from huggingface_hub import hf_hub_download
-
-            try:
-                local = hf_hub_download(
-                    source.repo,
-                    "README.md",
-                    revision=source.revision,
-                    token=token or source.token,
-                )
-                return Path(local).read_text(encoding="utf-8")
-            except Exception:
-                return None
-    except Exception:
-        return None
-    return None
-
-
 def _print_readme_diff(existing: str, new_content: str, max_lines: int = 60) -> None:
     diff = list(difflib.unified_diff(
         existing.splitlines(),
@@ -602,9 +529,8 @@ def _print_readme_diff(existing: str, new_content: str, max_lines: int = 60) -> 
 
 def _maybe_stage_readme(
     staging: Path,
-    source,
+    dest: Destination,
     destination_uri: str,
-    token: Optional[str],
     target_name: str,
 ) -> None:
     """루트 README.md 상태에 따라 자동 생성본을 스테이징한다.
@@ -616,7 +542,7 @@ def _maybe_stage_readme(
     Runtime usage 섹션은 목적지에 이미 있는 화자 리스트 + 방금 올릴
     ``target_name`` 을 합쳐서 실제 사용 가능한 모델 기준으로 렌더링한다.
     """
-    remote_speakers = _list_remote_speakers(source, token)
+    remote_speakers = dest.list_speakers()
     speaker_set = set(remote_speakers)
     speaker_set.add(target_name)
     speakers = sorted(speaker_set)
@@ -625,7 +551,7 @@ def _maybe_stage_readme(
     new_content = _README_TEMPLATE.format(
         uri=destination_uri, runtime_usage=runtime_usage,
     )
-    existing = _fetch_remote_readme(source, token)
+    existing = dest.fetch_readme()
 
     if existing is None:
         console.print()
@@ -762,127 +688,6 @@ def _verify_via_runtime(
         else:
             console.print(t("publish.verify.cuda_skip"))
 
-    if not backends or ("onnx" not in backends and "pytorch" not in backends):
-        console.print(t("publish.verify.no_backends"))
-
-
-# ──────────────────────────── 기존 데이터 덮어쓰기 ────────────────────────────
-
-
-def _remote_speaker_dirs_present(
-    source,
-    target_name: str,
-    backends: list[str],
-    token: Optional[str],
-) -> list[str]:
-    """``{backend}/speakers/{target_name}/`` 이미 존재하는 prefix 목록 반환."""
-    prefixes = [f"{backend}/speakers/{target_name}" for backend in backends]
-    existing: list[str] = []
-
-    if isinstance(source, LocalSource):
-        for p in prefixes:
-            if (source.root / p).exists():
-                existing.append(p)
-        return existing
-
-    if isinstance(source, S3Source):
-        try:
-            import boto3
-
-            client = boto3.client("s3")
-        except Exception:
-            return existing
-        for p in prefixes:
-            key_prefix = f"{source.prefix}/{p}/" if source.prefix else f"{p}/"
-            try:
-                resp = client.list_objects_v2(
-                    Bucket=source.bucket, Prefix=key_prefix, MaxKeys=1,
-                )
-                if resp.get("KeyCount", 0) > 0:
-                    existing.append(p)
-            except Exception:
-                pass
-        return existing
-
-    if isinstance(source, HFSource):
-        try:
-            from huggingface_hub import HfApi
-
-            files = HfApi(token=token or source.token).list_repo_files(
-                source.repo, revision=source.revision,
-            )
-            for p in prefixes:
-                needle = p + "/"
-                if any(f.startswith(needle) for f in files):
-                    existing.append(p)
-        except Exception:
-            pass
-        return existing
-
-    return existing
-
-
-def _wipe_remote_speaker_dirs(
-    source,
-    prefixes: list[str],
-    token: Optional[str],
-) -> None:
-    """지정된 prefix 들을 remote 에서 깔끔하게 삭제한다."""
-    if not prefixes:
-        return
-
-    if isinstance(source, LocalSource):
-        for p in prefixes:
-            target = source.root / p
-            if target.exists():
-                shutil.rmtree(target)
-            console.print(f"  [dim]wipe (local) → {target}[/dim]")
-        return
-
-    if isinstance(source, S3Source):
-        import boto3
-
-        client = boto3.client("s3")
-        for p in prefixes:
-            key_prefix = f"{source.prefix}/{p}/" if source.prefix else f"{p}/"
-            paginator = client.get_paginator("list_objects_v2")
-            batch: list[dict] = []
-            total = 0
-            for page in paginator.paginate(Bucket=source.bucket, Prefix=key_prefix):
-                for obj in page.get("Contents", []):
-                    batch.append({"Key": obj["Key"]})
-                    if len(batch) >= 1000:
-                        client.delete_objects(
-                            Bucket=source.bucket,
-                            Delete={"Objects": batch},
-                        )
-                        total += len(batch)
-                        batch = []
-            if batch:
-                client.delete_objects(
-                    Bucket=source.bucket,
-                    Delete={"Objects": batch},
-                )
-                total += len(batch)
-            console.print(f"  [dim]wipe (s3) → {key_prefix} ({total} objects)[/dim]")
-        return
-
-    if isinstance(source, HFSource):
-        from huggingface_hub import HfApi
-
-        api = HfApi(token=token or source.token)
-        for p in prefixes:
-            try:
-                api.delete_folder(
-                    path_in_repo=p,
-                    repo_id=source.repo,
-                    revision=source.revision,
-                )
-                console.print(f"  [dim]wipe (hf) → {p}/[/dim]")
-            except Exception as e:
-                console.print(t("publish.hf.delete_failed", path=p, error_type=type(e).__name__, error=e))
-        return
-
 
 # ──────────────────────────── 메인 플로우 ────────────────────────────
 
@@ -989,10 +794,11 @@ def publish_menu():
     # 소스 파싱
     cache_dir = Path.cwd() / "hayakoe_cache"
     source = parse_source(destination, cache_dir=cache_dir, token=token)
+    dest = make_destination(source, token)
 
     # 목적지에 같은 화자 디렉토리가 이미 있는지 — 있으면 확인 후 깨끗이 지움
-    existing_prefixes = _remote_speaker_dirs_present(
-        source, target_name, backends, token,
+    existing_prefixes = dest.speaker_dirs_present(
+        [f"{backend}/speakers/{target_name}" for backend in backends]
     )
     if existing_prefixes:
         console.print()
@@ -1005,35 +811,41 @@ def publish_menu():
 
     # ONNX export (필요 시) — overwrite 확정 후 수행 (작업 낭비 방지)
     onnx_dir: Path | None = None
+    onnx_temp_dir: Path | None = None
     if "onnx" in backends:
-        onnx_dir = _ensure_onnx_exports(src, ckpt)
+        onnx_dir, onnx_temp_dir = _ensure_onnx_exports(src, ckpt)
 
     # 스테이징 + 업로드
-    with tempfile.TemporaryDirectory(prefix="hayakoe-publish-") as tmp:
-        staging = Path(tmp)
+    try:
+        with tempfile.TemporaryDirectory(prefix="hayakoe-publish-") as tmp:
+            staging = Path(tmp)
 
-        if "pytorch" in backends:
-            pt_dir = staging / "pytorch" / "speakers" / target_name
-            _stage_pytorch(src, ckpt, pt_dir)
-            console.print(f"  [dim]stage → {pt_dir.relative_to(staging)}[/dim]")
+            if "pytorch" in backends:
+                pt_dir = staging / "pytorch" / "speakers" / target_name
+                _stage_pytorch(src, ckpt, pt_dir)
+                console.print(f"  [dim]stage → {pt_dir.relative_to(staging)}[/dim]")
 
-        if "onnx" in backends:
-            assert onnx_dir is not None
-            onnx_out = staging / "onnx" / "speakers" / target_name
-            _stage_onnx(src, onnx_dir, onnx_out)
-            console.print(f"  [dim]stage → {onnx_out.relative_to(staging)}[/dim]")
+            if "onnx" in backends:
+                assert onnx_dir is not None
+                onnx_out = staging / "onnx" / "speakers" / target_name
+                _stage_onnx(src, onnx_dir, onnx_out)
+                console.print(f"  [dim]stage → {onnx_out.relative_to(staging)}[/dim]")
 
-        # README 자동 생성 (루트에 없을 때 한해, 유저 승인 후)
-        _maybe_stage_readme(staging, source, destination, token, target_name)
+            # README 자동 생성 (루트에 없을 때 한해, 유저 승인 후)
+            _maybe_stage_readme(staging, dest, destination, target_name)
 
-        # 기존 디렉토리 정리 (upload 직전)
-        if existing_prefixes:
-            console.print(t("publish.overwrite.cleaning"))
-            _wipe_remote_speaker_dirs(source, existing_prefixes, token)
+            # 기존 디렉토리 정리 (upload 직전)
+            if existing_prefixes:
+                console.print(t("publish.overwrite.cleaning"))
+                dest.wipe(existing_prefixes)
 
-        console.print(t("publish.uploading"))
-        # root 기준으로 한 번에 업로드 — Source 가 재귀 처리
-        source.upload(prefix="", local_dir=staging)
+            console.print(t("publish.uploading"))
+            # root 기준으로 한 번에 업로드 — Source 가 재귀 처리
+            source.upload(prefix="", local_dir=staging)
+    finally:
+        # export 용으로 새로 만든 tempdir 만 정리 — 학습 캐시/유저 폴더는 보존
+        if onnx_temp_dir is not None:
+            shutil.rmtree(onnx_temp_dir, ignore_errors=True)
 
     console.print()
     console.print(t("publish.complete"))

@@ -75,9 +75,6 @@
   "training.briefing.invalid_number": "  [error]양의 정수를 입력해주세요.[/error]",
   "training.briefing.interval_changed": "  → 체크포인트 간격: [success]{interval}[/success] steps · 예상 [success]{count}[/success]회 · ~{gb:.1f}GB",
 
-  "training.dataset.status_resume": "학습 재개 가능",
-  "training.dataset.status_ready": "학습 준비 완료",
-  "training.dataset.status_need_preprocess": "전처리 필요",
 
   "training.preprocess.no_lists": "  [error]train.list / val.list가 없습니다. 먼저 데이터 분할을 진행해 주세요.[/error]",
   "training.preprocess.audio_missing": "  [warning]오디오 없음: {path}[/warning]",
@@ -164,9 +161,6 @@
   "report.menu.confirm_generate": "리포트를 생성하시겠습니까?",
   "report.menu.complete": "\n[success]리포트 생성 완료![/success]",
   "report.menu.open_browser": "브라우저에서 열시겠습니까?",
-  "report.menu.sample_label_short": "짧음",
-  "report.menu.sample_label_medium": "중간",
-  "report.menu.sample_label_long": "김",
 
   "report.generator.reading_metrics": "  [dim]학습 지표 읽는 중...[/dim]",
   "report.generator.generating_audio": "음성 생성 중",
@@ -313,7 +307,6 @@
   "publish.verify.success": "  [success]✓ {label}[/success] [dim]— {duration:.2f}s @ {sr}Hz[/dim]",
   "publish.verify.failed": "  [error]✗ {label} 검증 실패[/error] [dim]{error_type}: {error}[/dim]",
   "publish.verify.cuda_skip": "  [dim]CUDA 를 사용할 수 없어 GPU(PyTorch) 검증은 스킵합니다.[/dim]",
-  "publish.verify.no_backends": "  [dim]검증할 백엔드가 없습니다.[/dim]",
 
   "publish.source.not_dir": "폴더가 아닙니다: {path}",
   "publish.source.no_config": "config.json 이 없습니다: {path}",

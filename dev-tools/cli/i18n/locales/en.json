@@ -75,9 +75,6 @@
   "training.briefing.invalid_number": "  [error]Please enter a positive integer.[/error]",
   "training.briefing.interval_changed": "  → Checkpoint interval: [success]{interval}[/success] steps · est. [success]{count}[/success] saves · ~{gb:.1f}GB",
 
-  "training.dataset.status_resume": "Training can be resumed",
-  "training.dataset.status_ready": "Ready to train",
-  "training.dataset.status_need_preprocess": "Needs preprocessing",
 
   "training.preprocess.no_lists": "  [error]train.list / val.list not found. Please run data splitting first.[/error]",
   "training.preprocess.audio_missing": "  [warning]Audio missing: {path}[/warning]",
@@ -164,9 +161,6 @@
   "report.menu.confirm_generate": "Generate the report?",
   "report.menu.complete": "\n[success]Report generated![/success]",
   "report.menu.open_browser": "Open in browser?",
-  "report.menu.sample_label_short": "Short",
-  "report.menu.sample_label_medium": "Medium",
-  "report.menu.sample_label_long": "Long",
 
   "report.generator.reading_metrics": "  [dim]Reading training metrics...[/dim]",
   "report.generator.generating_audio": "Generating audio",
@@ -313,7 +307,6 @@
   "publish.verify.success": "  [success]✓ {label}[/success] [dim]— {duration:.2f}s @ {sr}Hz[/dim]",
   "publish.verify.failed": "  [error]✗ {label} verification failed[/error] [dim]{error_type}: {error}[/dim]",
   "publish.verify.cuda_skip": "  [dim]CUDA is not available; skipping GPU (PyTorch) verification.[/dim]",
-  "publish.verify.no_backends": "  [dim]No backends to verify.[/dim]",
 
   "publish.source.not_dir": "Not a directory: {path}",
   "publish.source.no_config": "config.json not found: {path}",

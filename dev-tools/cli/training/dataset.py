@@ -5,8 +5,6 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from cli.i18n import t
-
 
 DATA_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "dataset"
 
@@ -26,7 +24,6 @@ class DatasetInfo:
     style_done: int
     style_total: int
     default_style_done: bool
-    has_checkpoints: bool
 
     @property
     def all_preprocessed(self) -> bool:
@@ -36,14 +33,6 @@ class DatasetInfo:
             and self.style_done == self.style_total
             and self.default_style_done
         )
-
-    @property
-    def status_label(self) -> str:
-        if self.all_preprocessed:
-            if self.has_checkpoints:
-                return t("training.dataset.status_resume")
-            return t("training.dataset.status_ready")
-        return t("training.dataset.status_need_preprocess")
 
 
 def _count_lines(path: Path) -> int:
@@ -64,12 +53,19 @@ def _is_text_preprocessed(train_list: Path) -> bool:
     return len(first_line.split("|")) >= 7
 
 
-def _count_feature_files(train_list: Path, val_list: Path, suffix: str, append: bool = False) -> tuple[int, int]:
-    """train/val 리스트의 wav 경로에 대해 feature 파일 존재 여부 카운트.
+def _feature_path(wav_path: str, suffix: str, append: bool = False) -> str:
+    """wav 경로 → 전처리 feature 파일 경로.
 
     append=False: .wav → .{suffix} 치환 (bert.pt 등)
     append=True:  .wav.{suffix} 추가 (npy 등)
     """
+    if append:
+        return f"{wav_path}.{suffix}"
+    return wav_path.replace(".WAV", ".wav").replace(".wav", f".{suffix}")
+
+
+def _count_feature_files(train_list: Path, val_list: Path, suffix: str, append: bool = False) -> tuple[int, int]:
+    """train/val 리스트의 wav 경로에 대해 feature 파일 존재 여부 카운트."""
     total = 0
     done = 0
     for list_path in [train_list, val_list]:
@@ -81,16 +77,12 @@ def _count_feature_files(train_list: Path, val_list: Path, suffix: str, append: 
                 if not wav_path:
                     continue
                 total += 1
-                if append:
-                    feature_path = f"{wav_path}.{suffix}"
-                else:
-                    feature_path = wav_path.replace(".WAV", ".wav").replace(".wav", f".{suffix}")
-                if os.path.exists(feature_path):
+                if os.path.exists(_feature_path(wav_path, suffix, append)):
                     done += 1
     return done, total
 
 
-def _get_model_name(config_path: Path) -> str:
+def get_model_name(config_path: Path) -> str:
     if not config_path.exists():
         return ""
     with open(config_path, encoding="utf-8") as f:
@@ -125,17 +117,11 @@ def _build_dataset_info(project_dir: Path, data_dir: Path) -> DatasetInfo:
         bert_done, bert_total = 0, utterance_count
         style_done, style_total = 0, utterance_count
 
-    model_name = _get_model_name(config_path)
+    model_name = get_model_name(config_path)
     exports_dir = project_dir / "exports" / model_name if model_name else None
     default_style_done = (
         exports_dir is not None
         and (exports_dir / "style_vectors.npy").exists()
-    )
-
-    training_dir = project_dir / "training"
-    has_checkpoints = (
-        training_dir.exists()
-        and any(training_dir.glob("G_*.pth"))
     )
 
     return DatasetInfo(
@@ -151,7 +137,6 @@ def _build_dataset_info(project_dir: Path, data_dir: Path) -> DatasetInfo:
         style_done=style_done,
         style_total=style_total,
         default_style_done=default_style_done,
-        has_checkpoints=has_checkpoints,
     )
 
 
