@@ -39,41 +39,20 @@ def g2p(
     # punctuation이 모두 제거된, 음소와 악센트의 튜플 리스트 (「ん」은 「N」)
     phone_tone_list_wo_punct = __g2phone_tone_wo_punct(norm_text)
 
-    # sep_text: 단어 단위의 단어 리스트
-    # sep_kata: 단어 단위의 단어의 카타카나 읽기 리스트, 읽을 수 없는 문자는 raise_yomi_error=True이면 예외, False이면 읽을 수 없는 문자를 "'"로 반환
     sep_text, sep_kata = text_to_sep_kata(norm_text, raise_yomi_error=raise_yomi_error)
 
-    # sep_phonemes: 각 단어별 음소 리스트의 리스트
     sep_phonemes = __handle_long([__kata_to_phoneme_list(i) for i in sep_kata])
 
-    # phone_w_punct: sep_phonemes를 결합한, punctuation을 원래대로 유지한 음소열
     phone_w_punct: list[str] = []
     for i in sep_phonemes:
         phone_w_punct += i
 
     # punctuation 없는 악센트 정보를 사용하여, punctuation을 포함한 악센트 정보를 만든다
     phone_tone_list = __align_tones(phone_w_punct, phone_tone_list_wo_punct)
-    # logger.debug(f"phone_tone_list:\n{phone_tone_list}")
 
     # word2ph는 엄밀한 해답이 불가능하므로 (「今日」「眼鏡」 등의 숙자훈이 존재),
     # Bert-VITS2에서는, 단어 단위의 분할을 사용하여 단어의 문자마다 대략 균등하게 음소를 분배한다
-
-    # sep_text에서, 각 단어를 한 글자씩 분할하여 문자의 리스트 (의 리스트)를 만든다
-    sep_tokenized: list[list[str]] = []
-    for i in sep_text:
-        if i not in PUNCTUATIONS:
-            sep_tokenized.append(
-                bert_models.load_tokenizer().tokenize(i)
-            )  # 여기서 아마도 `i`가 문자 단위로 분할된다
-        else:
-            sep_tokenized.append([i])
-
-    # 각 단어에 대해, 음소의 수와 문자의 수를 비교하여 균등하게 분배한다
-    word2ph = []
-    for token, phoneme in zip(sep_tokenized, sep_phonemes):
-        phone_len = len(phoneme)
-        word_len = len(token)
-        word2ph += __distribute_phone(phone_len, word_len)
+    word2ph = __build_word2ph(sep_text, sep_phonemes)
 
     # 처음과 마지막에 `_` 기호를 추가, 악센트는 0(저), word2ph도 이에 맞춰 추가
     phone_tone_list = [("_", 0)] + phone_tone_list + [("_", 0)]
@@ -121,18 +100,16 @@ def text_to_sep_kata(
         word, yomi = replace_punctuation(parts["string"]), parts["pron"].replace(
             "’", ""
         )
-        """
-        여기서 `yomi`가 취할 수 있는 값은 다음과 같을 것이다.
-        - `word`가 통상 단어 → 통상의 읽기 (카타카나)
-            (카타카나로 구성되며, 장음 기호도 포함될 수 있음, `アー` 등)
-        - `word`가 `ー`로 시작 → `ーラー`나 `ーーー` 등
-        - `word`가 구두점이나 공백 등 → `、`
-        - `word`가 punctuation의 반복 → 전각으로 변환된 것
-        기본적으로 punctuation은 1문자씩 분리되지만, 어느 정도 연속되면 하나로 합쳐진다.
-        또한 `word`가 읽을 수 없는 키릴 문자나 아랍 문자 등이면 `、`가 되지만, 정규화에 의해 이 경우는 발생하지 않을 것이다.
-        또한 원래 코드에서는 `yomi`가 공백인 경우의 처리가 있었지만, 이것은 발생하지 않을 것이다.
-        처리해야 할 것은 `yomi`가 `、`인 경우뿐일 것이다.
-        """
+        # 여기서 `yomi`가 취할 수 있는 값은 다음과 같을 것이다.
+        # - `word`가 통상 단어 → 통상의 읽기 (카타카나)
+        #     (카타카나로 구성되며, 장음 기호도 포함될 수 있음, `アー` 등)
+        # - `word`가 `ー`로 시작 → `ーラー`나 `ーーー` 등
+        # - `word`가 구두점이나 공백 등 → `、`
+        # - `word`가 punctuation의 반복 → 전각으로 변환된 것
+        # 기본적으로 punctuation은 1문자씩 분리되지만, 어느 정도 연속되면 하나로 합쳐진다.
+        # 또한 `word`가 읽을 수 없는 키릴 문자나 아랍 문자 등이면 `、`가 되지만, 정규화에 의해 이 경우는 발생하지 않을 것이다.
+        # 또한 원래 코드에서는 `yomi`가 공백인 경우의 처리가 있었지만, 이것은 발생하지 않을 것이다.
+        # 처리해야 할 것은 `yomi`가 `、`인 경우뿐일 것이다.
         assert yomi != "", f"Empty yomi: {word}"
         if yomi == "、":
             # word는 정규화되어 있으므로, `.`, `,`, `!`, `'`, `-`, `--` 중 하나
@@ -172,6 +149,7 @@ def adjust_word2ph(
     음소가 몇 개 할당되는지를 나타내는 word2ph의 합계값이 given_phone의 길이 (음소 수)와 일치하지 않을 수 있다.
     따라서 generated_phone과 given_phone의 차분을 취해 변경 지점에 대응하는 word2ph 요소의 값만 증감시켜,
     악센트에 대한 영향을 최소한으로 억제하면서 word2ph의 합계값을 given_phone의 길이 (음소 수)에 일치시킨다.
+    조정 결과 각 요소는 하한 1 / 상한 6으로 클램프되며, 그 초과·부족분은 오른쪽 이웃 요소로 전파된다.
 
     Args:
         word2ph (list[int]): 단어별 음소 수의 리스트
@@ -250,51 +228,35 @@ def adjust_word2ph(
                 "end_index": y,
                 "value": given_phone[prev_y + 1 : y],
             }
-            if diff_X or diff_Y:
+            if diff_X["value"] or diff_Y["value"]:
                 differences.append({"generated": diff_X, "given": diff_Y})
             prev_x, prev_y = x, y
         # 마지막 비공통 부분을 추가
-        if prev_x < len(generated_phone) - 1 or prev_y < len(given_phone) - 1:
-            differences.append(
-                {
-                    "generated": {
-                        "begin_index": prev_x + 1,
-                        "end_index": len(generated_phone) - 1,
-                        "value": generated_phone[prev_x + 1 : len(generated_phone) - 1],
-                    },
-                    "given": {
-                        "begin_index": prev_y + 1,
-                        "end_index": len(given_phone) - 1,
-                        "value": given_phone[prev_y + 1 : len(given_phone) - 1],
-                    },
-                }
-            )
-        # generated.value와 given.value 모두 빈 요소를 differences에서 삭제
-        for diff in differences[:]:
-            if (
-                len(diff["generated"]["value"]) == 0
-                and len(diff["given"]["value"]) == 0
-            ):
-                differences.remove(diff)
+        diff_X = {
+            "begin_index": prev_x + 1,
+            "end_index": len(generated_phone) - 1,
+            "value": generated_phone[prev_x + 1 : len(generated_phone) - 1],
+        }
+        diff_Y = {
+            "begin_index": prev_y + 1,
+            "end_index": len(given_phone) - 1,
+            "value": given_phone[prev_y + 1 : len(given_phone) - 1],
+        }
+        if diff_X["value"] or diff_Y["value"]:
+            differences.append({"generated": diff_X, "given": diff_Y})
 
         return differences
 
     # 두 리스트의 차분을 추출
     differences = extract_differences(generated_phone, given_phone)
 
-    # word2ph를 기반으로 새로 만들 word2ph의 리스트
-    ## 길이는 word2ph와 같지만, 내용은 0으로 초기화되어 있다
     adjusted_word2ph: list[int] = [0] * len(word2ph)
-    # 현재 처리 중인 generated_phone의 인덱스
     current_generated_index = 0
 
     # word2ph의 요소 수 (=정규화된 읽기 텍스트의 문자 수)를 유지하면서, 차분 정보를 사용하여 word2ph를 수정
     ## 음소 수가 generated_phone과 given_phone에서 다른 경우에 이 adjust_word2ph()가 호출된다
     ## word2ph는 정규화된 읽기 텍스트의 문자 수에 대응하므로, 요소 수는 그대로 given_phone에서 증감한 음소 수에 맞춰 각 요소의 값을 증감한다
     for word2ph_element_index, word2ph_element in enumerate(word2ph):
-        # 여기의 word2ph_element는, 정규화된 읽기 텍스트의 각 문자에 할당되는 음소 수를 나타낸다
-        # 예를 들어 word2ph_element가 2이면, 해당 문자에는 2개의 음소 (예: "k", "a")가 할당된다
-        # 음소 수만큼 루프를 돈다
         for _ in range(word2ph_element):
             # difference 중에 처리 중인 generated_phone에서 시작하는 차분이 있는지 확인
             current_diff: Diff | None = None
@@ -302,16 +264,12 @@ def adjust_word2ph(
                 if diff["generated"]["begin_index"] == current_generated_index:
                     current_diff = diff
                     break
-            # current_diff가 None이 아닌 경우, generated_phone에서 시작하는 차분이 있다
             if current_diff is not None:
                 # generated에서 given으로 변경된 음소 수의 차분을 취득 (2 증가한 경우 +2, 2 감소한 경우 -2)
                 diff_in_phonemes = \
                     len(current_diff["given"]["value"]) - len(current_diff["generated"]["value"])  # fmt: skip
-                # adjusted_word2ph[(읽기 텍스트의 각 문자 인덱스)]에 위 차분을 반영
                 adjusted_word2ph[word2ph_element_index] += diff_in_phonemes
-            # adjusted_word2ph[(읽기 텍스트의 각 문자 인덱스)]에 처리 완료된 분의 음소로서 1을 더한다
             adjusted_word2ph[word2ph_element_index] += 1
-            # 처리 중인 generated_phone의 인덱스를 진행시킨다
             current_generated_index += 1
 
     # 이 시점에서 given_phone의 길이와 adjusted_word2ph에 기록된 음소 수의 합계가 일치해야 한다
@@ -388,7 +346,6 @@ def __g2phone_tone_wo_punct(text: str) -> list[tuple[str, int]]:
     """
 
     prosodies = __pyopenjtalk_g2p_prosody(text, drop_unvoiced_vowels=True)
-    # logger.debug(f"prosodies: {prosodies}")
     result: list[tuple[str, int]] = []
     current_phrase: list[tuple[str, int]] = []
     current_tone = 0
@@ -696,6 +653,32 @@ def __align_tones(
     return result
 
 
+def __build_word2ph(sep_text: list[str], sep_phonemes: list[list[str]]) -> list[int]:
+    """
+    단어 리스트 `sep_text`와 단어별 음소 리스트 `sep_phonemes`에서,
+    각 문자에 음소를 대략 균등하게 분배한 word2ph 리스트를 만든다.
+    """
+
+    # sep_text에서, 각 단어를 한 글자씩 분할하여 문자의 리스트 (의 리스트)를 만든다
+    sep_tokenized: list[list[str]] = []
+    for i in sep_text:
+        if i not in PUNCTUATIONS:
+            sep_tokenized.append(
+                bert_models.load_tokenizer().tokenize(i)
+            )  # 여기서 아마도 `i`가 문자 단위로 분할된다
+        else:
+            sep_tokenized.append([i])
+
+    # 각 단어에 대해, 음소의 수와 문자의 수를 비교하여 균등하게 분배한다
+    word2ph = []
+    for token, phoneme in zip(sep_tokenized, sep_phonemes):
+        phone_len = len(phoneme)
+        word_len = len(token)
+        word2ph += __distribute_phone(phone_len, word_len)
+
+    return word2ph
+
+
 def __distribute_phone(n_phone: int, n_word: int) -> list[int]:
     """
     왼쪽에서 오른쪽으로 1씩 분배하고, 다시 왼쪽에서 오른쪽으로 1씩 늘리는 방식으로,
@@ -709,13 +692,10 @@ def __distribute_phone(n_phone: int, n_word: int) -> list[int]:
         list[int]: 단어별 음소 수의 리스트
     """
 
-    phones_per_word = [0] * n_word
-    for _ in range(n_phone):
-        min_tasks = min(phones_per_word)
-        min_index = phones_per_word.index(min_tasks)
-        phones_per_word[min_index] += 1
-
-    return phones_per_word
+    if n_word == 0:
+        return []
+    base, rem = divmod(n_phone, n_word)
+    return [base + 1] * rem + [base] * (n_word - rem)
 
 
 class YomiError(Exception):

@@ -80,13 +80,8 @@ def clean_text_with_given_phone_tone(
                     f"Length of given_phone ({len(given_phone)}) != sum of word2ph ({sum(word2ph)})"
                 )
         phone = given_phone
-        if len(phone) != len(given_tone):
-            raise InvalidToneError(
-                f"Length of phone ({len(phone)}) != length of given_tone ({len(given_tone)})"
-            )
-        tone = given_tone
 
-    elif given_tone is not None:
+    if given_tone is not None:
         if len(phone) != len(given_tone):
             raise InvalidToneError(
                 f"Length of phone ({len(phone)}) != length of given_tone ({len(given_tone)})"

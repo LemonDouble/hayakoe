@@ -220,27 +220,12 @@ __MORA_LIST_ADDITIONAL: list[tuple[str, Optional[str], str]] = [
     ("ァ", None, "a"),
 ]
 
-# 모라의 음소 표기와 카타카나의 대응표
-# 예: "vo" -> "ヴォ", "a" -> "ア"
-MORA_PHONEMES_TO_MORA_KATA: dict[str, str] = {
-    (consonant or "") + vowel: kana for [kana, consonant, vowel] in __MORA_LIST_MINIMUM
-}
-
 # 모라의 카타카나 표기와 음소의 대응표
 # 예: "ヴォ" -> ("v", "o"), "ア" -> (None, "a")
 MORA_KATA_TO_MORA_PHONEMES: dict[str, tuple[Optional[str], str]] = {
     kana: (consonant, vowel)
     for [kana, consonant, vowel] in __MORA_LIST_MINIMUM + __MORA_LIST_ADDITIONAL
 }
-
-# 자음의 집합
-CONSONANTS = set(
-    [
-        consonant
-        for consonant, _ in MORA_KATA_TO_MORA_PHONEMES.values()
-        if consonant is not None
-    ]
-)
 
 # 모음의 집합 (편의상 「ん」을 포함)
 VOWELS = {"a", "i", "u", "e", "o", "N"}

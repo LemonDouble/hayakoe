@@ -64,31 +64,16 @@ def _rebuild_compiled_dict(user_dict: dict[str, UserDictWord]) -> None:
     dic_path = new_dir / "user.dic"
 
     try:
-        csv_text = ""
-        for word in user_dict.values():
-            csv_text += (
-                "{surface},{context_id},{context_id},{cost},{part_of_speech},"
-                + "{part_of_speech_detail_1},{part_of_speech_detail_2},"
-                + "{part_of_speech_detail_3},{inflectional_type},"
-                + "{inflectional_form},{stem},{yomi},{pronunciation},"
-                + "{accent_type}/{mora_count},{accent_associative_rule}\n"
-            ).format(
-                surface=word.surface,
-                context_id=word.context_id,
-                cost=_priority2cost(word.context_id, word.priority),
-                part_of_speech=word.part_of_speech,
-                part_of_speech_detail_1=word.part_of_speech_detail_1,
-                part_of_speech_detail_2=word.part_of_speech_detail_2,
-                part_of_speech_detail_3=word.part_of_speech_detail_3,
-                inflectional_type=word.inflectional_type,
-                inflectional_form=word.inflectional_form,
-                stem=word.stem,
-                yomi=word.yomi,
-                pronunciation=word.pronunciation,
-                accent_type=word.accent_type,
-                mora_count=word.mora_count,
-                accent_associative_rule=word.accent_associative_rule,
-            )
+        csv_text = "".join(
+            f"{word.surface},{word.context_id},{word.context_id},"
+            f"{_priority2cost(word.context_id, word.priority)},"
+            f"{word.part_of_speech},{word.part_of_speech_detail_1},"
+            f"{word.part_of_speech_detail_2},{word.part_of_speech_detail_3},"
+            f"{word.inflectional_type},{word.inflectional_form},{word.stem},"
+            f"{word.yomi},{word.pronunciation},"
+            f"{word.accent_type}/{word.mora_count},{word.accent_associative_rule}\n"
+            for word in user_dict.values()
+        )
         csv_path.write_text(csv_text, encoding="utf-8")
 
         pyopenjtalk.mecab_dict_index(str(csv_path), str(dic_path))

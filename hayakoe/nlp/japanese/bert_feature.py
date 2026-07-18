@@ -44,15 +44,11 @@ def extract_bert_feature(
         for i in inputs:
             inputs[i] = inputs[i].to(device)  # type: ignore
         res = model(**inputs, output_hidden_states=True)
-        res = torch.cat(res["hidden_states"][-3:-2], -1)[0].float()
+        res = res["hidden_states"][-3][0].float()
 
     assert len(word2ph) == len(text) + 2, text
-    word2phone = word2ph
-    phone_level_feature = []
-    for i in range(len(word2phone)):
-        repeat_feature = res[i].repeat(word2phone[i], 1)
-        phone_level_feature.append(repeat_feature)
-
-    phone_level_feature = torch.cat(phone_level_feature, dim=0)
+    phone_level_feature = torch.repeat_interleave(
+        res, torch.tensor(word2ph, device=res.device), dim=0
+    )
 
     return phone_level_feature.T

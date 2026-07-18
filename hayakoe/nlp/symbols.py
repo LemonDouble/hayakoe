@@ -171,7 +171,6 @@ NUM_EN_TONES = 4
 # Combine all symbols
 NORMAL_SYMBOLS = sorted(set(ZH_SYMBOLS + JP_SYMBOLS + EN_SYMBOLS))
 SYMBOLS = [PAD] + NORMAL_SYMBOLS + PUNCTUATION_SYMBOLS
-SIL_PHONEMES_IDS = [SYMBOLS.index(i) for i in PUNCTUATION_SYMBOLS]
 
 # Combine all tones
 NUM_TONES = NUM_ZH_TONES + NUM_JP_TONES + NUM_EN_TONES
@@ -186,9 +185,3 @@ LANGUAGE_TONE_START_MAP = {
     "JP": NUM_ZH_TONES,
     "EN": NUM_ZH_TONES + NUM_JP_TONES,
 }
-
-
-if __name__ == "__main__":
-    a = set(ZH_SYMBOLS)
-    b = set(EN_SYMBOLS)
-    print(sorted(a & b))
