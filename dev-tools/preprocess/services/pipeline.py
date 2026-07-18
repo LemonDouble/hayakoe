@@ -120,7 +120,8 @@ async def run_vad(video_dir: Path, **vad_params):
         segments_tmp = video_dir / "segments.tmp"
         _write_processing(video_dir, "vad", 0, "VAD 세그먼팅 중...")
 
-        async def _vad_progress(p, msg):
+        # vad.segment_audio는 워커 스레드에서 동기 콜백으로 호출하므로 async가 아니어야 함
+        def _vad_progress(p, msg):
             _write_processing(video_dir, "vad", p, msg)
 
         result = await vad.segment_audio(vocals, segments_tmp, progress_callback=_vad_progress, **vad_params)

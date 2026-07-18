@@ -119,13 +119,30 @@ def get_unclassified(video_dir: Path, offset: int = 0, limit: int = 20) -> dict:
     }
 
 
-def _dir_stats(seg_dir: Path) -> tuple[int, float]:
+def _load_durations(video_dir: Path) -> dict[str, float]:
+    """vad.json의 {파일명: duration} 맵. 없으면 빈 맵."""
+    vad_path = video_dir / "vad.json"
+    if not vad_path.exists():
+        return {}
+    vad_data = json.loads(vad_path.read_text())
+    return {
+        seg["file"]: seg["duration"]
+        for seg in vad_data.get("segments", [])
+        if "duration" in seg
+    }
+
+
+def _dir_stats(seg_dir: Path, durations: dict[str, float]) -> tuple[int, float]:
     """디렉토리 내 wav 파일 수 + 총 재생시간(초)."""
     count = 0
     total_duration = 0.0
     for wav in seg_dir.glob("*.wav"):
         count += 1
-        total_duration += sf.info(str(wav)).duration
+        dur = durations.get(wav.name)
+        if dur is None:
+            # 구버전 데이터나 수동 추가된 wav는 vad.json에 없을 수 있어 파일 단위 폴백
+            dur = sf.info(str(wav)).duration
+        total_duration += dur
     return count, total_duration
 
 
@@ -135,13 +152,14 @@ def get_video_summary(video_dir: Path, data_dir: Path) -> list[dict]:
 
     speaker_list = speakers_svc.load(data_dir)
     segments_dir = video_dir / "segments"
+    durations = _load_durations(video_dir)
     result = []
 
     for name in speaker_list:
         speaker_seg = segments_dir / name
         if not speaker_seg.exists():
             continue
-        count, total_duration = _dir_stats(speaker_seg)
+        count, total_duration = _dir_stats(speaker_seg, durations)
         if count > 0:
             result.append({
                 "name": name,
@@ -151,7 +169,7 @@ def get_video_summary(video_dir: Path, data_dir: Path) -> list[dict]:
 
     discarded_dir = segments_dir / "discarded"
     if discarded_dir.exists():
-        d_count, d_dur = _dir_stats(discarded_dir)
+        d_count, d_dur = _dir_stats(discarded_dir, durations)
         if d_count > 0:
             result.append({
                 "name": "discarded",
@@ -170,6 +188,9 @@ def get_total_summary(data_dir: Path) -> list[dict]:
     videos_dir = data_dir / "videos"
     result = []
 
+    # 화자 루프마다 같은 영상의 vad.json을 다시 읽지 않도록 캐시
+    duration_cache: dict[str, dict[str, float]] = {}
+
     for name in speaker_list:
         count = 0
         total_duration = 0.0
@@ -179,7 +200,9 @@ def get_total_summary(data_dir: Path) -> list[dict]:
                     continue
                 speaker_seg = vdir / "segments" / name
                 if speaker_seg.exists():
-                    c, dur = _dir_stats(speaker_seg)
+                    if vdir.name not in duration_cache:
+                        duration_cache[vdir.name] = _load_durations(vdir)
+                    c, dur = _dir_stats(speaker_seg, duration_cache[vdir.name])
                     count += c
                     total_duration += dur
         result.append({
@@ -198,7 +221,7 @@ def get_summary(video_dir: Path, data_dir: Path) -> list[dict]:
     # discarded 통계 (현재 영상만)
     discarded_dir = video_dir / "segments" / "discarded"
     if discarded_dir.exists():
-        discard_count, discard_dur = _dir_stats(discarded_dir)
+        discard_count, discard_dur = _dir_stats(discarded_dir, _load_durations(video_dir))
         if discard_count > 0:
             result.append({
                 "name": "discarded",
