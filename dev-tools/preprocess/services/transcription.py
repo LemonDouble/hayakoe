@@ -1,12 +1,12 @@
 """Whisper 전사 (화자 배정된 세그먼트만)."""
 
 import asyncio
-import json
 from pathlib import Path
 
 from loguru import logger
 
 import config
+from services.json_io import write_json_atomic
 
 # 모델 lazy load
 _model = None
@@ -69,11 +69,7 @@ async def transcribe_video(
             "language": language,
         })
 
-    # atomic write
-    output_path = video_dir / "transcription.json"
-    tmp = output_path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(results, ensure_ascii=False, indent=2))
-    tmp.rename(output_path)
+    write_json_atomic(video_dir / "transcription.json", results)
 
     logger.info(f"전사 완료: {len(results)}개 세그먼트")
     return results

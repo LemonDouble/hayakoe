@@ -11,7 +11,6 @@
 from __future__ import annotations
 
 import json
-import locale
 import os
 import sys
 from pathlib import Path
@@ -49,12 +48,14 @@ def _detect_from_config() -> str | None:
 
 
 def _detect_from_locale() -> str | None:
-    sys_locale = os.environ.get("LC_ALL") or os.environ.get("LANG") or ""
-    if not sys_locale:
-        try:
-            sys_locale = locale.getdefaultlocale()[0] or ""
-        except Exception:
-            sys_locale = ""
+    # locale.getdefaultlocale() 은 deprecated — POSIX 우선순위대로 env 를 직접 파싱
+    sys_locale = (
+        os.environ.get("LC_ALL")
+        or os.environ.get("LC_CTYPE")
+        or os.environ.get("LANG")
+        or os.environ.get("LANGUAGE")
+        or ""
+    )
     sys_locale = sys_locale.lower()
     if sys_locale.startswith("ko"):
         return "ko"
@@ -121,6 +122,19 @@ def get_lang() -> str:
     return _current_lang
 
 
+def read_config_lang() -> str | None:
+    """config.toml 에 저장된 언어 코드. 없거나 미지원이면 None."""
+    return _detect_from_config()
+
+
+def save_config_lang(lang: str) -> None:
+    """언어 코드를 config.toml 에 저장. 미지원 언어면 ValueError, 쓰기 실패는 OSError 전파."""
+    if lang not in _SUPPORTED:
+        raise ValueError(f"Unsupported language: {lang}. Use one of {_SUPPORTED}")
+    _CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    _CONFIG_FILE.write_text(f'lang = "{lang}"\n', encoding="utf-8")
+
+
 def set_lang(lang: str) -> None:
     """언어를 변경하고 설정 파일에 저장."""
     global _strings, _current_lang
@@ -129,9 +143,8 @@ def set_lang(lang: str) -> None:
     _current_lang = lang
     _strings = _load_strings(lang)
     try:
-        _CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        _CONFIG_FILE.write_text(f'lang = "{lang}"\n', encoding="utf-8")
-    except Exception:
+        save_config_lang(lang)
+    except OSError:
         pass
 
 

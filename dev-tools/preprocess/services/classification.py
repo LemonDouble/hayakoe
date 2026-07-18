@@ -6,6 +6,7 @@ from pathlib import Path
 
 import soundfile as sf
 
+from services.json_io import write_json_atomic
 from services.safe_path import safe_join
 
 
@@ -21,10 +22,7 @@ def _load(video_dir: Path) -> dict:
 
 
 def _save(video_dir: Path, state: dict):
-    p = _cls_path(video_dir)
-    tmp = p.with_suffix(".tmp")
-    tmp.write_text(json.dumps(state, ensure_ascii=False, indent=2))
-    tmp.rename(p)
+    write_json_atomic(_cls_path(video_dir), state)
 
 
 def get_state(video_dir: Path) -> dict:
@@ -121,6 +119,16 @@ def get_unclassified(video_dir: Path, offset: int = 0, limit: int = 20) -> dict:
     }
 
 
+def _dir_stats(seg_dir: Path) -> tuple[int, float]:
+    """디렉토리 내 wav 파일 수 + 총 재생시간(초)."""
+    count = 0
+    total_duration = 0.0
+    for wav in seg_dir.glob("*.wav"):
+        count += 1
+        total_duration += sf.info(str(wav)).duration
+    return count, total_duration
+
+
 def get_video_summary(video_dir: Path, data_dir: Path) -> list[dict]:
     """특정 영상의 화자별 세그먼트 수 + 총 재생시간."""
     from services import speakers as speakers_svc
@@ -133,11 +141,7 @@ def get_video_summary(video_dir: Path, data_dir: Path) -> list[dict]:
         speaker_seg = segments_dir / name
         if not speaker_seg.exists():
             continue
-        count = 0
-        total_duration = 0.0
-        for wav in speaker_seg.glob("*.wav"):
-            count += 1
-            total_duration += sf.info(str(wav)).duration
+        count, total_duration = _dir_stats(speaker_seg)
         if count > 0:
             result.append({
                 "name": name,
@@ -147,9 +151,8 @@ def get_video_summary(video_dir: Path, data_dir: Path) -> list[dict]:
 
     discarded_dir = segments_dir / "discarded"
     if discarded_dir.exists():
-        d_count = len(list(discarded_dir.glob("*.wav")))
+        d_count, d_dur = _dir_stats(discarded_dir)
         if d_count > 0:
-            d_dur = sum(sf.info(str(w)).duration for w in discarded_dir.glob("*.wav"))
             result.append({
                 "name": "discarded",
                 "count": d_count,
@@ -176,9 +179,9 @@ def get_total_summary(data_dir: Path) -> list[dict]:
                     continue
                 speaker_seg = vdir / "segments" / name
                 if speaker_seg.exists():
-                    for wav in speaker_seg.glob("*.wav"):
-                        count += 1
-                        total_duration += sf.info(str(wav)).duration
+                    c, dur = _dir_stats(speaker_seg)
+                    count += c
+                    total_duration += dur
         result.append({
             "name": name,
             "count": count,
@@ -190,41 +193,17 @@ def get_total_summary(data_dir: Path) -> list[dict]:
 
 def get_summary(video_dir: Path, data_dir: Path) -> list[dict]:
     """화자별 세그먼트 수 + 총 재생시간 (전체 영상 합산)."""
-    from services import speakers as speakers_svc
-
-    speaker_list = speakers_svc.load(data_dir)
-    result = []
-
-    for name in speaker_list:
-        count = 0
-        total_duration = 0.0
-        # 모든 영상에서 해당 화자의 세그먼트 합산
-        videos_dir = data_dir / "videos"
-        if videos_dir.exists():
-            for vdir in videos_dir.iterdir():
-                if not vdir.is_dir():
-                    continue
-                speaker_seg = vdir / "segments" / name
-                if speaker_seg.exists():
-                    for wav in speaker_seg.glob("*.wav"):
-                        count += 1
-                        total_duration += sf.info(str(wav)).duration
-
-        result.append({
-            "name": name,
-            "count": count,
-            "total_duration": round(total_duration, 1),
-        })
+    result = get_total_summary(data_dir)
 
     # discarded 통계 (현재 영상만)
     discarded_dir = video_dir / "segments" / "discarded"
-    if discarded_dir and discarded_dir.exists():
-        discard_count = len(list(discarded_dir.glob("*.wav")))
+    if discarded_dir.exists():
+        discard_count, discard_dur = _dir_stats(discarded_dir)
         if discard_count > 0:
             result.append({
                 "name": "discarded",
                 "count": discard_count,
-                "total_duration": 0,
+                "total_duration": round(discard_dur, 1),
             })
 
     return result

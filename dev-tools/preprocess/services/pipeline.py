@@ -1,6 +1,5 @@
 """개별 파이프라인 단계 실행 + 멱등성 보장."""
 
-import json
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -8,6 +7,7 @@ from pathlib import Path
 from loguru import logger
 
 from services import ffmpeg, separator, vad, video_manager
+from services.json_io import write_json_atomic
 
 
 def _write_processing(video_dir: Path, stage: str, progress: float, message: str = ""):
@@ -18,9 +18,7 @@ def _write_processing(video_dir: Path, stage: str, progress: float, message: str
         "message": message,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
-    tmp = video_dir / "processing.json.tmp"
-    tmp.write_text(json.dumps(data, ensure_ascii=False))
-    tmp.rename(video_dir / "processing.json")
+    write_json_atomic(video_dir / "processing.json", data, indent=None)
 
 
 def _remove_processing(video_dir: Path):
@@ -36,16 +34,7 @@ def _write_error(video_dir: Path, stage: str, error: str):
         "message": error,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
-    tmp = video_dir / "error.json.tmp"
-    tmp.write_text(json.dumps(data, ensure_ascii=False))
-    tmp.rename(video_dir / "error.json")
-
-
-def _clear_error(video_dir: Path):
-    """error.json 삭제 (재실행 시)."""
-    p = video_dir / "error.json"
-    if p.is_file():
-        p.unlink()
+    write_json_atomic(video_dir / "error.json", data, indent=None)
 
 
 def _cleanup_tmp(video_dir: Path, name: str):
@@ -60,7 +49,7 @@ def _cleanup_tmp(video_dir: Path, name: str):
 async def run_extract(video_dir: Path):
     """오디오 추출 (source → extracted.wav)."""
     try:
-        _clear_error(video_dir)
+        video_manager.clear_error(video_dir)
         source = video_manager.find_source(video_dir)
         if source is None:
             raise FileNotFoundError("소스 파일이 없습니다.")
@@ -90,7 +79,7 @@ async def run_extract(video_dir: Path):
 async def run_separate(video_dir: Path):
     """배경음 제거 (extracted.wav → vocals.wav)."""
     try:
-        _clear_error(video_dir)
+        video_manager.clear_error(video_dir)
         extracted = video_dir / "extracted.wav"
         if not extracted.exists():
             raise FileNotFoundError("extracted.wav가 없습니다. 먼저 추출을 실행하세요.")
@@ -116,7 +105,7 @@ async def run_separate(video_dir: Path):
 async def run_vad(video_dir: Path, **vad_params):
     """VAD 세그먼팅 (vocals.wav → vad.json + segments/)."""
     try:
-        _clear_error(video_dir)
+        video_manager.clear_error(video_dir)
         vocals = video_dir / "vocals.wav"
         if not vocals.exists():
             raise FileNotFoundError("vocals.wav가 없습니다. 먼저 배경음 제거를 실행하세요.")
@@ -136,16 +125,12 @@ async def run_vad(video_dir: Path, **vad_params):
 
         result = await vad.segment_audio(vocals, segments_tmp, progress_callback=_vad_progress, **vad_params)
 
-        # vad.json atomic write
-        vad_tmp = video_dir / "vad.json.tmp"
-        vad_tmp.write_text(json.dumps(result, ensure_ascii=False, indent=2))
-
-        # segments.tmp → segments
+        # segments.tmp → segments 커밋 후 vad.json 커밋 (vad.json이 완료 마커)
         segments_dir = video_dir / "segments"
         if segments_dir.exists():
             shutil.rmtree(segments_dir)
         segments_tmp.rename(segments_dir)
-        vad_tmp.rename(vad_json)
+        write_json_atomic(vad_json, result)
 
         logger.info(f"VAD 완료: {video_dir.name}, {result['total_segments']}개 세그먼트")
     except Exception as e:
@@ -160,7 +145,7 @@ async def run_transcription(video_dir: Path, data_dir: Path):
     from services import transcription
 
     try:
-        _clear_error(video_dir)
+        video_manager.clear_error(video_dir)
 
         async def _progress(p, msg):
             _write_processing(video_dir, "transcribe", p, msg)

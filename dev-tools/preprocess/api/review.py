@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 import config
 from services import video_manager
+from services.json_io import write_json_atomic
 
 router = APIRouter(prefix="/videos/{video_id}/review", tags=["review"])
 
@@ -36,9 +37,7 @@ def _read_transcription(video_dir: Path) -> list[dict]:
 
 
 def _write_transcription(video_dir: Path, data: list[dict]):
-    tmp = video_dir / "transcription.json.tmp"
-    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2))
-    tmp.rename(video_dir / "transcription.json")
+    write_json_atomic(video_dir / "transcription.json", data)
 
 
 @router.get("")

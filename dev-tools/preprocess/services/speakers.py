@@ -4,6 +4,7 @@ import json
 import shutil
 from pathlib import Path
 
+from services.json_io import write_json_atomic
 from services.safe_path import safe_join
 
 
@@ -29,10 +30,7 @@ def load(data_dir: Path) -> list[str]:
 
 
 def _save(data_dir: Path, speakers: list[str]):
-    p = _path(data_dir)
-    tmp = p.with_suffix(".tmp")
-    tmp.write_text(json.dumps(speakers, ensure_ascii=False, indent=2))
-    tmp.rename(p)
+    write_json_atomic(_path(data_dir), speakers)
 
 
 def add(data_dir: Path, name: str) -> list[str]:
@@ -108,9 +106,7 @@ def _update_classification_speaker(video_dir: Path, old_name: str, new_name: str
     for entry in cls.get("history", []):
         if entry.get("speaker") == old_name:
             entry["speaker"] = new_name
-    tmp = cls_path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(cls, ensure_ascii=False, indent=2))
-    tmp.rename(cls_path)
+    write_json_atomic(cls_path, cls)
 
 
 def _remove_classification_speaker(video_dir: Path, name: str):
@@ -119,6 +115,4 @@ def _remove_classification_speaker(video_dir: Path, name: str):
         return
     cls = json.loads(cls_path.read_text())
     cls["history"] = [e for e in cls.get("history", []) if e.get("speaker") != name]
-    tmp = cls_path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(cls, ensure_ascii=False, indent=2))
-    tmp.rename(cls_path)
+    write_json_atomic(cls_path, cls)

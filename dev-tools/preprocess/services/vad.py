@@ -1,7 +1,6 @@
 """Silero VAD 음성 세그먼팅."""
 
 import asyncio
-import json
 from pathlib import Path
 
 import soundfile as sf
@@ -24,6 +23,33 @@ def _get_model():
         _model = model
         _utils = utils
     return _model, _utils
+
+
+def _split_into_chunks(
+    timestamps: list[dict],
+    min_segment_sec: float,
+    max_segment_sec: float,
+) -> list[tuple[float, float]]:
+    """VAD 타임스탬프를 min/max 길이 제약에 맞는 (start, end) 청크 목록으로 변환."""
+    all_chunks = []
+    for ts in timestamps:
+        start_sec = ts["start"]
+        end_sec = ts["end"]
+        duration = end_sec - start_sec
+
+        if duration < min_segment_sec:
+            continue
+
+        if duration > max_segment_sec:
+            t = start_sec
+            while t < end_sec:
+                chunk_end = min(t + max_segment_sec, end_sec)
+                if chunk_end - t >= min_segment_sec:
+                    all_chunks.append((t, chunk_end))
+                t = chunk_end
+        else:
+            all_chunks.append((start_sec, end_sec))
+    return all_chunks
 
 
 async def segment_audio(
@@ -73,26 +99,7 @@ async def segment_audio(
     # 원본 SR로 오디오 로드 (세그먼트 저장용)
     audio_data, sr = await asyncio.to_thread(sf.read, str(audio_path))
 
-    # 청크 목록 미리 계산
-    all_chunks = []
-    for ts in timestamps:
-        start_sec = ts["start"]
-        end_sec = ts["end"]
-        duration = end_sec - start_sec
-
-        if duration < min_segment_sec:
-            continue
-
-        if duration > max_segment_sec:
-            t = start_sec
-            while t < end_sec:
-                chunk_end = min(t + max_segment_sec, end_sec)
-                if chunk_end - t >= min_segment_sec:
-                    all_chunks.append((t, chunk_end))
-                t = chunk_end
-        else:
-            all_chunks.append((start_sec, end_sec))
-
+    all_chunks = _split_into_chunks(timestamps, min_segment_sec, max_segment_sec)
     total_chunks = len(all_chunks)
     segments = []
 

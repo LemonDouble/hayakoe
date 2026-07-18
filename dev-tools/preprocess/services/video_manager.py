@@ -71,15 +71,19 @@ def list_all(data_dir: Path) -> list[dict]:
     return result
 
 
-def get_error(video_dir: Path) -> dict | None:
-    """error.json에서 에러 정보 읽기."""
-    p = video_dir / "error.json"
+def _read_json(p: Path) -> dict | None:
+    """JSON 파일 읽기. 없거나 손상됐으면 None."""
     if not p.exists():
         return None
     try:
         return json.loads(p.read_text())
     except json.JSONDecodeError:
         return None
+
+
+def get_error(video_dir: Path) -> dict | None:
+    """error.json에서 에러 정보 읽기."""
+    return _read_json(video_dir / "error.json")
 
 
 def clear_error(video_dir: Path):
@@ -94,11 +98,9 @@ def get_stage(video_dir: Path) -> str:
     # 처리 중이면 processing 상태
     processing = video_dir / "processing.json"
     if processing.exists():
-        try:
-            data = json.loads(processing.read_text())
+        data = _read_json(processing)
+        if data and "stage" in data:
             return f"processing:{data['stage']}"
-        except (json.JSONDecodeError, KeyError):
-            pass
 
     if (video_dir / "review_done.json").exists():
         return "done"
@@ -108,12 +110,9 @@ def get_stage(video_dir: Path) -> str:
 
     cls_path = video_dir / "classification.json"
     if cls_path.exists():
-        try:
-            cls = json.loads(cls_path.read_text())
-            if cls.get("done"):
-                return "transcribe"
-        except json.JSONDecodeError:
-            pass
+        cls = _read_json(cls_path) or {}
+        if cls.get("done"):
+            return "transcribe"
         return "classifying"
 
     if (video_dir / "vad.json").exists():
@@ -133,24 +132,12 @@ def get_stage(video_dir: Path) -> str:
 
 def get_meta(video_dir: Path) -> dict:
     """meta.json 읽기."""
-    meta_path = video_dir / "meta.json"
-    if not meta_path.exists():
-        return {}
-    try:
-        return json.loads(meta_path.read_text())
-    except json.JSONDecodeError:
-        return {}
+    return _read_json(video_dir / "meta.json") or {}
 
 
 def get_processing_info(video_dir: Path) -> dict | None:
     """processing.json에서 진행률 정보 읽기."""
-    p = video_dir / "processing.json"
-    if not p.exists():
-        return None
-    try:
-        return json.loads(p.read_text())
-    except json.JSONDecodeError:
-        return None
+    return _read_json(video_dir / "processing.json")
 
 
 def find_source(video_dir: Path) -> Path | None:
@@ -186,10 +173,10 @@ def rollback(video_dir: Path, to_stage: str):
 
     # tmp 파일 정리
     for tmp in video_dir.glob("*.tmp"):
-        tmp.unlink() if tmp.is_file() else shutil.rmtree(tmp)
-    tmp_seg = video_dir / "segments.tmp"
-    if tmp_seg.exists():
-        shutil.rmtree(tmp_seg)
+        if tmp.is_file():
+            tmp.unlink()
+        else:
+            shutil.rmtree(tmp)
 
 
 def _clear_stage(video_dir: Path, stage: str):

@@ -21,6 +21,73 @@ DEFAULT_STYLES = {
 }
 
 
+def _collect_transcripts(videos_dir: Path) -> dict[str, dict[str, str]]:
+    """영상별 transcription.json에서 speaker → {filename: text} 수집."""
+    transcript_map: dict[str, dict[str, str]] = {}
+    for vdir in sorted(videos_dir.iterdir()):
+        if not vdir.is_dir():
+            continue
+        t_path = vdir / "transcription.json"
+        if not t_path.exists():
+            continue
+        for entry in json.loads(t_path.read_text()):
+            speaker = entry["speaker"]
+            if speaker not in transcript_map:
+                transcript_map[speaker] = {}
+            # 파일명 충돌 방지: video_id prefix
+            unique_name = f"{vdir.name}_{entry['file']}"
+            transcript_map[speaker][unique_name] = entry["text"]
+    return transcript_map
+
+
+def _copy_speaker_audio(
+    videos_dir: Path,
+    audio_dir: Path,
+    speaker: str,
+    transcript_map: dict[str, dict[str, str]],
+) -> tuple[list[str], list[float]]:
+    """전사된 화자 세그먼트를 audio_dir로 복사, (esd 엔트리, entry별 duration) 반환."""
+    entries = []
+    durations = []
+    for vdir in sorted(videos_dir.iterdir()):
+        if not vdir.is_dir():
+            continue
+        seg_dir = vdir / "segments" / speaker
+        if not seg_dir.exists():
+            continue
+        for wav in sorted(seg_dir.glob("*.wav")):
+            unique_name = f"{vdir.name}_{wav.name}"
+            text = transcript_map.get(speaker, {}).get(unique_name, "")
+            if not text:
+                continue
+            dst = audio_dir / unique_name
+            shutil.copy2(wav, dst)
+            entries.append(f"{dst.resolve()}|{speaker}|JP|{text}")
+            info = sf.info(str(dst))
+            durations.append(info.duration)
+    return entries, durations
+
+
+def _write_split_lists(
+    speaker_dir: Path,
+    entries: list[str],
+    durations: list[float],
+    val_ratio: float,
+    seed: int,
+) -> tuple[list[tuple[str, float]], list[tuple[str, float]]]:
+    """train/val 분할 후 train.list, val.list 저장 (duration도 같은 순서로 셔플)."""
+    random.seed(seed)
+    paired = list(zip(entries, durations))
+    random.shuffle(paired)
+    val_count = max(1, int(len(paired) * val_ratio))
+    val_pairs = paired[:val_count]
+    train_pairs = paired[val_count:]
+
+    (speaker_dir / "val.list").write_text("\n".join(e for e, _ in val_pairs) + "\n")
+    (speaker_dir / "train.list").write_text("\n".join(e for e, _ in train_pairs) + "\n")
+    return train_pairs, val_pairs
+
+
 def build(data_dir: Path, val_ratio: float = 0.1, seed: int = 42) -> dict:
     """모든 영상에서 분류+전사 완료된 세그먼트를 합쳐 dataset/ 생성.
 
@@ -36,50 +103,15 @@ def build(data_dir: Path, val_ratio: float = 0.1, seed: int = 42) -> dict:
         shutil.rmtree(dataset_dir)
 
     videos_dir = data_dir / "videos"
-    # 영상별 전사 데이터 수집
-    transcript_map: dict[str, dict[str, str]] = {}  # speaker → {filename: text}
-    for vdir in sorted(videos_dir.iterdir()):
-        if not vdir.is_dir():
-            continue
-        t_path = vdir / "transcription.json"
-        if not t_path.exists():
-            continue
-        for entry in json.loads(t_path.read_text()):
-            speaker = entry["speaker"]
-            if speaker not in transcript_map:
-                transcript_map[speaker] = {}
-            # 파일명 충돌 방지: video_id prefix
-            unique_name = f"{vdir.name}_{entry['file']}"
-            transcript_map[speaker][unique_name] = entry["text"]
+    transcript_map = _collect_transcripts(videos_dir)
 
-    # 화자별 오디오 복사 + esd 엔트리 생성
     speaker_entries: dict[str, list[str]] = {}
-    speaker_durations: dict[str, list[float]] = {}  # entry별 duration
+    speaker_durations: dict[str, list[float]] = {}
 
     for speaker in speaker_list:
-        speaker_dir = dataset_dir / speaker
-        audio_dir = speaker_dir / "audio"
+        audio_dir = dataset_dir / speaker / "audio"
         audio_dir.mkdir(parents=True, exist_ok=True)
-
-        entries = []
-        durations = []
-        for vdir in sorted(videos_dir.iterdir()):
-            if not vdir.is_dir():
-                continue
-            seg_dir = vdir / "segments" / speaker
-            if not seg_dir.exists():
-                continue
-            for wav in sorted(seg_dir.glob("*.wav")):
-                unique_name = f"{vdir.name}_{wav.name}"
-                text = transcript_map.get(speaker, {}).get(unique_name, "")
-                if not text:
-                    continue
-                dst = audio_dir / unique_name
-                shutil.copy2(wav, dst)
-                entries.append(f"{dst.resolve()}|{speaker}|JP|{text}")
-                info = sf.info(str(dst))
-                durations.append(info.duration)
-
+        entries, durations = _copy_speaker_audio(videos_dir, audio_dir, speaker, transcript_map)
         speaker_entries[speaker] = entries
         speaker_durations[speaker] = durations
 
@@ -87,7 +119,6 @@ def build(data_dir: Path, val_ratio: float = 0.1, seed: int = 42) -> dict:
     if total == 0:
         raise ValueError("유효한 데이터가 없습니다 (전사 결과 없음).")
 
-    # 화자별 esd.list, train.list, val.list, config.json 생성
     speaker_stats = {}
 
     for speaker in speaker_list:
@@ -97,20 +128,8 @@ def build(data_dir: Path, val_ratio: float = 0.1, seed: int = 42) -> dict:
             continue
 
         speaker_dir = dataset_dir / speaker
-
-        # esd.list
         (speaker_dir / "esd.list").write_text("\n".join(entries) + "\n")
-
-        # train/val 분할 (duration도 같은 순서로 셔플)
-        random.seed(seed)
-        paired = list(zip(entries, durations))
-        random.shuffle(paired)
-        val_count = max(1, int(len(paired) * val_ratio))
-        val_pairs = paired[:val_count]
-        train_pairs = paired[val_count:]
-
-        (speaker_dir / "val.list").write_text("\n".join(e for e, _ in val_pairs) + "\n")
-        (speaker_dir / "train.list").write_text("\n".join(e for e, _ in train_pairs) + "\n")
+        train_pairs, val_pairs = _write_split_lists(speaker_dir, entries, durations, val_ratio, seed)
 
         total_dur = sum(durations)
         train_dur = sum(d for _, d in train_pairs)
@@ -126,70 +145,7 @@ def build(data_dir: Path, val_ratio: float = 0.1, seed: int = 42) -> dict:
             "path": str(speaker_dir.resolve()),
         }
 
-        # config.json
-        spk2id = {speaker: 0}
-        cfg = {
-            "model_name": f"hayakoe_{speaker}",
-            "version": "2.7.0-JP-Extra",
-            "train": {
-                "epochs": 500,
-                "batch_size": 2,
-                "learning_rate": 0.0001,
-                "lr_decay": 0.99996,
-                "seed": seed,
-                "log_interval": 200,
-                "eval_interval": 1000,
-                "segment_size": 16384,
-            },
-            "data": {
-                "use_jp_extra": True,
-                "training_files": str((speaker_dir / "train.list").resolve()),
-                "validation_files": str((speaker_dir / "val.list").resolve()),
-                "sampling_rate": 44100,
-                "filter_length": 2048,
-                "hop_length": 512,
-                "win_length": 2048,
-                "n_mel_channels": 128,
-                "mel_fmin": 0.0,
-                "mel_fmax": None,
-                "add_blank": True,
-                "n_speakers": 1,
-                "cleaned_text": False,
-                "spk2id": spk2id,
-                "num_styles": len(DEFAULT_STYLES),
-                "style2id": DEFAULT_STYLES,
-            },
-            "model": {
-                "use_spk_conditioned_encoder": True,
-                "use_noise_scaled_mas": True,
-                "use_mel_posterior_encoder": False,
-                "use_duration_discriminator": False,
-                "use_wavlm_discriminator": True,
-                "inter_channels": 192,
-                "hidden_channels": 192,
-                "filter_channels": 768,
-                "n_heads": 2,
-                "n_layers": 6,
-                "kernel_size": 3,
-                "p_dropout": 0.1,
-                "resblock": "1",
-                "resblock_kernel_sizes": [3, 7, 11],
-                "resblock_dilation_sizes": [[1, 3, 5], [1, 3, 5], [1, 3, 5]],
-                "upsample_rates": [8, 8, 2, 2, 2],
-                "upsample_initial_channel": 512,
-                "upsample_kernel_sizes": [16, 16, 8, 2, 2],
-                "n_layers_q": 3,
-                "use_spectral_norm": False,
-                "gin_channels": 512,
-                "slm": {
-                    "model": "microsoft/wavlm-base-plus",
-                    "sr": 16000,
-                    "hidden": 768,
-                    "nlayers": 13,
-                    "initial_channel": 64,
-                },
-            },
-        }
+        cfg = _sbv2_config(speaker, speaker_dir, seed)
         (speaker_dir / "config.json").write_text(json.dumps(cfg, ensure_ascii=False, indent=2))
 
     logger.info(f"데이터셋 생성 완료: {total}개 엔트리, 화자 {len(speaker_stats)}명")
@@ -197,4 +153,71 @@ def build(data_dir: Path, val_ratio: float = 0.1, seed: int = 42) -> dict:
         "speakers": speaker_stats,
         "total": total,
         "dataset_dir": str(dataset_dir.resolve()),
+    }
+
+
+def _sbv2_config(speaker: str, speaker_dir: Path, seed: int) -> dict:
+    """화자 단독 학습용 SBV2 config.json 내용 생성."""
+    spk2id = {speaker: 0}
+    return {
+        "model_name": f"hayakoe_{speaker}",
+        "version": "2.7.0-JP-Extra",
+        "train": {
+            "epochs": 500,
+            "batch_size": 2,
+            "learning_rate": 0.0001,
+            "lr_decay": 0.99996,
+            "seed": seed,
+            "log_interval": 200,
+            "eval_interval": 1000,
+            "segment_size": 16384,
+        },
+        "data": {
+            "use_jp_extra": True,
+            "training_files": str((speaker_dir / "train.list").resolve()),
+            "validation_files": str((speaker_dir / "val.list").resolve()),
+            "sampling_rate": 44100,
+            "filter_length": 2048,
+            "hop_length": 512,
+            "win_length": 2048,
+            "n_mel_channels": 128,
+            "mel_fmin": 0.0,
+            "mel_fmax": None,
+            "add_blank": True,
+            "n_speakers": 1,
+            "cleaned_text": False,
+            "spk2id": spk2id,
+            "num_styles": len(DEFAULT_STYLES),
+            "style2id": DEFAULT_STYLES,
+        },
+        "model": {
+            "use_spk_conditioned_encoder": True,
+            "use_noise_scaled_mas": True,
+            "use_mel_posterior_encoder": False,
+            "use_duration_discriminator": False,
+            "use_wavlm_discriminator": True,
+            "inter_channels": 192,
+            "hidden_channels": 192,
+            "filter_channels": 768,
+            "n_heads": 2,
+            "n_layers": 6,
+            "kernel_size": 3,
+            "p_dropout": 0.1,
+            "resblock": "1",
+            "resblock_kernel_sizes": [3, 7, 11],
+            "resblock_dilation_sizes": [[1, 3, 5], [1, 3, 5], [1, 3, 5]],
+            "upsample_rates": [8, 8, 2, 2, 2],
+            "upsample_initial_channel": 512,
+            "upsample_kernel_sizes": [16, 16, 8, 2, 2],
+            "n_layers_q": 3,
+            "use_spectral_norm": False,
+            "gin_channels": 512,
+            "slm": {
+                "model": "microsoft/wavlm-base-plus",
+                "sr": 16000,
+                "hidden": 768,
+                "nlayers": 13,
+                "initial_channel": 64,
+            },
+        },
     }

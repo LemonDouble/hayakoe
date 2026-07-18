@@ -17,8 +17,6 @@ if str(_THIS_DIR) not in sys.path:
 if str(_DEV_TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(_DEV_TOOLS_DIR))
 
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -29,15 +27,10 @@ from api import classification, dataset, media, review, speakers, videos
 from services.safe_path import UnsafePathError
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    yield
-
-
 def create_app(data_dir: str | Path = "./data") -> FastAPI:
     config.init(data_dir)
 
-    app = FastAPI(title="HayaKoe Preprocess", version="0.2.0", lifespan=lifespan)
+    app = FastAPI(title="HayaKoe Preprocess", version="0.2.0")
 
     app.add_middleware(
         CORSMiddleware,
@@ -64,30 +57,18 @@ def create_app(data_dir: str | Path = "./data") -> FastAPI:
 
     @app.get("/api/lang")
     def get_lang():
-        from cli.i18n import _CONFIG_FILE, _SUPPORTED
-        lang = "en"
-        if _CONFIG_FILE.exists():
-            try:
-                text = _CONFIG_FILE.read_text(encoding="utf-8")
-                for line in text.splitlines():
-                    if line.strip().startswith("lang"):
-                        val = line.split("=", 1)[1].strip().strip('"').strip("'").lower()
-                        if val in _SUPPORTED:
-                            lang = val
-            except Exception:
-                pass
-        return {"lang": lang}
+        from cli import i18n
+        return {"lang": i18n.read_config_lang() or "en"}
 
     @app.post("/api/lang")
     def post_lang(body: dict):
-        from cli.i18n import _CONFIG_DIR, _CONFIG_FILE, _SUPPORTED
+        from cli import i18n
         lang = body.get("lang", "").strip().lower()
-        if lang not in _SUPPORTED:
-            return {"error": f"Unsupported: {lang}"}
         try:
-            _CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-            _CONFIG_FILE.write_text(f'lang = "{lang}"\n', encoding="utf-8")
-        except Exception as e:
+            i18n.save_config_lang(lang)
+        except ValueError:
+            return {"error": f"Unsupported: {lang}"}
+        except OSError as e:
             return {"error": str(e)}
         return {"lang": lang}
 
@@ -124,7 +105,6 @@ def main():
 
     import uvicorn
 
-    config.init(args.data_dir)
     app = create_app(args.data_dir)
 
     url = f"http://localhost:{args.port}"
