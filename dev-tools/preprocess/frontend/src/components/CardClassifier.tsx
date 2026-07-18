@@ -12,6 +12,11 @@ interface Props {
 
 const BUFFER_SIZE = 10;
 
+function errorDetail(e: unknown): string {
+  const resp = (e as { response?: { data?: { detail?: string } } })?.response;
+  return resp?.data?.detail || t("detail.error.run_failed");
+}
+
 export default function CardClassifier({ videoId, sourceFile, onDone }: Props) {
   const [speakers, setSpeakers] = useState<string[]>([]);
   const [segments, setSegments] = useState<SegmentInfo[]>([]);
@@ -20,10 +25,32 @@ export default function CardClassifier({ videoId, sourceFile, onDone }: Props) {
   const [classified, setClassified] = useState(0);
   const [totalAll, setTotalAll] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [bucketCounts, setBucketCounts] = useState<ClassificationState["speakers"]>([]);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  const queueRef = useRef<Promise<void>>(Promise.resolve());
+
+  const enqueue = useCallback((task: () => Promise<void>) => {
+    const run = queueRef.current.then(task);
+    // 한 POST가 실패해도 뒤의 항목이 계속 흐르도록 체인은 rejection을 삼킨다 (에러는 run으로 전파)
+    queueRef.current = run.then(
+      () => undefined,
+      () => undefined
+    );
+    return run;
+  }, []);
+
+  const drainQueue = useCallback(async () => {
+    // 대기 중 새 POST가 enqueue될 수 있으므로 tail이 안정될 때까지 반복
+    let tail: Promise<void>;
+    do {
+      tail = queueRef.current;
+      await tail;
+    } while (tail !== queueRef.current);
+  }, []);
 
   const refreshBuckets = useCallback(async () => {
     const state = await clsApi.getClassification(videoId);
@@ -31,6 +58,8 @@ export default function CardClassifier({ videoId, sourceFile, onDone }: Props) {
   }, [videoId]);
 
   const refillBuffer = useCallback(async () => {
+    // in-flight POST가 서버에 반영되기 전에 조회하면 방금 분류한 세그먼트가 목록에 재등장함
+    await drainQueue();
     const data = await clsApi.getUnclassified(videoId, 0, BUFFER_SIZE);
     setSegments(data.segments);
     setCurrentIdx(0);
@@ -38,7 +67,11 @@ export default function CardClassifier({ videoId, sourceFile, onDone }: Props) {
     setClassified(data.classified);
     setTotalAll(data.total_all);
     await refreshBuckets();
-  }, [videoId, refreshBuckets]);
+  }, [videoId, drainQueue, refreshBuckets]);
+
+  const resync = useCallback(() => {
+    refillBuffer().catch((e: unknown) => setError(errorDetail(e)));
+  }, [refillBuffer]);
 
   useEffect(() => {
     (async () => {
@@ -81,28 +114,50 @@ export default function CardClassifier({ videoId, sourceFile, onDone }: Props) {
   }, [audioUrl]);
 
   const handleClassify = useCallback(
-    async (speaker: string) => {
+    (speaker: string) => {
       if (!current) return;
-      await clsApi.classifySegment(videoId, current.file, speaker);
+      const { file, duration } = current;
+      setError("");
 
+      // fire-and-forget이 아닌 직렬 큐: 서버 도착 순서를 입력 순서와 일치시킨다
+      enqueue(() => clsApi.classifySegment(videoId, file, speaker)).catch((e: unknown) => {
+        // 실패한 세그먼트는 서버에 미분류로 남아있으므로 재조회로 낙관 갱신을 되돌린다
+        setError(errorDetail(e));
+        resync();
+      });
+
+      setClassified((c) => c + 1);
+      setTotalUnclassified((t) => t - 1);
+      setBucketCounts((prev) =>
+        prev.some((b) => b.name === speaker)
+          ? prev.map((b) =>
+              b.name === speaker
+                ? { ...b, count: b.count + 1, total_duration: b.total_duration + duration }
+                : b
+            )
+          : // count 0인 화자(예: 첫 discarded)는 서버 응답에서 생략되므로 새로 추가
+            [...prev, { name: speaker, count: 1, total_duration: duration }]
+      );
+
+      // 버퍼 소진 시에도 idx를 범위 밖으로 밀어, refill 완료 전 같은 카드에 대한 재입력을 차단
       const nextIdx = currentIdx + 1;
-      if (nextIdx >= segments.length) {
-        await refillBuffer();
-      } else {
-        setCurrentIdx(nextIdx);
-        setClassified((c) => c + 1);
-        setTotalUnclassified((t) => t - 1);
-        // 버킷 카운트 비동기 갱신
-        refreshBuckets();
-      }
+      setCurrentIdx(nextIdx);
+      if (nextIdx >= segments.length) resync();
     },
-    [current, currentIdx, segments.length, videoId, refillBuffer, refreshBuckets]
+    [current, currentIdx, segments.length, videoId, enqueue, resync]
   );
 
   const handleUndo = useCallback(async () => {
-    await clsApi.undoClassification(videoId);
-    await refillBuffer();
-  }, [videoId, refillBuffer]);
+    setError("");
+    // in-flight 분류 POST가 남은 채로 undo하면 서버 history의 다른 항목이 되돌아감
+    await drainQueue();
+    try {
+      await clsApi.undoClassification(videoId);
+    } catch (e: unknown) {
+      setError(errorDetail(e));
+    }
+    resync();
+  }, [videoId, drainQueue, resync]);
 
   const handleDone = async () => {
     if (!confirm(t("classifier.confirm_done"))) return;
@@ -169,6 +224,11 @@ export default function CardClassifier({ videoId, sourceFile, onDone }: Props) {
 
   return (
     <div className="bg-surface border border-line rounded-xl p-6">
+      {error && (
+        <div className="bg-error/[0.06] border border-error/25 rounded-lg p-3 mb-4 text-error text-sm">
+          {error}
+        </div>
+      )}
       {/* 안내 배너 */}
       <div className="bg-primary/[0.08] border border-primary/25 rounded-lg p-4 mb-5">
         <p className="text-primary text-[11px] font-bold uppercase tracking-[1.5px] mb-1.5 font-display">{t("classifier.title")}</p>
