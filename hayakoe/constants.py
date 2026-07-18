@@ -4,9 +4,6 @@ from pathlib import Path
 from hayakoe.utils.strenum import StrEnum
 
 
-BASE_DIR = Path(__file__).parent.parent
-
-
 class Languages(StrEnum):
     JP = "JP"
     EN = "EN"
@@ -31,9 +28,6 @@ def default_cache_dir() -> Path:
     if env:
         return Path(env).expanduser().resolve()
     return Path.cwd() / "hayakoe_cache"
-
-# JP BERT model
-BERT_JP_REPO = "ku-nlp/deberta-v2-large-japanese-char-wwm"
 
 # Default inference parameters
 DEFAULT_STYLE = "Neutral"

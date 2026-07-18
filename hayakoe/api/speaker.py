@@ -5,6 +5,7 @@ import re
 import threading
 from collections.abc import AsyncGenerator, Generator
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Union
 
@@ -27,11 +28,29 @@ _SENTENCE_SPLIT_RE = re.compile(r"(?<=[。！？!?\n])")
 _HAS_SPEECH_RE = re.compile(r"[ぁ-ゖァ-ヶ一-鿿々〆〇a-zA-Z0-9０-９Ａ-Ｚａ-ｚｦ-ﾟ]")
 
 
-def _intersperse_zero(lst: list) -> list:
-    """리스트 요소 사이에 0 을 삽입한다 (torch 없이 CPU 경로에서 사용)."""
-    result = [0] * (len(lst) * 2 + 1)
-    result[1::2] = lst
-    return result
+@dataclass(frozen=True)
+class _SynthesisParams:
+    """generate/stream 이 공유하는 합성 파라미터 묶음 (내부 전달용)."""
+
+    lang: Union[str, Languages] = Languages.JP
+    style: str = "Neutral"
+    speaker_id: int = 0
+    speed: float = 1.0
+    sdp_ratio: float = 0.2
+    noise: float = 0.6
+    noise_w: float = 0.8
+    pitch_scale: float = 1.0
+    intonation_scale: float = 1.0
+    style_weight: float = 1.0
+
+
+def _validate_lang(lang: Union[str, Languages]) -> None:
+    """현재 일본어만 지원한다 — JP 이외 값은 진입점에서 명시적으로 거부."""
+    value = Languages(lang.value if hasattr(lang, "value") else str(lang))
+    if value != Languages.JP:
+        raise NotImplementedError(
+            f"Only Japanese (Languages.JP) is supported, got: {value}"
+        )
 
 
 _MIN_PAUSE_SEC = 0.08  # 문장 간 최소 무음 보장 (80ms)
@@ -107,7 +126,7 @@ class Speaker:
 
         self.styles = StyleAccessor(self._style2id)
 
-        # 지연 로드 (백엔드별)
+        # pytorch 백엔드는 지연 로드, onnx 는 아래에서 즉시 초기화
         self._net_g: Optional[SynthesizerTrnJPExtra] = None
         self._synth_session = None
         self._dp_session = None
@@ -230,6 +249,10 @@ class Speaker:
             pitch_scale: 피치 배율 (1.0 = 변경 없음).
             intonation_scale: 억양 배율 (1.0 = 변경 없음).
             style_weight: 스타일 벡터 가중치 (0.0-1.0).
+            batch_bert: 다중 문장 텍스트에서 문장별 BERT 추론을 한 번의
+                배치로 처리한다 (기본 ``True``). ``False`` 면 문장마다
+                개별 추론한다 (배치 padding 과 수치가 미세하게 다를 수
+                있어 검증/비교용).
 
         Returns:
             ``.save(path)`` 와 ``.to_bytes()`` 메서드를 가진
@@ -244,13 +267,15 @@ class Speaker:
             )
             audio.save("output.wav")
         """
+        _validate_lang(lang)
+        params = _SynthesisParams(
+            lang=lang, style=style, speaker_id=speaker_id,
+            speed=speed, sdp_ratio=sdp_ratio, noise=noise, noise_w=noise_w,
+            pitch_scale=pitch_scale, intonation_scale=intonation_scale,
+            style_weight=style_weight,
+        )
         with self._gen_lock:
-            return self._generate_locked(
-                text, lang=lang, style=style, speaker_id=speaker_id,
-                speed=speed, sdp_ratio=sdp_ratio, noise=noise, noise_w=noise_w,
-                pitch_scale=pitch_scale, intonation_scale=intonation_scale,
-                style_weight=style_weight, batch_bert=batch_bert,
-            )
+            return self._generate_locked(text, params, batch_bert=batch_bert)
 
     async def agenerate(
         self,
@@ -266,89 +291,43 @@ class Speaker:
     def _generate_locked(
         self,
         text: str,
+        params: _SynthesisParams,
         *,
-        lang: Union[str, Languages] = Languages.JP,
-        style: str = "Neutral",
-        speaker_id: int = 0,
-        speed: float = 1.0,
-        sdp_ratio: float = 0.2,
-        noise: float = 0.6,
-        noise_w: float = 0.8,
-        pitch_scale: float = 1.0,
-        intonation_scale: float = 1.0,
-        style_weight: float = 1.0,
         batch_bert: bool = True,
     ) -> AudioResult:
-        kwargs = dict(
-            lang=lang, style=style, speaker_id=speaker_id,
-            speed=speed, sdp_ratio=sdp_ratio, noise=noise, noise_w=noise_w,
-            pitch_scale=pitch_scale, intonation_scale=intonation_scale,
-            style_weight=style_weight,
-        )
-
         sentences = _split_sentences(text)
         if len(sentences) <= 1:
-            audio = self._synthesize_one(text, **kwargs)
-            return self._to_audio_result(audio)
+            return self._to_audio_result(self._synthesize_one(text, params))
 
         sr = self._hps.data.sampling_rate
         bp = self._predict_pauses(
-            text, sentences, style, style_weight,
-            speaker_id, speed, sdp_ratio, noise_w,
+            text, sentences, params.style, params.style_weight,
+            params.speaker_id, params.speed, params.sdp_ratio, params.noise_w,
         )
 
-        if not batch_bert:
-            parts: list[NDArray] = []
-            for i, sentence in enumerate(sentences):
-                audio = self._synthesize_one(sentence, **kwargs)
-                if i > 0:
-                    trailing = _measure_trailing_silence(parts[-1], sr)
-                    gap = _make_pause_gap(
-                        trailing, sr, np.float32, _pause_target(bp, i - 1),
-                    )
-                    if len(gap) > 0:
-                        parts.append(gap)
-                parts.append(audio)
-            return self._to_audio_result(np.concatenate(parts))
-
-        # 다중 문장: BERT 배치 추론 + 순차 합성
-        style_vec = self._get_style_vector(style, style_weight)
-
-        nlp_results = [self._preprocess_nlp(s) for s in sentences]
-
-        if self._backend == "onnx":
-            bert_features = self._batch_bert_onnx(nlp_results)
-        else:
-            bert_features = self._batch_bert_pytorch(nlp_results)
+        # 다중 문장: BERT 배치 추론 (기본) 후 순차 합성. batch_bert=False 는
+        # BERT 준비만 문장별 개별 추론으로 바뀌고 합성 루프는 공유한다.
+        if batch_bert:
+            style_vec = self._get_style_vector(params.style, params.style_weight)
+            nlp_results = [self._preprocess_nlp(s) for s in sentences]
+            if self._backend == "onnx":
+                bert_features = self._batch_bert_onnx(nlp_results)
+            else:
+                bert_features = self._batch_bert_pytorch(nlp_results)
 
         parts: list[NDArray] = []
-        for i, (nlp, ja_bert) in enumerate(zip(nlp_results, bert_features)):
+        for i, sentence in enumerate(sentences):
             if i > 0:
                 trailing = _measure_trailing_silence(parts[-1], sr)
-                gap = _make_pause_gap(
-                    trailing, sr, np.float32, _pause_target(bp, i - 1),
-                )
+                gap = _boundary_gap(trailing, sr, np.float32, bp, i - 1)
                 if len(gap) > 0:
                     parts.append(gap)
-            _, phone_seq, tone_seq, lang_seq, _ = nlp
-
-            if self._backend == "onnx":
-                audio = self._synth_with_features_onnx(
-                    phone_seq, tone_seq, lang_seq, ja_bert, style_vec,
-                    speaker_id, speed, sdp_ratio, noise, noise_w,
+            if batch_bert:
+                audio = self._synthesize_one_with_features(
+                    nlp_results[i], bert_features[i], style_vec, params,
                 )
             else:
-                audio = self._synth_with_features_pytorch(
-                    phone_seq, tone_seq, lang_seq, ja_bert, style_vec,
-                    speaker_id, speed, sdp_ratio, noise, noise_w,
-                )
-
-            if pitch_scale != 1.0 or intonation_scale != 1.0:
-                _, audio = adjust_voice(
-                    fs=sr, wave=audio,
-                    pitch_scale=pitch_scale,
-                    intonation_scale=intonation_scale,
-                )
+                audio = self._synthesize_one(sentence, params)
             parts.append(audio)
 
         return self._to_audio_result(np.concatenate(parts))
@@ -380,7 +359,9 @@ class Speaker:
 
         Args:
             text: 합성할 텍스트.
-            **kwargs: :meth:`generate` 와 동일한 파라미터.
+            lang 이하: :meth:`generate` 와 동일한 파라미터
+                (``batch_bert`` 는 받지 않는다 — 전체 문장 BERT 배치는
+                첫 청크 지연을 키워 스트리밍 목적에 반한다).
 
         Yields:
             문장별 :class:`AudioResult`. 두 번째 문장부터 앞에 무음이 포함된다.
@@ -394,14 +375,16 @@ class Speaker:
         보유한다. ``close()`` 또는 소진되면 해제되므로 ``for`` 문으로 돌리거나
         ``try/finally`` 안에서 사용해야 다른 요청이 차단되지 않는다.
         """
+        _validate_lang(lang)
+        params = _SynthesisParams(
+            lang=lang, style=style, speaker_id=speaker_id,
+            speed=speed, sdp_ratio=sdp_ratio, noise=noise, noise_w=noise_w,
+            pitch_scale=pitch_scale, intonation_scale=intonation_scale,
+            style_weight=style_weight,
+        )
         self._gen_lock.acquire()
         try:
-            yield from self._stream_locked(
-                text, lang=lang, style=style, speaker_id=speaker_id,
-                speed=speed, sdp_ratio=sdp_ratio, noise=noise, noise_w=noise_w,
-                pitch_scale=pitch_scale, intonation_scale=intonation_scale,
-                style_weight=style_weight,
-            )
+            yield from self._stream_locked(text, params)
         finally:
             self._gen_lock.release()
 
@@ -454,7 +437,7 @@ class Speaker:
 
         Args:
             text: 합성할 텍스트.
-            **kwargs: :meth:`generate` 와 동일한 파라미터.
+            **kwargs: :meth:`stream` 과 동일한 파라미터.
 
         **Thread safety** — :meth:`stream` 과 동일하게 제너레이터가 살아있는
         동안 per-speaker lock 을 보유한다.
@@ -483,17 +466,7 @@ class Speaker:
     def _stream_locked(
         self,
         text: str,
-        *,
-        lang: Union[str, Languages] = Languages.JP,
-        style: str = "Neutral",
-        speaker_id: int = 0,
-        speed: float = 1.0,
-        sdp_ratio: float = 0.2,
-        noise: float = 0.6,
-        noise_w: float = 0.8,
-        pitch_scale: float = 1.0,
-        intonation_scale: float = 1.0,
-        style_weight: float = 1.0,
+        params: _SynthesisParams,
     ) -> Generator[AudioResult, None, None]:
         sentences = _split_sentences(text)
         if not sentences:
@@ -508,67 +481,45 @@ class Speaker:
         max_peak = 0.0
 
         bp = self._predict_pauses(
-            text, sentences, style, style_weight,
-            speaker_id, speed, sdp_ratio, noise_w,
+            text, sentences, params.style, params.style_weight,
+            params.speaker_id, params.speed, params.sdp_ratio, params.noise_w,
         )
 
         for i, sentence in enumerate(sentences):
-            audio = self._synthesize_one(
-                sentence, lang=lang, style=style, speaker_id=speaker_id,
-                speed=speed, sdp_ratio=sdp_ratio, noise=noise, noise_w=noise_w,
-                pitch_scale=pitch_scale, intonation_scale=intonation_scale,
-                style_weight=style_weight,
-            )
+            audio = self._synthesize_one(sentence, params)
             trailing = _measure_trailing_silence(audio, sr)
             max_peak = max(max_peak, float(np.abs(audio).max()))
             pcm = self._to_pcm(audio, peak=max_peak)
 
             if i > 0:
-                gap = _make_pause_gap(
-                    prev_trailing, sr, np.int16, _pause_target(bp, i - 1),
-                )
+                gap = _boundary_gap(prev_trailing, sr, np.int16, bp, i - 1)
                 if len(gap) > 0:
                     pcm = np.concatenate([gap, pcm])
 
             prev_trailing = trailing
             yield AudioResult(sr=sr, data=pcm)
 
-    def _synthesize_one(
-        self,
-        text: str,
-        *,
-        lang: Union[str, Languages] = Languages.JP,
-        style: str = "Neutral",
-        speaker_id: int = 0,
-        speed: float = 1.0,
-        sdp_ratio: float = 0.2,
-        noise: float = 0.6,
-        noise_w: float = 0.8,
-        pitch_scale: float = 1.0,
-        intonation_scale: float = 1.0,
-        style_weight: float = 1.0,
-    ) -> NDArray:
+    def _synthesize_one(self, text: str, params: _SynthesisParams) -> NDArray:
         """단일 텍스트 → float32 오디오 배열."""
-        lang_str = Languages(lang.value if hasattr(lang, "value") else str(lang))
-        style_vec = self._get_style_vector(style, style_weight)
+        style_vec = self._get_style_vector(params.style, params.style_weight)
 
         if self._backend == "onnx":
             audio = self._generate_onnx(
-                text, lang_str, style_vec, speaker_id,
-                speed, sdp_ratio, noise, noise_w,
+                text, style_vec, params.speaker_id,
+                params.speed, params.sdp_ratio, params.noise, params.noise_w,
             )
         else:
             audio = self._generate_pytorch(
-                text, lang_str, style_vec, speaker_id,
-                speed, sdp_ratio, noise, noise_w,
+                text, style_vec, params.speaker_id,
+                params.speed, params.sdp_ratio, params.noise, params.noise_w,
             )
 
-        if pitch_scale != 1.0 or intonation_scale != 1.0:
+        if params.pitch_scale != 1.0 or params.intonation_scale != 1.0:
             _, audio = adjust_voice(
                 fs=self._hps.data.sampling_rate,
                 wave=audio,
-                pitch_scale=pitch_scale,
-                intonation_scale=intonation_scale,
+                pitch_scale=params.pitch_scale,
+                intonation_scale=params.intonation_scale,
             )
 
         return audio
@@ -594,75 +545,66 @@ class Speaker:
 
     def _preprocess_nlp(self, text: str) -> tuple:
         """NLP 전처리 (BERT 제외): (norm_text, phone_seq, tone_seq, lang_seq, word2ph)."""
-        from hayakoe.nlp import (
-            clean_text_with_given_phone_tone,
-            cleaned_text_to_sequence,
-        )
+        from hayakoe.models.text_preprocess import prepare_phone_sequences
 
-        hps = self._hps
-        norm_text, phone, tone, word2ph = clean_text_with_given_phone_tone(
-            text, Languages.JP,
-            use_jp_extra=hps.version.endswith("JP-Extra"),
-            raise_yomi_error=False,
-        )
-        phone_seq, tone_seq, lang_seq = cleaned_text_to_sequence(phone, tone, Languages.JP)
+        return prepare_phone_sequences(text, self._hps)
 
-        if hps.data.add_blank:
-            phone_seq = _intersperse_zero(phone_seq)
-            tone_seq = _intersperse_zero(tone_seq)
-            lang_seq = _intersperse_zero(lang_seq)
-            for i in range(len(word2ph)):
-                word2ph[i] *= 2
-            word2ph[0] += 1
+    @staticmethod
+    def _bert_clean_texts(nlp_results: list[tuple]) -> list[str]:
+        """BERT 입력용 클린 텍스트 (norm_text → sep_kata 결합)."""
+        from hayakoe.nlp.japanese.g2p import text_to_sep_kata
 
-        return norm_text, phone_seq, tone_seq, lang_seq, word2ph
+        return [
+            "".join(text_to_sep_kata(nlp[0], raise_yomi_error=False)[0])
+            for nlp in nlp_results
+        ]
+
+    @staticmethod
+    def _expand_bert_features(
+        hidden: NDArray, nlp_results: list[tuple], clean_texts: list[str],
+    ) -> list[NDArray]:
+        """토큰 단위 hidden 을 word2ph 에 따라 음소 단위로 확장한다."""
+        features = []
+        for i, (_, _, _, _, word2ph) in enumerate(nlp_results):
+            clean_text = clean_texts[i]
+            assert len(word2ph) == len(clean_text) + 2, clean_text
+            features.append(np.repeat(hidden[i][: len(word2ph)], word2ph, axis=0).T)
+        return features
 
     def _batch_bert_pytorch(self, nlp_results: list[tuple]) -> list:
         """PyTorch BERT 배치 추론."""
         import torch
 
         from hayakoe.nlp import bert_models
-        from hayakoe.nlp.japanese.g2p import text_to_sep_kata
 
         device = self._device
         model = bert_models.load_model(device=device)
         bert_models.transfer_model(device)
         tokenizer = bert_models.load_tokenizer()
 
-        clean_texts = [
-            "".join(text_to_sep_kata(nlp[0], raise_yomi_error=False)[0])
-            for nlp in nlp_results
-        ]
+        clean_texts = self._bert_clean_texts(nlp_results)
 
         with torch.no_grad():
             inputs = tokenizer(clean_texts, return_tensors="pt", padding=True)
             for k in inputs:
                 inputs[k] = inputs[k].to(device)
             res = model(**inputs, output_hidden_states=True)
-            hidden = torch.cat(res["hidden_states"][-3:-2], -1).float()
+            hidden = res["hidden_states"][-3].float()
 
-        bert_features = []
-        for i, (_, _, _, _, word2ph) in enumerate(nlp_results):
-            clean_text = clean_texts[i]
-            assert len(word2ph) == len(clean_text) + 2, clean_text
-            feat = []
-            for j in range(len(word2ph)):
-                feat.append(hidden[i][j].repeat(word2ph[j], 1))
-            bert_features.append(torch.cat(feat, dim=0).T)
-
-        return bert_features
+        return [
+            torch.from_numpy(feat)
+            for feat in self._expand_bert_features(
+                hidden.cpu().numpy(), nlp_results, clean_texts,
+            )
+        ]
 
     def _batch_bert_onnx(self, nlp_results: list[tuple]) -> list:
         """ONNX BERT 배치 추론."""
         from hayakoe.nlp import bert_models
-        from hayakoe.nlp.japanese.g2p import text_to_sep_kata
 
         tokenizer = bert_models.load_tokenizer()
 
-        clean_texts = [
-            "".join(text_to_sep_kata(nlp[0], raise_yomi_error=False)[0])
-            for nlp in nlp_results
-        ]
+        clean_texts = self._bert_clean_texts(nlp_results)
 
         inputs = tokenizer(clean_texts, return_tensors="np", padding=True)
         res = self._bert_session.run(None, {
@@ -670,16 +612,7 @@ class Speaker:
             "attention_mask": inputs["attention_mask"],
         })[0]
 
-        bert_features = []
-        for i, (_, _, _, _, word2ph) in enumerate(nlp_results):
-            clean_text = clean_texts[i]
-            assert len(word2ph) == len(clean_text) + 2, clean_text
-            feat = []
-            for j in range(len(word2ph)):
-                feat.append(np.tile(res[i][j], (word2ph[j], 1)))
-            bert_features.append(np.concatenate(feat, axis=0).T)
-
-        return bert_features
+        return self._expand_bert_features(res, nlp_results, clean_texts)
 
     def _synth_with_features_pytorch(
         self, phone_seq, tone_seq, lang_seq, ja_bert, style_vec,
@@ -731,7 +664,37 @@ class Speaker:
         })
         return output[0][0, 0]
 
-    def _generate_onnx(self, text, lang, style_vec, sid, speed, sdp_ratio, noise, noise_w):
+    def _synthesize_one_with_features(
+        self, nlp: tuple, ja_bert, style_vec: NDArray, params: _SynthesisParams,
+    ) -> NDArray:
+        """pre-computed BERT 특징으로 단일 문장 → float32 오디오 배열."""
+        _, phone_seq, tone_seq, lang_seq, _ = nlp
+
+        if self._backend == "onnx":
+            audio = self._synth_with_features_onnx(
+                phone_seq, tone_seq, lang_seq, ja_bert, style_vec,
+                params.speaker_id, params.speed, params.sdp_ratio,
+                params.noise, params.noise_w,
+            )
+        else:
+            audio = self._synth_with_features_pytorch(
+                phone_seq, tone_seq, lang_seq, ja_bert, style_vec,
+                params.speaker_id, params.speed, params.sdp_ratio,
+                params.noise, params.noise_w,
+            )
+
+        if params.pitch_scale != 1.0 or params.intonation_scale != 1.0:
+            _, audio = adjust_voice(
+                fs=self._hps.data.sampling_rate,
+                wave=audio,
+                pitch_scale=params.pitch_scale,
+                intonation_scale=params.intonation_scale,
+            )
+        return audio
+
+    # ── 단일 문장 추론 ──
+
+    def _generate_onnx(self, text, style_vec, sid, speed, sdp_ratio, noise, noise_w):
         from hayakoe.models.infer_onnx import infer_onnx
 
         return infer_onnx(
@@ -742,13 +705,12 @@ class Speaker:
             noise_scale_w=noise_w,
             length_scale=speed,
             sid=sid,
-            language=lang,
             hps=self._hps,
             bert_session=self._bert_session,
             synth_session=self._synth_session,
         )
 
-    def _generate_pytorch(self, text, lang, style_vec, sid, speed, sdp_ratio, noise, noise_w):
+    def _generate_pytorch(self, text, style_vec, sid, speed, sdp_ratio, noise, noise_w):
         import torch
 
         from hayakoe.models.infer import infer
@@ -762,12 +724,13 @@ class Speaker:
                 noise_scale_w=noise_w,
                 length_scale=speed,
                 sid=sid,
-                language=lang,
                 hps=self._hps,
                 net_g=net_g,
                 device=self._device,
                 style_vec=style_vec,
             )
+
+    # ── 문장 경계 무음 예측 ──
 
     def _predict_pauses(
         self, text: str, sentences: list[str], style: str, style_weight: float,
@@ -922,3 +885,16 @@ def _make_pause_gap(
         return np.array([], dtype=dtype)
     extra = target - trailing_sec
     return np.zeros(int(sr * extra), dtype=dtype)
+
+
+def _boundary_gap(
+    trailing_sec: float,
+    sr: int,
+    dtype: type,
+    boundary_pauses: Optional[list[float]],
+    boundary_idx: int,
+) -> NDArray:
+    """문장 경계에 삽입할 무음 gap 을 만든다 (예측 pause 조회 + 부족분 보충)."""
+    return _make_pause_gap(
+        trailing_sec, sr, dtype, _pause_target(boundary_pauses, boundary_idx),
+    )

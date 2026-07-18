@@ -11,29 +11,9 @@ from typing import Any, Optional
 import numpy as np
 from numpy.typing import NDArray
 
-from hayakoe.constants import Languages
 from hayakoe.models.hyper_parameters import HyperParameters
-from hayakoe.nlp import (
-    clean_text_with_given_phone_tone,
-    cleaned_text_to_sequence,
-)
+from hayakoe.models.text_preprocess import prepare_phone_sequences
 from hayakoe.nlp.japanese.g2p import text_to_sep_kata
-
-
-def _intersperse(lst: list, item) -> list:
-    """리스트 요소 사이에 아이템을 삽입한다."""
-    result = [item] * (len(lst) * 2 + 1)
-    result[1::2] = lst
-    return result
-
-
-def _get_tokenizer():
-    """JP BERT 토크나이저를 가져온다."""
-    from hayakoe.nlp import bert_models
-
-    if not bert_models.is_tokenizer_loaded():
-        bert_models.load_tokenizer()
-    return bert_models.load_tokenizer()
 
 
 def extract_bert_feature_onnx(
@@ -45,10 +25,12 @@ def extract_bert_feature_onnx(
 
     nlp/japanese/bert_feature.py의 로직을 미러링하되 ONNX를 사용한다.
     """
+    from hayakoe.nlp import bert_models
+
     # PyTorch 버전과 동일한 전처리
     text = "".join(text_to_sep_kata(text, raise_yomi_error=False)[0])
 
-    tokenizer = _get_tokenizer()
+    tokenizer = bert_models.load_tokenizer()
     inputs = tokenizer(text, return_tensors="np")
     input_ids = inputs["input_ids"]
     attention_mask = inputs["attention_mask"]
@@ -59,12 +41,7 @@ def extract_bert_feature_onnx(
     })[0][0]  # [seq_len, hidden_dim]
 
     assert len(word2ph) == len(text) + 2, text
-    phone_level_feature = []
-    for i in range(len(word2ph)):
-        repeat_feature = np.tile(res[i], (word2ph[i], 1))
-        phone_level_feature.append(repeat_feature)
-
-    phone_level_feature = np.concatenate(phone_level_feature, axis=0)
+    phone_level_feature = np.repeat(res[: len(word2ph)], word2ph, axis=0)
     return phone_level_feature.T  # [hidden_dim, phone_len]
 
 
@@ -76,31 +53,18 @@ def get_text_onnx(
     given_tone: Optional[list[int]] = None,
 ) -> tuple[NDArray, NDArray, NDArray, NDArray]:
     """텍스트 전처리 + ONNX를 통한 BERT 특징 추출."""
-    use_jp_extra = hps.version.endswith("JP-Extra")
-    norm_text, phone, tone, word2ph = clean_text_with_given_phone_tone(
+    norm_text, phone, tone, language, word2ph = prepare_phone_sequences(
         text,
-        Languages.JP,
+        hps,
         given_phone=given_phone,
         given_tone=given_tone,
-        use_jp_extra=use_jp_extra,
-        raise_yomi_error=False,
     )
-    phone, tone, language = cleaned_text_to_sequence(phone, tone, Languages.JP)
-
-    if hps.data.add_blank:
-        phone = _intersperse(phone, 0)
-        tone = _intersperse(tone, 0)
-        language = _intersperse(language, 0)
-        for i in range(len(word2ph)):
-            word2ph[i] = word2ph[i] * 2
-        word2ph[0] += 1
 
     ja_bert = extract_bert_feature_onnx(
         norm_text,
         word2ph,
         bert_session,
     )
-    del word2ph
     assert ja_bert.shape[-1] == len(phone), phone
 
     phone = np.array(phone, dtype=np.int64)
@@ -117,7 +81,6 @@ def infer_onnx(
     noise_scale_w: float,
     length_scale: float,
     sid: int,
-    language: Languages,
     hps: HyperParameters,
     bert_session,
     synth_session,

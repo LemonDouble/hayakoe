@@ -158,15 +158,7 @@ class LocalSource:
         return path
 
     def upload(self, prefix: str, local_dir: Path) -> None:
-        dest = self.root / prefix
-        dest.mkdir(parents=True, exist_ok=True)
-        for path in sorted(local_dir.rglob("*")):
-            if not path.is_file():
-                continue
-            rel = path.relative_to(local_dir)
-            target = dest / rel
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(path, target)
+        shutil.copytree(local_dir, self.root / prefix, dirs_exist_ok=True)
 
 
 # ─────────────────────────── URI 파서 ───────────────────────────

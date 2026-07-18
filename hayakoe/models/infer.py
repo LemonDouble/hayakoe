@@ -5,10 +5,7 @@ from numpy.typing import NDArray
 
 from hayakoe.constants import Languages
 from hayakoe.logging import logger
-from hayakoe.models import commons, utils
-
-# 문장 경계 pause 헬퍼는 torch-free 모듈로 분리되어 있다 (CPU/ONNX 경로가
-# torch 없이 import 할 수 있도록). 하위 호환을 위해 여기서 re-export 한다.
+from hayakoe.models import utils
 from hayakoe.models.boundary_pauses import (
     durations_to_boundary_pauses,
     find_boundary_punct_positions,
@@ -17,11 +14,8 @@ from hayakoe.models.hyper_parameters import HyperParameters
 from hayakoe.models.models_jp_extra import (
     SynthesizerTrn as SynthesizerTrnJPExtra,
 )
-from hayakoe.nlp import (
-    clean_text_with_given_phone_tone,
-    cleaned_text_to_sequence,
-    extract_bert_feature,
-)
+from hayakoe.models.text_preprocess import prepare_phone_sequences
+from hayakoe.nlp import extract_bert_feature
 from hayakoe.nlp.symbols import SYMBOLS
 
 
@@ -60,7 +54,6 @@ def get_net_g(
         gin_channels=hps.model.gin_channels,
         slm=hps.model.slm,
     ).to(device)
-    net_g.state_dict()
     _ = net_g.eval()
     if model_path.endswith(".pth") or model_path.endswith(".pt"):
         _ = utils.checkpoints.load_checkpoint(
@@ -80,24 +73,12 @@ def get_text(
     given_phone: Optional[list[str]] = None,
     given_tone: Optional[list[int]] = None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    use_jp_extra = hps.version.endswith("JP-Extra")
-    norm_text, phone, tone, word2ph = clean_text_with_given_phone_tone(
+    norm_text, phone, tone, language, word2ph = prepare_phone_sequences(
         text,
-        Languages.JP,
+        hps,
         given_phone=given_phone,
         given_tone=given_tone,
-        use_jp_extra=use_jp_extra,
-        raise_yomi_error=False,
     )
-    phone, tone, language = cleaned_text_to_sequence(phone, tone, Languages.JP)
-
-    if hps.data.add_blank:
-        phone = commons.intersperse(phone, 0)
-        tone = commons.intersperse(tone, 0)
-        language = commons.intersperse(language, 0)
-        for i in range(len(word2ph)):
-            word2ph[i] = word2ph[i] * 2
-        word2ph[0] += 1
 
     ja_bert = extract_bert_feature(
         norm_text,
@@ -105,7 +86,6 @@ def get_text(
         Languages.JP,
         device,
     )
-    del word2ph
     assert ja_bert.shape[-1] == len(phone), phone
 
     phone = torch.LongTensor(phone)
@@ -122,7 +102,6 @@ def infer(
     noise_scale_w: float,
     length_scale: float,
     sid: int,
-    language: Languages,
     hps: HyperParameters,
     net_g: SynthesizerTrnJPExtra,
     device: str,
@@ -144,7 +123,6 @@ def infer(
         ja_bert = ja_bert.to(device).unsqueeze(0)
         x_tst_lengths = torch.LongTensor([phones.size(0)]).to(device)
         style_vec_tensor = torch.from_numpy(style_vec).to(device).unsqueeze(0)
-        del phones
         sid_tensor = torch.LongTensor([sid]).to(device)
 
         output = net_g.infer(

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import threading
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Union
 
@@ -24,12 +23,20 @@ class Lang(StrEnum):
     JA = "JP"  # 내부 코드에서는 "JP" 사용
 
 
-@dataclass
-class _SpeakerSpec:
-    """load() 시 등록되는 lazy 스펙 — prepare() 전까지 아무것도 내려받지 않는다."""
+# 소스 루트 아래 아티팩트 경로. pre_download 와 prepare/_init_bert 가 같은
+# 위치를 봐야 오프라인 계약이 유지되므로 반드시 여기서만 정의한다.
+_TOKENIZER_PREFIX = "bert/tokenizer"
+_BERT_PREFIX = {"onnx": "onnx/bert/q8", "pytorch": "pytorch/bert/fp32"}
 
-    name: str
-    source: Source
+
+def _backend_for(device: str) -> str:
+    """device 문자열로 백엔드를 판정한다 (``"pytorch"`` | ``"onnx"``)."""
+    return "pytorch" if device.startswith("cuda") else "onnx"
+
+
+def _speaker_prefix(backend: str, name: str) -> str:
+    """소스 루트 아래 화자 아티팩트 경로."""
+    return f"{backend}/speakers/{name}"
 
 
 class TTS:
@@ -94,7 +101,8 @@ class TTS:
             bert_source, self._cache_dir, token=hf_token,
         )
 
-        self._specs: dict[str, _SpeakerSpec] = {}
+        # load() 로 등록된 lazy 소스 — prepare() 전까지 아무것도 내려받지 않는다.
+        self._specs: dict[str, Source] = {}
         self._speakers: dict[str, "Speaker"] = {}  # noqa: F821
         self._prepared: bool = False
         self._backend: Optional[str] = None
@@ -124,7 +132,7 @@ class TTS:
         uri = source or DEFAULT_SPEAKER_SOURCE
         parsed = parse_source(uri, self._cache_dir, token=self._hf_token)
         with self._lock:
-            self._specs[speaker_name] = _SpeakerSpec(name=speaker_name, source=parsed)
+            self._specs[speaker_name] = parsed
         return self
 
     # ──────────────────────────── 실행 ────────────────────────────
@@ -156,31 +164,30 @@ class TTS:
             # 백엔드 결정 + BERT 초기화는 최초 1회만 (bert_models 는 멱등하지만
             # 불필요한 재확인을 피한다).
             if self._backend is None:
-                if "cuda" in self._device:
+                backend = _backend_for(self._device)
+                if backend == "pytorch":
                     self._validate_cuda()
-                    self._backend = "pytorch"
 
                     import torch
 
                     # TF32 matmul 허용 (Ampere+). eager 경로도 혜택을 받으며
                     # 음질 영향은 무시 가능한 수준.
                     torch.set_float32_matmul_precision("high")
-                else:
-                    self._backend = "onnx"
+                self._backend = backend
                 self._init_bert()
 
             # 아직 materialize 되지 않은 화자만 추린다. 락 안에서 스냅샷을
             # 만들므로 순회 중 load() 가 _specs 를 변경해도 안전하다.
             pending = [
-                (name, spec)
-                for name, spec in self._specs.items()
+                (name, source)
+                for name, source in self._specs.items()
                 if name not in self._speakers
             ]
-            for name, spec in pending:
-                self._materialize_speaker(name, spec)
+            for name, source in pending:
+                self._materialize_speaker(name, source)
 
             new_speakers = [self._speakers[name] for name, _ in pending]
-            if self._device.startswith("cuda"):
+            if self._backend == "pytorch":
                 if compile:
                     self._compile()
                 if warmup and new_speakers:
@@ -209,17 +216,13 @@ class TTS:
         를 호출하면 캐시에서 즉시 로드된다. GPU 가 빌드 환경에 없어도 되며,
         BERT 가중치는 모델 자체에 올라가지 않는다.
         """
-        backend = "pytorch" if device.startswith("cuda") else "onnx"
+        backend = _backend_for(device)
 
-        if backend == "onnx":
-            self._bert_source.fetch("onnx/bert/q8")
-            self._bert_source.fetch("bert/tokenizer")
-        else:
-            self._bert_source.fetch("pytorch/bert/fp32")
-            self._bert_source.fetch("bert/tokenizer")
+        self._bert_source.fetch(_BERT_PREFIX[backend])
+        self._bert_source.fetch(_TOKENIZER_PREFIX)
 
-        for name, spec in self._specs.items():
-            spec.source.fetch(f"{backend}/speakers/{name}")
+        for name, source in self._specs.items():
+            source.fetch(_speaker_prefix(backend, name))
 
         # pyopenjtalk 사전(~22MB)은 첫 g2p 호출 시 site-packages 로 다운로드
         # 된다. 여기서 한 번 호출해 빌드 레이어에 미리 박아 둔다.
@@ -293,7 +296,7 @@ class TTS:
     def _init_bert(self) -> None:
         from hayakoe.nlp import bert_models
 
-        tok_dir = self._bert_source.fetch("bert/tokenizer")
+        tok_dir = self._bert_source.fetch(_TOKENIZER_PREFIX)
         if not bert_models.is_tokenizer_loaded():
             bert_models.load_tokenizer(
                 pretrained_model_name_or_path=str(tok_dir),
@@ -302,7 +305,7 @@ class TTS:
         if self._backend == "onnx":
             import onnxruntime as ort
 
-            onnx_dir = self._bert_source.fetch("onnx/bert/q8")
+            onnx_dir = self._bert_source.fetch(_BERT_PREFIX["onnx"])
             onnx_path = onnx_dir / "bert_q8.onnx"
             if not onnx_path.exists():
                 raise FileNotFoundError(
@@ -317,7 +320,7 @@ class TTS:
                 str(onnx_path), sess_opts, providers=["CPUExecutionProvider"],
             )
         else:
-            model_dir = self._bert_source.fetch("pytorch/bert/fp32")
+            model_dir = self._bert_source.fetch(_BERT_PREFIX["pytorch"])
             if bert_models.is_model_loaded():
                 bert_models.transfer_model(self._device)
             else:
@@ -326,11 +329,10 @@ class TTS:
                     device=self._device,
                 )
 
-    def _materialize_speaker(self, name: str, spec: _SpeakerSpec) -> None:
+    def _materialize_speaker(self, name: str, source: Source) -> None:
         from hayakoe.api.speaker import Speaker
 
-        backend_prefix = "pytorch" if "cuda" in self._device else "onnx"
-        model_dir = spec.source.fetch(f"{backend_prefix}/speakers/{name}")
+        model_dir = source.fetch(_speaker_prefix(self._backend, name))
 
         speaker = Speaker(
             name=name,
