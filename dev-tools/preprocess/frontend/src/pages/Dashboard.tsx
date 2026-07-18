@@ -7,33 +7,9 @@ import * as datasetApi from "../api/dataset";
 import type { DatasetResult } from "../api/dataset";
 import type { SpeakerSummary } from "../api/speakers";
 import type { VideoInfo } from "../api/videos";
+import { formatDuration } from "../utils/format";
+import { dashboardStageLabel } from "../utils/stages";
 import { t } from "../i18n";
-
-const STAGE_KEYS: Record<string, string> = {
-  extract: "dashboard.stages.extract",
-  separate: "dashboard.stages.separate",
-  vad: "dashboard.stages.vad",
-  classify: "dashboard.stages.classify",
-  classifying: "dashboard.stages.classifying",
-  transcribe: "dashboard.stages.transcribe",
-  review: "dashboard.stages.review",
-  done: "dashboard.stages.done",
-  empty: "dashboard.stages.empty",
-};
-
-function stageLabel(stage: string) {
-  if (stage.startsWith("processing:")) {
-    const s = stage.split(":")[1];
-    return t("dashboard.stages.processing", { stage: s });
-  }
-  return STAGE_KEYS[stage] ? t(STAGE_KEYS[stage]) : stage;
-}
-
-function formatDuration(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
-  return m > 0 ? t("dashboard.format_duration.min_sec", { m, s }) : t("dashboard.format_duration.sec", { s });
-}
 
 const WORKFLOW_STEPS = [
   { n: "1", labelKey: "dashboard.workflow.step1.label", descKey: "dashboard.workflow.step1.desc" },
@@ -283,7 +259,7 @@ export default function Dashboard() {
                               : "bg-surface-2 border-line text-fg-muted"
                         }`}
                       >
-                        {stageLabel(v.stage)}
+                        {dashboardStageLabel(v.stage)}
                       </span>
                       <button
                         className="text-fg-dim hover:text-error text-xs shrink-0 transition-colors"

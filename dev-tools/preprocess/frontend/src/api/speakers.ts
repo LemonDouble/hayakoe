@@ -10,17 +10,6 @@ export async function addSpeaker(name: string): Promise<string[]> {
   return data.speakers;
 }
 
-export async function renameSpeaker(
-  oldName: string,
-  newName: string
-): Promise<string[]> {
-  const { data } = await api.put("/speakers", {
-    old_name: oldName,
-    new_name: newName,
-  });
-  return data.speakers;
-}
-
 export async function deleteSpeaker(name: string): Promise<string[]> {
   const { data } = await api.delete(`/speakers/${encodeURIComponent(name)}`);
   return data.speakers;

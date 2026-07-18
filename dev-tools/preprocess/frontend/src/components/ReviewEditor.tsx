@@ -28,26 +28,22 @@ export default function ReviewEditor({ videoId, onDone }: Props) {
     load();
   }, [load]);
 
-  // 화자 목록
   const speakerList = [...new Set(entries.map((e) => e.speaker))];
 
-  // 첫 화자 자동 선택
+  const speakerCounts = new Map<string, number>();
+  for (const e of entries) {
+    speakerCounts.set(e.speaker, (speakerCounts.get(e.speaker) || 0) + 1);
+  }
+
   useEffect(() => {
     if (activeSpeaker === null && speakerList.length > 0) {
       setActiveSpeaker(speakerList[0]);
     }
   }, [speakerList, activeSpeaker]);
 
-  // 현재 화자의 엔트리
-  const filtered = activeSpeaker
+  const visibleEntries = activeSpeaker
     ? entries.filter((e) => e.speaker === activeSpeaker)
     : entries;
-
-  // 화자별 통계
-  const speakerCounts = new Map<string, number>();
-  for (const e of entries) {
-    speakerCounts.set(e.speaker, (speakerCounts.get(e.speaker) || 0) + 1);
-  }
 
   const play = (entry: TranscriptionEntry) => {
     if (!audioRef.current) return;
@@ -148,12 +144,12 @@ export default function ReviewEditor({ videoId, onDone }: Props) {
 
       {/* 세그먼트 리스트 */}
       <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
-        {filtered.length === 0 ? (
+        {visibleEntries.length === 0 ? (
           <div className="text-fg-dim text-sm text-center py-8">
             {t("review.empty_speaker")}
           </div>
         ) : (
-          filtered.map((entry) => (
+          visibleEntries.map((entry) => (
             <div
               key={entry.file}
               className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${

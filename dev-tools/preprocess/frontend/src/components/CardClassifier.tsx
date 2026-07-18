@@ -25,30 +25,11 @@ export default function CardClassifier({ videoId, sourceFile, onDone }: Props) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // 버킷 카운트 새로고침
   const refreshBuckets = useCallback(async () => {
     const state = await clsApi.getClassification(videoId);
     setBucketCounts(state.speakers);
   }, [videoId]);
 
-  // 초기 로드
-  useEffect(() => {
-    (async () => {
-      const [spk, data] = await Promise.all([
-        speakersApi.listSpeakers(),
-        clsApi.getUnclassified(videoId, 0, BUFFER_SIZE),
-      ]);
-      setSpeakers(spk);
-      setSegments(data.segments);
-      setTotalUnclassified(data.total);
-      setClassified(data.classified);
-      setTotalAll(data.total_all);
-      setLoading(false);
-      await refreshBuckets();
-    })();
-  }, [videoId, refreshBuckets]);
-
-  // 버퍼 보충
   const refillBuffer = useCallback(async () => {
     const data = await clsApi.getUnclassified(videoId, 0, BUFFER_SIZE);
     setSegments(data.segments);
@@ -59,14 +40,20 @@ export default function CardClassifier({ videoId, sourceFile, onDone }: Props) {
     await refreshBuckets();
   }, [videoId, refreshBuckets]);
 
+  useEffect(() => {
+    (async () => {
+      const [spk] = await Promise.all([speakersApi.listSpeakers(), refillBuffer()]);
+      setSpeakers(spk);
+      setLoading(false);
+    })();
+  }, [videoId, refillBuffer]);
+
   const current = segments[currentIdx] || null;
 
-  // 오디오 URL
   const audioUrl = current
     ? `/api/media/videos/${videoId}/segments/unclassified/${current.file}`
     : "";
 
-  // 비디오 URL (실제 소스 파일명 사용)
   const videoUrl = sourceFile
     ? `/api/media/videos/${videoId}/${sourceFile}`
     : "";
@@ -93,13 +80,11 @@ export default function CardClassifier({ videoId, sourceFile, onDone }: Props) {
     return () => audio.removeEventListener("ended", handleEnded);
   }, [audioUrl]);
 
-  // 분류 처리
   const handleClassify = useCallback(
     async (speaker: string) => {
       if (!current) return;
       await clsApi.classifySegment(videoId, current.file, speaker);
 
-      // 다음 세그먼트로
       const nextIdx = currentIdx + 1;
       if (nextIdx >= segments.length) {
         await refillBuffer();
@@ -114,25 +99,21 @@ export default function CardClassifier({ videoId, sourceFile, onDone }: Props) {
     [current, currentIdx, segments.length, videoId, refillBuffer, refreshBuckets]
   );
 
-  // Undo
   const handleUndo = useCallback(async () => {
     await clsApi.undoClassification(videoId);
     await refillBuffer();
   }, [videoId, refillBuffer]);
 
-  // 분류 완료
   const handleDone = async () => {
     if (!confirm(t("classifier.confirm_done"))) return;
     await clsApi.markDone(videoId);
     onDone();
   };
 
-  // 키보드 단축키
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
 
-      // 1~9: 화자 배정
       if (e.key >= "1" && e.key <= "9") {
         const idx = parseInt(e.key) - 1;
         if (idx < speakers.length) handleClassify(speakers[idx]);
@@ -155,7 +136,6 @@ export default function CardClassifier({ videoId, sourceFile, onDone }: Props) {
     return () => window.removeEventListener("keydown", handler);
   }, [speakers, handleClassify, handleUndo, playSegment]);
 
-  // 새 세그먼트 로드 시 자동 재생
   useEffect(() => {
     if (audioUrl && current) {
       // 약간의 딜레이로 오디오/비디오 로드 대기
@@ -184,7 +164,6 @@ export default function CardClassifier({ videoId, sourceFile, onDone }: Props) {
     );
   }
 
-  // 버킷별 카운트 맵
   const countMap = new Map(bucketCounts.map((b) => [b.name, b.count]));
   const progressPct = totalAll > 0 ? Math.round((classified / totalAll) * 100) : 0;
 
