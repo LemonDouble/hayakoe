@@ -150,9 +150,6 @@ def infer(
             ja_bert,
             style_vec,
         )
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-
         return audio
 
 
