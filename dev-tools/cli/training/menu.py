@@ -201,11 +201,6 @@ def _training_briefing(ds: DatasetInfo) -> bool:
 
 def _refresh_dataset(ds: DatasetInfo) -> DatasetInfo:
     """데이터셋 상태를 다시 로드."""
-    datasets = discover_datasets()
-    for d in datasets:
-        if d.path == ds.path:
-            return d
-    # 자동 탐색 목록에 없으면 직접 스캔
     return scan_dataset(ds.path) or ds
 
 
