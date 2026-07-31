@@ -14,12 +14,14 @@ from numpy.typing import NDArray
 
 from hayakoe.api.audio_result import (
     AudioResult,
+    PhonemeTiming,
     StyleAccessor,
     streaming_wav_header,
 )
 from hayakoe.constants import Languages
 from hayakoe.logging import logger
 from hayakoe.models.hyper_parameters import HyperParameters
+from hayakoe.nlp.symbols import SYMBOLS
 from hayakoe.voice import adjust_voice
 
 
@@ -227,6 +229,7 @@ class Speaker:
         intonation_scale: float = 1.0,
         style_weight: float = 1.0,
         batch_bert: bool = True,
+        with_timing: bool = False,
     ) -> AudioResult:
         """텍스트에서 음성을 생성한다 (thread-safe).
 
@@ -253,6 +256,12 @@ class Speaker:
                 배치로 처리한다 (기본 ``True``). ``False`` 면 문장마다
                 개별 추론한다 (배치 padding 과 수치가 미세하게 다를 수
                 있어 검증/비교용).
+            with_timing: phoneme 별 발음 구간을 함께 반환한다 (기본 ``False``).
+                립싱크처럼 음소 타이밍이 필요할 때만 켠다. 합성에 실제로
+                쓰인 duration 을 그대로 쓰므로 오디오와 정확히 일치한다.
+                onnx 백엔드 + ``durations`` 출력을 포함해 내보낸
+                ``synthesizer.onnx`` 가 필요하며, 조건을 만족하지 않으면
+                ``RuntimeError`` 를 던진다.
 
         Returns:
             ``.save(path)`` 와 ``.to_bytes()`` 메서드를 가진
@@ -268,6 +277,8 @@ class Speaker:
             audio.save("output.wav")
         """
         _validate_lang(lang)
+        if with_timing:
+            self._ensure_timing_supported()
         params = _SynthesisParams(
             lang=lang, style=style, speaker_id=speaker_id,
             speed=speed, sdp_ratio=sdp_ratio, noise=noise, noise_w=noise_w,
@@ -275,7 +286,21 @@ class Speaker:
             style_weight=style_weight,
         )
         with self._gen_lock:
-            return self._generate_locked(text, params, batch_bert=batch_bert)
+            return self._generate_locked(
+                text, params, batch_bert=batch_bert, with_timing=with_timing,
+            )
+
+    def _ensure_timing_supported(self) -> None:
+        """``with_timing`` 요청을 처리할 수 있는지 확인하고, 아니면 이유를 알린다."""
+        if self._backend != "onnx":
+            raise RuntimeError(
+                f"with_timing 은 onnx 백엔드에서만 지원합니다 (현재: {self._backend})."
+            )
+        if len(self._synth_session.get_outputs()) < 2:
+            raise RuntimeError(
+                "이 synthesizer.onnx 에는 durations 출력이 없습니다. "
+                "with_timing 을 쓰려면 최신 exporter 로 다시 내보내 주세요."
+            )
 
     async def agenerate(
         self,
@@ -294,10 +319,12 @@ class Speaker:
         params: _SynthesisParams,
         *,
         batch_bert: bool = True,
+        with_timing: bool = False,
     ) -> AudioResult:
         sentences = _split_sentences(text)
         if len(sentences) <= 1:
-            return self._to_audio_result(self._synthesize_one(text, params))
+            audio, timings = self._synthesize_one(text, params)
+            return self._to_audio_result(audio, timings if with_timing else None)
 
         sr = self._hps.data.sampling_rate
         bp = self._predict_pauses(
@@ -316,21 +343,34 @@ class Speaker:
                 bert_features = self._batch_bert_pytorch(nlp_results)
 
         parts: list[NDArray] = []
+        timings: list[PhonemeTiming] = []
+        elapsed_samples = 0
         for i, sentence in enumerate(sentences):
             if i > 0:
                 trailing = _measure_trailing_silence(parts[-1], sr)
                 gap = _boundary_gap(trailing, sr, np.float32, bp, i - 1)
                 if len(gap) > 0:
                     parts.append(gap)
+                    elapsed_samples += len(gap)
             if batch_bert:
-                audio = self._synthesize_one_with_features(
+                audio, part_timings = self._synthesize_one_with_features(
                     nlp_results[i], bert_features[i], style_vec, params,
                 )
             else:
-                audio = self._synthesize_one(sentence, params)
+                audio, part_timings = self._synthesize_one(sentence, params)
+            if with_timing:
+                # 문장 경계 무음까지 포함한 실제 오디오 위치로 밀어준다.
+                offset = elapsed_samples / sr
+                timings.extend(
+                    PhonemeTiming(t.phoneme, t.start + offset, t.duration)
+                    for t in part_timings
+                )
             parts.append(audio)
+            elapsed_samples += len(audio)
 
-        return self._to_audio_result(np.concatenate(parts))
+        return self._to_audio_result(
+            np.concatenate(parts), timings if with_timing else None,
+        )
 
     def stream(
         self,
@@ -486,7 +526,7 @@ class Speaker:
         )
 
         for i, sentence in enumerate(sentences):
-            audio = self._synthesize_one(sentence, params)
+            audio, _ = self._synthesize_one(sentence, params)
             trailing = _measure_trailing_silence(audio, sr)
             max_peak = max(max_peak, float(np.abs(audio).max()))
             pcm = self._to_pcm(audio, peak=max_peak)
@@ -499,12 +539,16 @@ class Speaker:
             prev_trailing = trailing
             yield AudioResult(sr=sr, data=pcm)
 
-    def _synthesize_one(self, text: str, params: _SynthesisParams) -> NDArray:
-        """단일 텍스트 → float32 오디오 배열."""
+    def _synthesize_one(
+        self, text: str, params: _SynthesisParams,
+    ) -> tuple[NDArray, list[PhonemeTiming]]:
+        """단일 텍스트 → ``(float32 오디오 배열, phoneme 타이밍)``."""
         style_vec = self._get_style_vector(params.style, params.style_weight)
 
+        phone_ids: NDArray | list[int] = []
+        durations = None
         if self._backend == "onnx":
-            audio = self._generate_onnx(
+            audio, phone_ids, durations = self._generate_onnx(
                 text, style_vec, params.speaker_id,
                 params.speed, params.sdp_ratio, params.noise, params.noise_w,
             )
@@ -522,7 +566,7 @@ class Speaker:
                 intonation_scale=params.intonation_scale,
             )
 
-        return audio
+        return audio, self._build_timings(phone_ids, durations)
 
     @staticmethod
     def _to_pcm(audio: NDArray, peak: Optional[float] = None) -> NDArray[np.int16]:
@@ -537,9 +581,15 @@ class Speaker:
             audio = audio / peak
         return (audio * 32767).astype(np.int16)
 
-    def _to_audio_result(self, audio: NDArray) -> AudioResult:
+    def _to_audio_result(
+        self, audio: NDArray, timings: Optional[list[PhonemeTiming]] = None,
+    ) -> AudioResult:
         """float32 오디오를 AudioResult로 변환한다."""
-        return AudioResult(sr=self._hps.data.sampling_rate, data=self._to_pcm(audio))
+        return AudioResult(
+            sr=self._hps.data.sampling_rate,
+            data=self._to_pcm(audio),
+            timings=timings,
+        )
 
     # ── BERT 배치 추론 ──
 
@@ -644,8 +694,8 @@ class Speaker:
     def _synth_with_features_onnx(
         self, phone_seq, tone_seq, lang_seq, ja_bert, style_vec,
         sid, speed, sdp_ratio, noise, noise_w,
-    ) -> NDArray:
-        """pre-computed BERT 특징으로 ONNX 합성."""
+    ) -> tuple[NDArray, Optional[NDArray]]:
+        """pre-computed BERT 특징으로 ONNX 합성. ``(audio, durations)`` 를 반환한다."""
         x = np.array(phone_seq, dtype=np.int64)[np.newaxis, :]
         x_len = np.array([len(phone_seq)], dtype=np.int64)
         t = np.array(tone_seq, dtype=np.int64)[np.newaxis, :]
@@ -662,16 +712,18 @@ class Speaker:
             "noise_scale_w": np.array([noise_w], dtype=np.float32),
             "sdp_ratio": np.array([sdp_ratio], dtype=np.float32),
         })
-        return output[0][0, 0]
+        durations = output[1][0] if len(output) > 1 else None
+        return output[0][0, 0], durations
 
     def _synthesize_one_with_features(
         self, nlp: tuple, ja_bert, style_vec: NDArray, params: _SynthesisParams,
-    ) -> NDArray:
-        """pre-computed BERT 특징으로 단일 문장 → float32 오디오 배열."""
+    ) -> tuple[NDArray, list[PhonemeTiming]]:
+        """pre-computed BERT 특징으로 단일 문장 → ``(오디오, phoneme 타이밍)``."""
         _, phone_seq, tone_seq, lang_seq, _ = nlp
 
+        durations = None
         if self._backend == "onnx":
-            audio = self._synth_with_features_onnx(
+            audio, durations = self._synth_with_features_onnx(
                 phone_seq, tone_seq, lang_seq, ja_bert, style_vec,
                 params.speaker_id, params.speed, params.sdp_ratio,
                 params.noise, params.noise_w,
@@ -690,7 +742,32 @@ class Speaker:
                 pitch_scale=params.pitch_scale,
                 intonation_scale=params.intonation_scale,
             )
-        return audio
+        return audio, self._build_timings(phone_seq, durations)
+
+    def _build_timings(
+        self, phone_ids, durations: Optional[NDArray],
+    ) -> list[PhonemeTiming]:
+        """phoneme 별 frame 수를 누적해 타이밍 목록으로 변환한다.
+
+        ``durations`` 가 ``None`` (구버전 synthesizer.onnx) 이면 빈 목록을 반환한다.
+        """
+        if durations is None:
+            return []
+
+        hop_length = self._hps.data.hop_length
+        sr = self._hps.data.sampling_rate
+
+        timings: list[PhonemeTiming] = []
+        elapsed_frames = 0.0
+        for phone_id, frames in zip(phone_ids, durations):
+            frames = float(frames)
+            timings.append(PhonemeTiming(
+                phoneme=SYMBOLS[int(phone_id)],
+                start=elapsed_frames * hop_length / sr,
+                duration=frames * hop_length / sr,
+            ))
+            elapsed_frames += frames
+        return timings
 
     # ── 단일 문장 추론 ──
 

@@ -52,7 +52,10 @@ class _SynthesizerWrapper(nn.Module):
         z_p = m_p + torch.randn_like(m_p) * torch.exp(logs_p) * noise_scale
         z = self.net_g.flow(z_p, y_mask, g=g, reverse=True)
         o = self.net_g.dec((z * y_mask), g=g)
-        return o
+        # w_ceil 을 함께 내보내 phoneme 타이밍(립싱크용)을 얻을 수 있게 한다.
+        # SDP 는 stochastic 하므로 duration_predictor.onnx 를 따로 돌리면 이 값과
+        # 어긋난다. 실제 합성에 쓰인 값을 그대로 반환해야 정확히 맞는다.
+        return o, w_ceil.squeeze(1)
 
     @staticmethod
     def _sequence_mask(length, max_length=None):
@@ -258,13 +261,14 @@ def export_synthesizer(
             "x", "x_lengths", "sid", "tone", "language", "bert", "style_vec",
             "noise_scale", "length_scale", "noise_scale_w", "sdp_ratio",
         ],
-        output_names=["audio"],
+        output_names=["audio", "durations"],
         dynamic_axes={
             "x": {1: "phone_len"},
             "tone": {1: "phone_len"},
             "language": {1: "phone_len"},
             "bert": {2: "phone_len"},
             "audio": {2: "audio_len"},
+            "durations": {1: "phone_len"},
         },
         opset=opset,
         remove_weight_norm=True,

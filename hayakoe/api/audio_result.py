@@ -5,7 +5,7 @@ import struct
 import wave
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -45,12 +45,32 @@ def streaming_wav_header(
     )
 
 
+@dataclass(frozen=True)
+class PhonemeTiming:
+    """합성된 오디오에서 phoneme 하나가 발음되는 구간.
+
+    ``start`` 는 오디오 시작 기준 초, ``duration`` 은 지속 시간(초) 이다.
+    ``phoneme`` 은 OpenJTalk 음소 심볼 (``"a"``, ``"k"``, ``"N"``, ``"pau"`` 등).
+    립싱크에서는 모음(``a i u e o``) 만 골라 쓰면 된다.
+    """
+
+    phoneme: str
+    start: float
+    duration: float
+
+    @property
+    def end(self) -> float:
+        return self.start + self.duration
+
+
 @dataclass
 class AudioResult:
     """생성된 오디오 데이터."""
 
     sr: int
     data: NDArray[np.int16]
+    timings: Optional[list[PhonemeTiming]] = None
+    """``generate(with_timing=True)`` 로 요청했을 때만 채워지는 phoneme 타이밍."""
 
     def save(self, path: Union[str, Path]) -> None:
         """WAV 파일로 저장한다."""

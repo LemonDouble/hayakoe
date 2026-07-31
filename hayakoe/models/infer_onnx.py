@@ -86,8 +86,14 @@ def infer_onnx(
     synth_session,
     given_phone: Optional[list[str]] = None,
     given_tone: Optional[list[int]] = None,
-) -> NDArray[Any]:
-    """전체 ONNX 추론 파이프라인: 텍스트 → BERT → Synthesizer → 오디오."""
+) -> tuple[NDArray[Any], NDArray[Any], Optional[NDArray[Any]]]:
+    """전체 ONNX 추론 파이프라인: 텍스트 → BERT → Synthesizer → 오디오.
+
+    Returns:
+        ``(audio, phone_ids, durations)``. ``durations`` 는 phoneme 별 frame 수로,
+        ``durations`` 출력을 포함해 내보낸 synthesizer 에서만 얻어지며 그렇지
+        않으면 ``None`` 이다.
+    """
     ja_bert, phones, tones, lang_ids = get_text_onnx(
         text,
         hps,
@@ -120,4 +126,5 @@ def infer_onnx(
     })
 
     audio = output[0][0, 0]  # [audio_len]
-    return audio
+    durations = output[1][0] if len(output) > 1 else None  # [phone_len]
+    return audio, phones, durations
