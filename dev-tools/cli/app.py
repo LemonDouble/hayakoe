@@ -1,5 +1,8 @@
 """Typer 앱 정의 및 서브커맨드 등록."""
 
+from pathlib import Path
+from typing import Optional
+
 import typer
 
 from cli.i18n import t, _SUPPORTED
@@ -53,6 +56,39 @@ def publish():
     from cli.publish.menu import publish_menu
 
     publish_menu()
+
+
+@app.command()
+def export(
+    checkpoint: Path = typer.Argument(..., help=".safetensors 체크포인트 경로"),
+    output: Path = typer.Argument(..., help="ONNX 를 내보낼 디렉토리"),
+    config: Optional[Path] = typer.Option(
+        None, "--config", "-c", help="config.json 경로 (기본: 체크포인트와 같은 폴더)"
+    ),
+    duration_predictor: bool = typer.Option(
+        True, help="duration_predictor.onnx 도 함께 내보낼지"
+    ),
+):
+    """체크포인트를 ONNX 로 내보낸다 (업로드 없이 로컬에만).
+
+    publish 메뉴와 달리 기존 synthesizer.onnx 를 재사용하지 않고 항상 새로 만든다.
+    """
+    from cli.export.exporter import export_duration_predictor, export_synthesizer
+
+    config_path = config or checkpoint.parent / "config.json"
+    if not checkpoint.exists():
+        console.print(f"[red]체크포인트를 찾을 수 없습니다: {checkpoint}[/red]")
+        raise typer.Exit(1)
+    if not config_path.exists():
+        console.print(f"[red]config.json 을 찾을 수 없습니다: {config_path}[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"synthesizer 내보내는 중 → {output}")
+    export_synthesizer(config_path, checkpoint, output)
+    if duration_predictor:
+        console.print(f"duration_predictor 내보내는 중 → {output}")
+        export_duration_predictor(config_path, checkpoint, output)
+    console.print("[green]완료[/green]")
 
 
 def _intro():
