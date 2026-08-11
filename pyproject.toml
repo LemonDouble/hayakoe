@@ -1,6 +1,6 @@
 [project]
 name = "hayakoe"
-version = "1.1.0"
+version = "1.2.0"
 description = "HayaKoe — Fast ONNX-optimized Japanese TTS based on Style-Bert-VITS2"
 readme = "README.md"
 requires-python = ">=3.10"
