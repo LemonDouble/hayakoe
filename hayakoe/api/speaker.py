@@ -259,9 +259,9 @@ class Speaker:
             with_timing: phoneme 별 발음 구간을 함께 반환한다 (기본 ``False``).
                 립싱크처럼 음소 타이밍이 필요할 때만 켠다. 합성에 실제로
                 쓰인 duration 을 그대로 쓰므로 오디오와 정확히 일치한다.
-                onnx 백엔드 + ``durations`` 출력을 포함해 내보낸
-                ``synthesizer.onnx`` 가 필요하며, 조건을 만족하지 않으면
-                ``RuntimeError`` 를 던진다.
+                onnx 백엔드는 ``durations`` 출력을 포함해 내보낸
+                ``synthesizer.onnx`` 가 필요하며, 없으면 ``RuntimeError`` 를
+                던진다. pytorch 백엔드는 항상 지원한다.
 
         Returns:
             ``.save(path)`` 와 ``.to_bytes()`` 메서드를 가진
@@ -293,9 +293,7 @@ class Speaker:
     def _ensure_timing_supported(self) -> None:
         """``with_timing`` 요청을 처리할 수 있는지 확인하고, 아니면 이유를 알린다."""
         if self._backend != "onnx":
-            raise RuntimeError(
-                f"with_timing 은 onnx 백엔드에서만 지원합니다 (현재: {self._backend})."
-            )
+            return  # pytorch 는 attention path 에서 항상 복원할 수 있다.
         if len(self._synth_session.get_outputs()) < 2:
             raise RuntimeError(
                 "이 synthesizer.onnx 에는 durations 출력이 없습니다. "
@@ -553,7 +551,7 @@ class Speaker:
                 params.speed, params.sdp_ratio, params.noise, params.noise_w,
             )
         else:
-            audio = self._generate_pytorch(
+            audio, phone_ids, durations = self._generate_pytorch(
                 text, style_vec, params.speaker_id,
                 params.speed, params.sdp_ratio, params.noise, params.noise_w,
             )
@@ -667,8 +665,8 @@ class Speaker:
     def _synth_with_features_pytorch(
         self, phone_seq, tone_seq, lang_seq, ja_bert, style_vec,
         sid, speed, sdp_ratio, noise, noise_w,
-    ) -> NDArray:
-        """pre-computed BERT 특징으로 PyTorch 합성."""
+    ) -> tuple[NDArray, NDArray]:
+        """pre-computed BERT 특징으로 PyTorch 합성. ``(audio, durations)`` 를 반환한다."""
         import torch
 
         net_g = self._ensure_pytorch_model()
@@ -689,7 +687,10 @@ class Speaker:
                 style_vec=sv, length_scale=speed,
                 sdp_ratio=sdp_ratio, noise_scale=noise, noise_scale_w=noise_w,
             )
-            return output[0][0, 0].data.cpu().float().numpy()
+            return (
+                output[0][0, 0].data.cpu().float().numpy(),
+                output[1].sum(2)[0, 0].data.cpu().float().numpy(),
+            )
 
     def _synth_with_features_onnx(
         self, phone_seq, tone_seq, lang_seq, ja_bert, style_vec,
@@ -729,7 +730,7 @@ class Speaker:
                 params.noise, params.noise_w,
             )
         else:
-            audio = self._synth_with_features_pytorch(
+            audio, durations = self._synth_with_features_pytorch(
                 phone_seq, tone_seq, lang_seq, ja_bert, style_vec,
                 params.speaker_id, params.speed, params.sdp_ratio,
                 params.noise, params.noise_w,

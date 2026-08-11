@@ -107,7 +107,13 @@ def infer(
     device: str,
     given_phone: Optional[list[str]] = None,
     given_tone: Optional[list[int]] = None,
-) -> NDArray[Any]:
+) -> tuple[NDArray[Any], NDArray[Any], NDArray[Any]]:
+    """PyTorch 추론: 텍스트 → 오디오.
+
+    Returns:
+        ``(audio, phone_ids, durations)``. ``durations`` 는 phoneme 별 frame 수로,
+        합성에 실제로 쓰인 attention path 에서 복원하므로 오디오와 정확히 맞는다.
+    """
     ja_bert, phones, tones, lang_ids = get_text(
         text,
         hps,
@@ -140,6 +146,10 @@ def infer(
         )
 
         audio = output[0][0, 0].data.cpu().float().numpy()
+        # attn 은 [b, 1, frame, phoneme] path — frame 축으로 더하면 합성에 쓰인
+        # w_ceil (phoneme 별 frame 수) 이 그대로 복원된다.
+        durations = output[1].sum(2)[0, 0].data.cpu().float().numpy()
+        phone_ids = phones.data.cpu().numpy()
 
         del (
             x_tst,
@@ -150,7 +160,7 @@ def infer(
             ja_bert,
             style_vec,
         )
-        return audio
+        return audio, phone_ids, durations
 
 
 def predict_boundary_pauses(

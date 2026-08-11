@@ -77,7 +77,7 @@ def _synthesize(net_g, hps, style_vec, text, device) -> tuple[int, np.ndarray]:
     with torch.no_grad():
         for i, part in enumerate(parts):
             audios.append(
-                infer(
+                infer(  # (audio, phone_ids, durations) 중 오디오만 쓴다
                     text=part,
                     style_vec=style_vec,
                     sdp_ratio=0.2,
@@ -88,7 +88,7 @@ def _synthesize(net_g, hps, style_vec, text, device) -> tuple[int, np.ndarray]:
                     hps=hps,
                     net_g=net_g,
                     device=device,
-                )
+                )[0]
             )
             if i != len(parts) - 1:
                 audios.append(np.zeros(int(44100 * 0.5)))
