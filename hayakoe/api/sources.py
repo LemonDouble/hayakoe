@@ -32,6 +32,11 @@ class Source(Protocol):
         ...
 
 
+def _has_files(directory: Path) -> bool:
+    """디렉터리가 존재하고 파일을 하나라도 담고 있는지."""
+    return directory.is_dir() and any(p.is_file() for p in directory.rglob("*"))
+
+
 # ─────────────────────────── HuggingFace ───────────────────────────
 
 
@@ -57,10 +62,14 @@ class HFSource:
             # (pre_download 후 런타임은 오프라인이어도 동작해야 한다는 계약.
             #  네트워크가 drop 되는 환경에서 revision 재해석 시도가 타임아웃
             #  재시도에 걸리면 prepare 가 분 단위로 블록되는 문제도 함께 방지)
-            local = snapshot_download(self.repo, local_files_only=True, **kwargs)
+            local = Path(snapshot_download(self.repo, local_files_only=True, **kwargs))
+            # 같은 repo 를 여러 prefix 로 쓰면 스냅샷은 이미 있어도 이 prefix 만
+            # 비어 있을 수 있다. 그때는 캐시를 믿지 않고 받아야 한다.
+            if _has_files(local / prefix):
+                return local / prefix
         except LocalEntryNotFoundError:
-            local = snapshot_download(self.repo, **kwargs)
-        return Path(local) / prefix
+            pass
+        return Path(snapshot_download(self.repo, **kwargs)) / prefix
 
     def upload(self, prefix: str, local_dir: Path) -> None:
         from huggingface_hub import HfApi
